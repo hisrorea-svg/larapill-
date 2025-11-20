@@ -1,0 +1,83 @@
+name: larapill
+description: نظام إدارة الصيدلية
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.1.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # State Management
+  flutter_riverpod: ^2.4.9
+  
+  sqflite_common_ffi: ^2.3.6
+  sqlite3: 2.9.2
+  sqflite: ^2.3.0
+  path: ^1.8.3
+  
+  # UI Components
+  google_fonts: ^6.1.0
+  data_table_2: ^2.5.12
+  fl_chart: ^0.66.0
+  month_picker_dialog: ^6.6.0
+  date_picker_plus: ^4.2.0
+  
+  # Printing
+  printing: ^5.11.0
+  pdf: ^3.9.0
+  path_provider: ^2.1.2
+  barcode: ^2.2.9
+  barcode_widget: ^2.0.4
+  
+  # Export
+  excel: ^4.0.6
+  csv: ^6.0.0
+  open_file: ^3.5.7
+  
+  # Formatting
+  intl: ^0.20.2
+  pelaicons: ^1.0.0
+  flutter_svg: ^2.0.9
+  dropdown_button2: ^2.3.9
+
+  # Utils
+  uuid: ^4.2.1
+  equatable: ^2.0.5
+  shared_preferences: ^2.5.3
+  crypto: ^3.0.6
+  pointycastle: ^3.9.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.14.1
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/fonts/
+    - assets/images/
+    - assets/data/meds.json
+    - assets/Icons/pharmacy-logo.svg
+
+  fonts:
+    - family: Tajawal
+      fonts:
+        - asset: assets/fonts/Tajawal-Regular.ttf
+        - asset: assets/fonts/Tajawal-Bold.ttf
+          weight: 700
+    - family: Roboto
+      fonts:
+        - asset: assets/fonts/Roboto-Regular.ttf
+
+# تكوين أيقونة التطبيق
+flutter_launcher_icons:
+  windows:
+    generate: true
+    image_path: "assets/images/app_icon.png"
+    icon_size: 256  # يمكن تغييره (48, 64, 128, 256)

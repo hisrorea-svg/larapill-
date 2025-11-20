@@ -1,0 +1,23 @@
+{
+    "cmake.sourceDirectory": "C:/Users/tt/AndroidStudioProjects/fk/larapill/linux",
+    "github.copilot.advanced": {
+  "github.copilot.enable": {
+    "*": true,
+    "yaml": true,
+    "markdown": true,
+    "dart": true
+  },
+  "github.copilot.chat.codeGeneration.instructions": [
+    {
+      "text": "Always use null-safe Dart code"
+    },
+    {
+      "text": "Follow Flutter best practices and widget composition patterns"
+    }
+  ],
+  "editor.inlineSuggest.enabled": true,
+  "github.copilot.editor.enableAutoCompletions": true
+}
+
+}
+    
