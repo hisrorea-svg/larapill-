@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:developer' as developer;
-import '../../services/session_timeout_service.dart';
+import '../services/session_timeout_service.dart';
 import '../../services/user_service.dart';
 import '../navigation/app_navigator.dart';
 

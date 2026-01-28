@@ -10,7 +10,7 @@ import '../../../features/notifications/domain/entities/notification_type.dart';
 import '../../../features/notifications/domain/entities/notification_priority.dart';
 import '../../../features/notifications/presentation/providers/notification_providers.dart';
 import '../../../services/user_service.dart';
-import '../../../services/session_timeout_service.dart';
+import '../../../core/services/session_timeout_service.dart';
 import '../../../core/navigation/app_navigator.dart';
 import '../../../core/navigation/notification_router.dart';
 import '../../notifications/screens/notifications_screen.dart';

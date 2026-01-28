@@ -2,8 +2,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:intl/intl.dart';
-import '../../models/sale.dart';
-import '../pharmacy_settings_service.dart';
+import '../../../features/pos/domain/entities/sale.dart';
+import '../../../services/pharmacy_settings_service.dart';
 
 class ReceiptPrinter {
   // طباعة فاتورة البيع

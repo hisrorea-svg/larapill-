@@ -1,9 +1,9 @@
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import '../../core/models/barcode_type.dart';
-import '../../core/models/barcode_label_size.dart';
-import '../pharmacy_settings_service.dart';
+import '../../models/barcode_type.dart';
+import '../../models/barcode_label_size.dart';
+import '../../../services/pharmacy_settings_service.dart';
 
 class BarcodePrinter {
   /// طباعة باركود منتج - نسخة محسّنة
