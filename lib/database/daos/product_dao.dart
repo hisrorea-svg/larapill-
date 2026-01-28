@@ -92,7 +92,6 @@ class ProductDAO {
           'name': cleanName,
           'scientific_name': cleanScientificName,
           'company': cleanCompany,
-          'category': product.category.name,
           'barcode': cleanBarcode,
           'base_unit': product.baseUnit.name,
           'current_stock': product.currentStock,
@@ -137,7 +136,6 @@ class ProductDAO {
           cleanName,
           details: {
             'barcode': cleanBarcode,
-            'category': product.category.name,
             'company': cleanCompany,
           },
         );
@@ -204,7 +202,6 @@ class ProductDAO {
             'name': cleanName,
             'scientific_name': cleanScientificName,
             'company': cleanCompany,
-            'category': product.category.name,
             'barcode': cleanBarcode,
             'base_unit': product.baseUnit.name,
             'current_stock': product.currentStock,
@@ -496,32 +493,6 @@ class ProductDAO {
     }
   }
 
-  // ==================== جلب المنتجات حسب الفئة ====================
-  Future<List<Product>> findByCategory(ProductCategory category) async {
-    try {
-      final db = await _dbHelper.database;
-
-      final List<Map<String, dynamic>> results = await db.rawQuery('''
-        SELECT p.*, 
-               GROUP_CONCAT(
-                 pu.unit || ':' || pu.selling_price || ':' || pu.cost_price || ':' ||
-                 pu.conversion_to_base || ':' || pu.description || ':' || COALESCE(pu.quantity, 0),
-                 '|'
-               ) as unit_info_string
-        FROM products p
-        LEFT JOIN product_units pu ON p.id = pu.product_id
-        WHERE p.category = ? AND p.is_active = 1
-        GROUP BY p.id
-        ORDER BY p.name ASC
-      ''', [category.name]);
-
-      return results.map(_mapToProduct).toList();
-    } catch (e) {
-      developer.log('❌ خطأ في جلب المنتجات حسب الفئة: $e', name: 'ProductDAO');
-      rethrow;
-    }
-  }
-
   // ==================== جلب المنتجات القريبة من انتهاء الصلاحية ====================
   Future<List<Product>> findExpiringSoon({int daysThreshold = 30}) async {
     try {
@@ -631,11 +602,6 @@ class ProductDAO {
         name: map['name'] as String,
         scientificName: map['scientific_name'] as String?,
         company: map['company'] as String,
-        // ✅ استخدام values.firstWhere بدلاً من fromString
-        category: ProductCategory.values.firstWhere(
-          (e) => e.name == map['category'],
-          orElse: () => ProductCategory.tablets,
-        ),
         barcode: map['barcode'] as String,
         // ✅ استخدام values.firstWhere بدلاً من fromString
         baseUnit: MedicineUnit.values.firstWhere(
@@ -679,10 +645,6 @@ extension ProductEntityAdapters on ProductDAO {
         name: e.name,
         scientificName: null,
         company: e.company,
-        category: ProductCategory.values.firstWhere(
-          (c) => c.arabicName == e.category || c.englishName == e.category,
-          orElse: () => ProductCategory.tablets,
-        ),
         barcode: e.barcode.isNotEmpty
             ? e.barcode
             : 'BARCODE$newId', // ✅ استخدام باركود المستخدم أو توليد مؤقت
@@ -765,10 +727,6 @@ extension ProductEntityAdapters on ProductDAO {
         name: e.name,
         scientificName: existing.scientificName,
         company: e.company,
-        category: ProductCategory.values.firstWhere(
-          (c) => c.arabicName == e.category || c.englishName == e.category,
-          orElse: () => existing.category,
-        ),
         barcode: existing.barcode,
         baseUnit: existing.baseUnit,
         unitInfo: updatedUnitInfo, // ✅ استخدم المحدّث

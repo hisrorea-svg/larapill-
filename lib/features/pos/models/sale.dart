@@ -47,6 +47,7 @@ class Sale {
     return {
       'id': id,
       'date': date.toIso8601String(),
+      'items': items.map((item) => item.toMap()).toList(),
       'subtotal': subtotal,
       'discount': discount,
       'tax': tax,
@@ -63,6 +64,80 @@ class Sale {
       'createdAt': createdAt.toIso8601String(),
       'return_ids': returnIds?.join(','),
     };
+  }
+
+  /// إنشاء Sale من Map (للـ Sync والتخزين)
+  factory Sale.fromMap(Map<String, dynamic> map) {
+    // Parse items
+    List<SaleItem> parsedItems = [];
+    if (map['items'] != null) {
+      final itemsList = map['items'] as List;
+      parsedItems = itemsList
+          .map((item) => SaleItem.fromMap(item as Map<String, dynamic>))
+          .toList();
+    }
+
+    // Parse return_ids
+    List<String>? returnIds;
+    if (map['return_ids'] != null && map['return_ids'].toString().isNotEmpty) {
+      returnIds = map['return_ids'].toString().split(',');
+    }
+
+    return Sale(
+      id: map['id'] as String,
+      date: DateTime.parse(map['date'] as String),
+      items: parsedItems,
+      subtotal: (map['subtotal'] as num).toDouble(),
+      discount: (map['discount'] as num?)?.toDouble() ?? 0.0,
+      tax: (map['tax'] as num?)?.toDouble() ?? 0.0,
+      total: (map['total'] as num).toDouble(),
+      paidAmount: (map['paid_amount'] as num?)?.toDouble(),
+      remainingAmount: (map['remaining_amount'] as num?)?.toDouble(),
+      paymentStatus: _parsePaymentStatus(map['payment_status']),
+      paymentMethod:
+          _parsePaymentMethod(map['paymentMethod'] ?? map['payment_method']),
+      customerName: map['customerName'] ?? map['customer_name'],
+      customerPhone: map['customerPhone'] ?? map['customer_phone'],
+      cashierId: map['cashierId'] ?? map['cashier_id'] ?? '',
+      cashierName: map['cashierName'] ?? map['cashier_name'] ?? '',
+      status: _parseSaleStatus(map['status']),
+      createdAt: DateTime.parse(
+        map['createdAt'] ??
+            map['created_at'] ??
+            DateTime.now().toIso8601String(),
+      ),
+      returnIds: returnIds,
+    );
+  }
+
+  /// Parse PaymentStatus from string
+  static PaymentStatus _parsePaymentStatus(dynamic value) {
+    if (value == null) return PaymentStatus.paid;
+    final name = value.toString();
+    return PaymentStatus.values.firstWhere(
+      (e) => e.name == name,
+      orElse: () => PaymentStatus.paid,
+    );
+  }
+
+  /// Parse PaymentMethod from string
+  static PaymentMethod _parsePaymentMethod(dynamic value) {
+    if (value == null) return PaymentMethod.cash;
+    final name = value.toString();
+    return PaymentMethod.values.firstWhere(
+      (e) => e.name == name,
+      orElse: () => PaymentMethod.cash,
+    );
+  }
+
+  /// Parse SaleStatus from string
+  static SaleStatus _parseSaleStatus(dynamic value) {
+    if (value == null) return SaleStatus.completed;
+    final name = value.toString();
+    return SaleStatus.values.firstWhere(
+      (e) => e.name == name,
+      orElse: () => SaleStatus.completed,
+    );
   }
 
   /// هل البيع مدفوع كلياً؟
@@ -164,6 +239,31 @@ class SaleItem {
       'quantity': quantity,
       'total': total,
     };
+  }
+
+  /// إنشاء SaleItem من Map
+  factory SaleItem.fromMap(Map<String, dynamic> map) {
+    return SaleItem(
+      id: map['id'] as String? ?? '',
+      productId: map['productId'] ?? map['product_id'] ?? '',
+      productName: map['productName'] ?? map['product_name'] ?? '',
+      unit: _parseUnit(map['unit']),
+      unitPrice:
+          (map['unitPrice'] ?? map['unit_price'] as num?)?.toDouble() ?? 0.0,
+      quantity: (map['quantity'] as num?)?.toDouble() ?? 1.0,
+      total: (map['total'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+
+  /// Parse MedicineUnit from string
+  static MedicineUnit _parseUnit(dynamic value) {
+    if (value == null) return MedicineUnit.piece;
+    if (value is MedicineUnit) return value;
+    final name = value.toString();
+    return MedicineUnit.values.firstWhere(
+      (e) => e.name == name,
+      orElse: () => MedicineUnit.piece,
+    );
   }
 }
 

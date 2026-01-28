@@ -5,21 +5,50 @@ import '../domain/usecases/get_all_products_usecase.dart';
 import '../domain/usecases/update_product_usecase.dart';
 import '../domain/usecases/delete_product_usecase.dart';
 import '../domain/usecases/get_product_by_id_usecase.dart';
+import '../domain/usecases/filter_products_usecase.dart';
 import '../domain/repositories/inventory_repository.dart';
+import '../domain/entities/add_product_params.dart';
 import '../domain/entities/product_entity.dart';
+import '../domain/entities/paginated_result.dart';
+import '../domain/validators/product_validator.dart';
 import '../data/repositories/inventory_repository_impl.dart';
-import '../../../database/daos/product_dao_provider.dart';
+import '../data/datasources/inventory_local_datasource.dart';
+import '../../../database/database_helper.dart';
+import '../../pos/providers/pos_providers.dart'; // ✅ ربط مع نقطة البيع
 
-// Repository
-final inventoryRepositoryProvider = Provider<InventoryRepository>((ref) {
-  final dao = ref.watch(productDaoProvider);
-  return InventoryRepositoryImpl(dao);
+// ============ Infrastructure ============
+
+/// Database helper provider
+final databaseHelperProvider = Provider<DatabaseHelper>((ref) {
+  return DatabaseHelper();
 });
 
-// UseCases
+/// Local data source provider
+final inventoryLocalDataSourceProvider =
+    Provider<InventoryLocalDataSourceImpl>((ref) {
+  final dbHelper = ref.watch(databaseHelperProvider);
+  return InventoryLocalDataSourceImpl(dbHelper);
+});
+
+// ============ Repository ============
+
+final inventoryRepositoryProvider = Provider<InventoryRepository>((ref) {
+  final localDataSource = ref.watch(inventoryLocalDataSourceProvider);
+  return InventoryRepositoryImpl(localDataSource, null);
+});
+
+// ============ Validator ============
+
+final productValidatorProvider = Provider<ProductValidator>((ref) {
+  return ProductValidator();
+});
+
+// ============ UseCases ============
+
 final addProductUseCaseProvider = Provider<AddProductUseCase>((ref) {
   final repo = ref.watch(inventoryRepositoryProvider);
-  return AddProductUseCase(repo);
+  final validator = ref.watch(productValidatorProvider);
+  return AddProductUseCase(repo, validator);
 });
 
 final getAllProductsUseCaseProvider = Provider<GetAllProductsUseCase>((ref) {
@@ -29,7 +58,8 @@ final getAllProductsUseCaseProvider = Provider<GetAllProductsUseCase>((ref) {
 
 final updateProductUseCaseProvider = Provider<UpdateProductUseCase>((ref) {
   final repo = ref.watch(inventoryRepositoryProvider);
-  return UpdateProductUseCase(repo);
+  final validator = ref.watch(productValidatorProvider);
+  return UpdateProductUseCase(repo, validator);
 });
 
 final deleteProductUseCaseProvider = Provider<DeleteProductUseCase>((ref) {
@@ -38,45 +68,195 @@ final deleteProductUseCaseProvider = Provider<DeleteProductUseCase>((ref) {
 });
 
 final getProductByIdUseCaseProvider = Provider<GetProductByIdUseCase>((ref) {
-  final repo = ref.read(inventoryRepositoryProvider);
+  final repo = ref.watch(inventoryRepositoryProvider);
   return GetProductByIdUseCase(repo);
 });
 
-// Provider للحصول على منتج واحد للتعديل
-final getProductByIdProvider =
-    FutureProvider.family<ProductEntity?, int>((ref, id) async {
+final filterProductsUseCaseProvider = Provider<FilterProductsUseCase>((ref) {
   final repo = ref.watch(inventoryRepositoryProvider);
-  return await repo.getProductById(id);
+  return FilterProductsUseCase(repo);
 });
 
-// ---------- إعدادات عامة ----------
-const int _kPageSize = 20;
+// ============ إعدادات الفلترة ============
 
-// query البحث
+const int _kPageSize = 50;
+
+/// البحث النصي
 final searchQueryProvider = StateProvider<String>((ref) => '');
 
-// تصفية حسب الصنف/الفئة
+/// تصفية حسب الفئة (arabicName من UI)
 final selectedCategoryProvider = StateProvider<String?>((ref) => null);
 
-// فلترة متقدمة
+/// فلترة متقدمة (low_stock, expired, etc.)
 final advancedFilterProvider = StateProvider<String?>((ref) => null);
 
-// الصفحة الحالية (تبدأ من 0)
+/// الصفحة الحالية (تبدأ من 0)
 final currentPageProvider = StateProvider<int>((ref) => 0);
 
-// Provider للبحث عن الأدوية
-final medsSearchProvider =
-    StateProvider.family<List<Map<String, dynamic>>, String>((ref, query) {
-  return MedsDataService.searchMeds(query);
+// ============ Filter Params Provider ============
+
+/// Converts UI filter selections to InventoryFilterParams for database query
+final inventoryFilterParamsProvider = Provider<InventoryFilterParams>((ref) {
+  final searchQuery = ref.watch(searchQueryProvider).trim();
+  final advancedFilter = ref.watch(advancedFilterProvider);
+  final currentPage = ref.watch(currentPageProvider);
+
+  return InventoryFilterParams(
+    searchQuery: searchQuery.isNotEmpty ? searchQuery : null,
+    categoryEnumName: null, // Category feature removed
+    stockFilter: advancedFilter,
+    page: currentPage,
+    pageSize: _kPageSize,
+  );
 });
 
-// Provider لتحميل بيانات الأدوية
-final medsLoadingProvider = FutureProvider<void>((ref) async {
-  await MedsDataService.loadMeds();
+// ============ مصدر البيانات الرئيسي (Database-Level Filtering) ============
+
+// ============ مصدر البيانات الرئيسي (Database-Level Filtering) ============
+
+/// Controller المسؤول عن إدارة حالة المخزون (قائمة المنتجات) والعمليات عليها
+/// يحل محل FutureProvider لتوفير تفاعلية حقيقية (Reactivity)
+final inventoryControllerProvider = AsyncNotifierProvider.autoDispose<
+    ReactiveInventoryController,
+    PaginatedResult<ProductEntity>>(ReactiveInventoryController.new);
+
+class ReactiveInventoryController
+    extends AutoDisposeAsyncNotifier<PaginatedResult<ProductEntity>> {
+  @override
+  Future<PaginatedResult<ProductEntity>> build() async {
+    // 1. مراقبة متغيرات الفلترة - أي تغيير هنا سيؤدي لإعادة بناء الحالة تلقائياً
+    final params = ref.watch(inventoryFilterParamsProvider);
+    final repo = ref.read(inventoryRepositoryProvider);
+
+    // 2. جلب البيانات
+    final result = await repo.getProductsFiltered(params);
+
+    // 3. إرجاع النتيجة أو حالة فارغة عند الخطأ
+    return result.fold(
+      (failure) => PaginatedResult.empty(pageSize: 50),
+      (paginatedResult) => paginatedResult,
+    );
+  }
+
+  /// حذف منتج
+  Future<void> deleteProduct(int productId) async {
+    final deleteUseCase = ref.read(deleteProductUseCaseProvider);
+
+    // تنفيذ الحذف
+    final result = await deleteUseCase(productId);
+
+    result.fold(
+      (failure) =>
+          throw Exception(failure.message), // يمكن معالجة الخطأ بشكل أفضل
+      (success) {
+        // ✅ النقطة الجوهرية: نطلب من الـ Provider تحديث نفسه
+        // هذا سيؤدي لإعادة جلب البيانات تلقائياً وتحديث الواجهة
+        ref.invalidateSelf();
+        // ✅ تحديث نقطة البيع أيضاً لتنعكس التغييرات فوراً
+        ref.invalidate(posControllerProvider);
+      },
+    );
+  }
+
+  /// إضافة منتج
+  Future<void> addProduct(AddProductParams params) async {
+    final addUseCase = ref.read(addProductUseCaseProvider);
+    final result = await addUseCase(params);
+
+    result.fold(
+      (failure) => throw Exception(failure.message),
+      (success) {
+        ref.invalidateSelf(); // تحديث القائمة فوراً
+        ref.invalidate(posControllerProvider); // ✅ تحديث POS
+      },
+    );
+  }
+
+  /// تحديث منتج
+  Future<void> updateProduct(ProductEntity product) async {
+    final updateUseCase = ref.read(updateProductUseCaseProvider);
+
+    // تغليف المنتج في Params
+    final params = UpdateProductParams(
+      id: product.id,
+      name: product.name,
+      company: product.company,
+      category: product.category,
+      barcode: product.barcode,
+      quantity: product.quantity,
+      price: product.price,
+      costPrice: product.costPrice,
+      expiryDate: product.expiryDate,
+    );
+
+    final result = await updateUseCase(params);
+
+    result.fold(
+      (failure) => throw Exception(failure.message),
+      (success) {
+        ref.invalidateSelf();
+        ref.invalidate(posControllerProvider); // ✅ تحديث POS
+      },
+    );
+  }
+}
+
+/// Provides paginated and filtered products directly from the controller
+/// (Alias for backward compatibility or easier reading)
+final paginatedProductsResultProvider =
+    Provider.autoDispose<AsyncValue<PaginatedResult<ProductEntity>>>((ref) {
+  return ref.watch(inventoryControllerProvider);
 });
 
-// ---------- مصدر البيانات الأساسي ----------
-// ---------- مصدر البيانات الأساسي ----------
+/// For backwards compatibility - returns list of products from current page
+final filteredProductsProvider = Provider<List<ProductEntity>>((ref) {
+  final asyncResult = ref.watch(paginatedProductsResultProvider);
+  return asyncResult.maybeWhen(
+    data: (result) => result.items,
+    orElse: () => const [],
+  );
+});
+
+/// For backwards compatibility - returns paginated products (same as filtered now)
+final paginatedProductsProvider = Provider<List<ProductEntity>>((ref) {
+  return ref.watch(filteredProductsProvider);
+});
+
+/// Total count of filtered products (not just current page)
+final totalProductsCountProvider = Provider<int>((ref) {
+  final asyncResult = ref.watch(paginatedProductsResultProvider);
+  return asyncResult.maybeWhen(
+    data: (result) => result.totalCount,
+    orElse: () => 0,
+  );
+});
+
+/// Total pages based on filter
+final totalPagesProvider = Provider<int>((ref) {
+  final asyncResult = ref.watch(paginatedProductsResultProvider);
+  return asyncResult.maybeWhen(
+    data: (result) => result.totalPages,
+    orElse: () => 1,
+  );
+});
+
+/// Is loading products
+final isLoadingProductsProvider = Provider<bool>((ref) {
+  final asyncResult = ref.watch(paginatedProductsResultProvider);
+  return asyncResult.isLoading;
+});
+
+/// Has error loading products
+final productsErrorProvider = Provider<String?>((ref) {
+  final asyncResult = ref.watch(paginatedProductsResultProvider);
+  return asyncResult.maybeWhen(
+    error: (e, _) => e.toString(),
+    orElse: () => null,
+  );
+});
+
+// ============ Legacy: All Products (for screens that need all) ============
+
 final productsProvider =
     AsyncNotifierProvider.autoDispose<ProductsNotifier, List<ProductEntity>>(
         ProductsNotifier.new);
@@ -85,117 +265,41 @@ class ProductsNotifier extends AutoDisposeAsyncNotifier<List<ProductEntity>> {
   @override
   Future<List<ProductEntity>> build() async {
     final getAll = ref.watch(getAllProductsUseCaseProvider);
-    return await getAll();
+    final result = await getAll();
+    return result.fold(
+      (failure) => [],
+      (products) => products,
+    );
   }
 
   Future<void> refresh() async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       final getAll = ref.read(getAllProductsUseCaseProvider);
-      return await getAll();
+      final result = await getAll();
+      return result.fold(
+        (failure) => [],
+        (products) => products,
+      );
     });
   }
 }
 
-// ---------- التصفية ----------
-final filteredProductsProvider = Provider<List<ProductEntity>>((ref) {
-  final asyncProducts = ref.watch(productsProvider);
-  final query = ref.watch(searchQueryProvider).toLowerCase().trim();
-  final selectedCategory = ref.watch(selectedCategoryProvider);
-  final advancedFilter = ref.watch(advancedFilterProvider);
+// ============ Helper: Refresh Providers ============
 
-  return asyncProducts.maybeWhen(
-    data: (products) {
-      Iterable<ProductEntity> list = products;
+/// Call this after adding/updating/deleting a product
+void invalidateProductProviders(WidgetRef ref) {
+  ref.invalidate(paginatedProductsResultProvider);
+  ref.invalidate(productsProvider);
+}
 
-      // تصفية بالبحث
-      if (query.isNotEmpty) {
-        list = list.where((p) =>
-            p.name.toLowerCase().contains(query) ||
-            p.company.toLowerCase().contains(query) ||
-            p.category.toLowerCase().contains(query));
-      }
+// ============ Meds Data Service (for smart add) ============
 
-      // تصفية بالفئة
-      if (selectedCategory != null && selectedCategory.isNotEmpty) {
-        list = list.where((p) => p.category == selectedCategory);
-      }
-
-      // الفلترة المتقدمة
-      if (advancedFilter != null && advancedFilter.isNotEmpty) {
-        final now = DateTime.now();
-        switch (advancedFilter) {
-          case 'low_stock':
-            // كمية أقل من 20
-            list = list.where((p) => p.quantity > 0 && p.quantity < 20);
-            break;
-          case 'critical_stock':
-            // كمية أقل من 10
-            list = list.where((p) => p.quantity > 0 && p.quantity < 10);
-            break;
-          case 'expired':
-            // منتهية الصلاحية
-            list = list.where(
-                (p) => p.expiryDate != null && p.expiryDate!.isBefore(now));
-            break;
-          case 'expiring_soon':
-            // تنتهي خلال 3 أشهر
-            final threeMonthsLater = now.add(const Duration(days: 90));
-            list = list.where((p) =>
-                p.expiryDate != null &&
-                p.expiryDate!.isAfter(now) &&
-                p.expiryDate!.isBefore(threeMonthsLater));
-            break;
-          case 'high_price':
-            // ترتيب من الأغلى للأرخص
-            final sorted = list.toList()
-              ..sort((a, b) => b.price.compareTo(a.price));
-            return sorted;
-          case 'low_price':
-            // ترتيب من الأرخص للأغلى
-            final sorted = list.toList()
-              ..sort((a, b) => a.price.compareTo(b.price));
-            return sorted;
-          case 'best_selling':
-            // الأكثر مبيعاً (حسب الكمية المباعة إذا متوفر)
-            // يمكن تحسينه لاحقاً بناءً على بيانات المبيعات الفعلية
-            final sorted = list.toList()
-              ..sort((a, b) => b.quantity.compareTo(a.quantity));
-            return sorted;
-          case 'recently_added':
-            // المضافة حديثاً (حسب ID - الأحدث أولاً)
-            final sorted = list.toList()..sort((a, b) => b.id.compareTo(a.id));
-            return sorted;
-        }
-      }
-
-      return List<ProductEntity>.from(list);
-    },
-    orElse: () => const [],
-  );
+final medsSearchProvider =
+    StateProvider.family<List<Map<String, dynamic>>, String>((ref, query) {
+  return MedsDataService.searchMeds(query);
 });
 
-// ---------- العدّاد الكلي ----------
-final totalProductsCountProvider = Provider<int>((ref) {
-  final filtered = ref.watch(filteredProductsProvider);
-  return filtered.length;
-});
-
-// ---------- عدد الصفحات ----------
-final totalPagesProvider = Provider<int>((ref) {
-  final total = ref.watch(totalProductsCountProvider);
-  if (total == 0) return 1;
-  return ((total - 1) / _kPageSize).floor() + 1;
-});
-
-// ---------- تقطيع حسب الصفحة ----------
-final paginatedProductsProvider = Provider<List<ProductEntity>>((ref) {
-  final filtered = ref.watch(filteredProductsProvider);
-  final page = ref.watch(currentPageProvider);
-  final start = page * _kPageSize;
-  final end = (start + _kPageSize) > filtered.length
-      ? filtered.length
-      : (start + _kPageSize);
-  if (start >= filtered.length || start < 0) return const <ProductEntity>[];
-  return filtered.sublist(start, end);
+final medsLoadingProvider = FutureProvider<void>((ref) async {
+  await MedsDataService.loadMeds();
 });

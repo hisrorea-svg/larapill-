@@ -8,6 +8,14 @@ import '../../../services/pharmacy_settings_service.dart';
 import '../widgets/notification_settings_dialog.dart';
 import '../widgets/security_settings_dialog.dart';
 import '../widgets/system_log_dialog.dart';
+import '../presentation/providers/settings_providers.dart';
+import '../presentation/utils/user_entity_mapper.dart';
+import '../presentation/utils/error_handler.dart';
+import '../../../core/exceptions/app_exceptions.dart';
+import 'package:sqflite/sqflite.dart' as sqflite;
+import '../../network/presentation/screens/network_settings_screen.dart';
+import '../../../providers/app_providers.dart';
+import '../../../core/widgets/app_toast.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -70,6 +78,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         icon: Icons.security,
         color: Colors.red,
         onTap: () => SecuritySettingsDialog.show(context),
+      ),
+      _SettingCard(
+        title: 'إعدادات الشبكة',
+        subtitle: 'ربط الأجهزة عبر LAN',
+        icon: Icons.lan,
+        color: Colors.indigo,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const NetworkSettingsScreen()),
+        ),
       ),
       _SettingCard(
         title: 'حول التطبيق',
@@ -173,13 +191,41 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         if (result['success'] == true) {
           _showSnackBar('تم إنشاء النسخة الاحتياطية بنجاح', AppColors.success);
         } else {
-          _showSnackBar('فشل إنشاء النسخة الاحتياطية', AppColors.error);
+          throw DatabaseException(
+            'فشل إنشاء النسخة الاحتياطية',
+            userMessage: 'فشل إنشاء النسخة الاحتياطية. يرجى المحاولة مرة أخرى.',
+            operation: 'backup',
+          );
         }
       }
-    } catch (e) {
+    } on sqflite.DatabaseException catch (e, stackTrace) {
       if (mounted) {
         setState(() => _isLoading = false);
-        _showSnackBar('خطأ: $e', AppColors.error);
+        SettingsErrorHandler.handleError(
+          context,
+          DatabaseException(
+            'خطأ في قاعدة البيانات أثناء إنشاء النسخة الاحتياطية',
+            userMessage: 'حدث خطأ في قاعدة البيانات. يرجى المحاولة مرة أخرى.',
+            originalError: e,
+            stackTrace: stackTrace,
+            operation: 'backup',
+          ),
+        );
+      }
+    } on AppException catch (e, stackTrace) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        SettingsErrorHandler.handleError(context, e, stackTrace: stackTrace);
+      }
+    } catch (e, stackTrace) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        final appException = convertToAppException(e, stackTrace: stackTrace);
+        SettingsErrorHandler.handleError(
+          context,
+          appException,
+          stackTrace: stackTrace,
+        );
       }
     }
   }
@@ -226,9 +272,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ],
         ),
       );
-    } catch (e) {
+    } on sqflite.DatabaseException catch (e, stackTrace) {
       if (mounted) {
-        _showSnackBar('خطأ في تحميل النسخ: $e', AppColors.error);
+        SettingsErrorHandler.handleError(
+          context,
+          DatabaseException(
+            'خطأ في قاعدة البيانات أثناء تحميل النسخ الاحتياطية',
+            userMessage:
+                'فشل تحميل قائمة النسخ الاحتياطية. يرجى المحاولة مرة أخرى.',
+            originalError: e,
+            stackTrace: stackTrace,
+            operation: 'query',
+            tableName: 'backups',
+          ),
+        );
+      }
+    } on AppException catch (e, stackTrace) {
+      if (mounted) {
+        SettingsErrorHandler.handleError(context, e, stackTrace: stackTrace);
+      }
+    } catch (e, stackTrace) {
+      if (mounted) {
+        final appException = convertToAppException(e, stackTrace: stackTrace);
+        SettingsErrorHandler.handleError(
+          context,
+          appException,
+          stackTrace: stackTrace,
+        );
       }
     }
   }
@@ -264,10 +334,39 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           _showSnackBar(
               'تم استعادة النسخة الاحتياطية بنجاح', AppColors.success);
         }
-      } catch (e) {
+      } on sqflite.DatabaseException catch (e, stackTrace) {
         if (mounted) {
           setState(() => _isLoading = false);
-          _showSnackBar('خطأ في الاستعادة: $e', AppColors.error);
+          SettingsErrorHandler.handleError(
+            context,
+            DatabaseException(
+              'خطأ في قاعدة البيانات أثناء استعادة النسخة الاحتياطية',
+              userMessage: 'فشل استعادة النسخة الاحتياطية. تأكد من صحة الملف.',
+              originalError: e,
+              stackTrace: stackTrace,
+              operation: 'restore',
+            ),
+          );
+        }
+      } on FileException catch (e, stackTrace) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          SettingsErrorHandler.handleError(context, e, stackTrace: stackTrace);
+        }
+      } on AppException catch (e, stackTrace) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          SettingsErrorHandler.handleError(context, e, stackTrace: stackTrace);
+        }
+      } catch (e, stackTrace) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          final appException = convertToAppException(e, stackTrace: stackTrace);
+          SettingsErrorHandler.handleError(
+            context,
+            appException,
+            stackTrace: stackTrace,
+          );
         }
       }
     }
@@ -699,40 +798,83 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               const SizedBox(height: 24),
               Expanded(
-                child: FutureBuilder(
-                  future: _loadUsersData(),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
+                child: Consumer(
+                  builder: (context, ref, child) {
+                    final usersAsync = ref.watch(usersProvider);
 
-                    final users = snapshot.data ?? [];
-
-                    if (users.isEmpty) {
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.people_outline,
-                                size: 64, color: Colors.grey[400]),
-                            const SizedBox(height: 16),
-                            Text(
-                              'لا يوجد مستخدمون',
-                              style: GoogleFonts.tajawal(
-                                fontSize: 16,
-                                color: Colors.grey[600],
-                              ),
+                    return usersAsync.when(
+                      data: (users) {
+                        if (users.isEmpty) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.people_outline,
+                                    size: 64, color: Colors.grey[400]),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'لا يوجد مستخدمون',
+                                  style: GoogleFonts.tajawal(
+                                    fontSize: 16,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                      );
-                    }
+                          );
+                        }
 
-                    return ListView.builder(
-                      itemCount: users.length,
-                      itemBuilder: (context, index) {
-                        final user = users[index];
-                        return _buildUserItem(user);
+                        // تحويل UserEntity إلى Map للعرض
+                        final usersMap =
+                            UserEntityMapper.toDisplayMapList(users);
+
+                        return ListView.builder(
+                          itemCount: usersMap.length,
+                          itemBuilder: (context, index) {
+                            final user = usersMap[index];
+                            return _buildUserItem(user);
+                          },
+                        );
+                      },
+                      loading: () => const Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                      error: (error, stackTrace) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.error_outline,
+                                  size: 64, color: Colors.red[300]),
+                              const SizedBox(height: 16),
+                              Text(
+                                'حدث خطأ في تحميل المستخدمين',
+                                style: GoogleFonts.tajawal(
+                                  fontSize: 16,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                error.toString(),
+                                style: GoogleFonts.tajawal(
+                                  fontSize: 12,
+                                  color: Colors.grey[500],
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton.icon(
+                                onPressed: () {
+                                  ref.invalidate(usersProvider);
+                                },
+                                icon: const Icon(Icons.refresh),
+                                label: Text('إعادة المحاولة',
+                                    style: GoogleFonts.tajawal()),
+                              ),
+                            ],
+                          ),
+                        );
                       },
                     );
                   },
@@ -764,81 +906,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
       ),
     );
-  }
-
-  Future<List<Map<String, dynamic>>> _loadUsersData() async {
-    try {
-      final dbHelper = DatabaseHelper();
-      final db = await dbHelper.database;
-
-      final users = await db.query(
-        'users',
-        where: 'is_active = ?',
-        whereArgs: [1],
-        orderBy: 'created_at DESC',
-      );
-
-      return users.map((user) {
-        final role = user['role'] as String;
-        IconData icon;
-        Color color;
-        String roleDisplay;
-
-        switch (role) {
-          case 'admin':
-            icon = Icons.admin_panel_settings;
-            color = Colors.purple;
-            roleDisplay = 'مدير';
-            break;
-          case 'pharmacist':
-            icon = Icons.local_pharmacy;
-            color = Colors.blue;
-            roleDisplay = 'صيدلي';
-            break;
-          case 'cashier':
-            icon = Icons.point_of_sale;
-            color = Colors.green;
-            roleDisplay = 'كاشير';
-            break;
-          case 'manager':
-            icon = Icons.business_center;
-            color = Colors.orange;
-            roleDisplay = 'مدير متجر';
-            break;
-          default:
-            icon = Icons.person;
-            color = Colors.grey;
-            roleDisplay = 'مستخدم';
-        }
-
-        return {
-          'id': user['id'],
-          'name': user['full_name'],
-          'username': user['username'],
-          'role': roleDisplay,
-          'role_key': role,
-          'status': user['is_active'] == 1 ? 'نشط' : 'معطل',
-          'icon': icon,
-          'color': color,
-          'email': user['email'],
-          'phone': user['phone'],
-        };
-      }).toList();
-    } catch (e) {
-      // في حالة الخطأ، نرجع بيانات تجريبية
-      return [
-        {
-          'id': '1',
-          'name': 'مدير النظام',
-          'username': 'admin',
-          'role': 'مدير',
-          'role_key': 'admin',
-          'status': 'نشط',
-          'icon': Icons.admin_panel_settings,
-          'color': Colors.purple,
-        },
-      ];
-    }
   }
 
   Widget _buildUserItem(Map<String, dynamic> user) {
@@ -1028,7 +1095,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               // المحتوى
               Expanded(
                 child: SingleChildScrollView(
-                  child: _PharmacySettingsForm(pharmacyData: pharmacyData),
+                  child: _PharmacySettingsForm(
+                    pharmacyData: pharmacyData,
+                    onSaved: () {
+                      // تحديث الـ provider لتحديث اسم الصيدلية في كل الشاشات
+                      ref.invalidate(pharmacyInfoProvider);
+                    },
+                  ),
                 ),
               ),
             ],
@@ -1146,15 +1219,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     if (result == true && mounted) {
       try {
+        // التحقق من صحة البيانات
+        if (nameController.text.trim().isEmpty) {
+          throw ValidationException(
+            'الاسم الكامل مطلوب',
+            userMessage: 'الرجاء إدخال الاسم الكامل',
+            fieldName: 'full_name',
+          );
+        }
+
         final dbHelper = DatabaseHelper();
         final db = await dbHelper.database;
 
         await db.update(
           'users',
           {
-            'full_name': nameController.text,
-            'email': emailController.text.isEmpty ? null : emailController.text,
-            'phone': phoneController.text.isEmpty ? null : phoneController.text,
+            'full_name': nameController.text.trim(),
+            'email': emailController.text.trim().isEmpty
+                ? null
+                : emailController.text.trim(),
+            'phone': phoneController.text.trim().isEmpty
+                ? null
+                : phoneController.text.trim(),
             'updated_at': DateTime.now().toIso8601String(),
           },
           where: 'id = ?',
@@ -1163,8 +1249,41 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
         _showSnackBar('تم تحديث بيانات المستخدم بنجاح', AppColors.success);
         setState(() {}); // إعادة تحميل البيانات
-      } catch (e) {
-        _showSnackBar('خطأ في تحديث المستخدم: $e', AppColors.error);
+      } on sqflite.DatabaseException catch (e, stackTrace) {
+        if (mounted) {
+          SettingsErrorHandler.handleError(
+            context,
+            DatabaseException(
+              'خطأ في قاعدة البيانات أثناء تحديث المستخدم',
+              userMessage: 'فشل تحديث بيانات المستخدم. يرجى المحاولة مرة أخرى.',
+              originalError: e,
+              stackTrace: stackTrace,
+              operation: 'update',
+              tableName: 'users',
+            ),
+          );
+        }
+      } on ValidationException catch (e, stackTrace) {
+        if (mounted) {
+          SettingsErrorHandler.handleError(context, e, stackTrace: stackTrace);
+        }
+      } on NotFoundException catch (e, stackTrace) {
+        if (mounted) {
+          SettingsErrorHandler.handleError(context, e, stackTrace: stackTrace);
+        }
+      } on AppException catch (e, stackTrace) {
+        if (mounted) {
+          SettingsErrorHandler.handleError(context, e, stackTrace: stackTrace);
+        }
+      } catch (e, stackTrace) {
+        final appException = convertToAppException(e, stackTrace: stackTrace);
+        if (mounted) {
+          SettingsErrorHandler.handleError(
+            context,
+            appException,
+            stackTrace: stackTrace,
+          );
+        }
       }
     }
 
@@ -1391,8 +1510,42 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         );
 
         _showSnackBar('تم إعادة تعيين كلمة المرور بنجاح', AppColors.success);
-      } catch (e) {
-        _showSnackBar('خطأ في إعادة تعيين كلمة المرور: $e', AppColors.error);
+      } on sqflite.DatabaseException catch (e, stackTrace) {
+        if (mounted) {
+          SettingsErrorHandler.handleError(
+            context,
+            DatabaseException(
+              'خطأ في قاعدة البيانات أثناء إعادة تعيين كلمة المرور',
+              userMessage:
+                  'فشل إعادة تعيين كلمة المرور. يرجى المحاولة مرة أخرى.',
+              originalError: e,
+              stackTrace: stackTrace,
+              operation: 'update',
+              tableName: 'users',
+            ),
+          );
+        }
+      } on ValidationException catch (e, stackTrace) {
+        if (mounted) {
+          SettingsErrorHandler.handleError(context, e, stackTrace: stackTrace);
+        }
+      } on NotFoundException catch (e, stackTrace) {
+        if (mounted) {
+          SettingsErrorHandler.handleError(context, e, stackTrace: stackTrace);
+        }
+      } on AppException catch (e, stackTrace) {
+        if (mounted) {
+          SettingsErrorHandler.handleError(context, e, stackTrace: stackTrace);
+        }
+      } catch (e, stackTrace) {
+        final appException = convertToAppException(e, stackTrace: stackTrace);
+        if (mounted) {
+          SettingsErrorHandler.handleError(
+            context,
+            appException,
+            stackTrace: stackTrace,
+          );
+        }
       }
     }
 
@@ -1467,8 +1620,41 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
         _showSnackBar('تم حذف المستخدم بنجاح', AppColors.success);
         setState(() {}); // إعادة تحميل البيانات
-      } catch (e) {
-        _showSnackBar('خطأ في حذف المستخدم: $e', AppColors.error);
+      } on sqflite.DatabaseException catch (e, stackTrace) {
+        if (mounted) {
+          SettingsErrorHandler.handleError(
+            context,
+            DatabaseException(
+              'خطأ في قاعدة البيانات أثناء حذف المستخدم',
+              userMessage: 'فشل حذف المستخدم. يرجى المحاولة مرة أخرى.',
+              originalError: e,
+              stackTrace: stackTrace,
+              operation: 'delete',
+              tableName: 'users',
+            ),
+          );
+        }
+      } on BusinessRuleException catch (e, stackTrace) {
+        if (mounted) {
+          SettingsErrorHandler.handleError(context, e, stackTrace: stackTrace);
+        }
+      } on NotFoundException catch (e, stackTrace) {
+        if (mounted) {
+          SettingsErrorHandler.handleError(context, e, stackTrace: stackTrace);
+        }
+      } on AppException catch (e, stackTrace) {
+        if (mounted) {
+          SettingsErrorHandler.handleError(context, e, stackTrace: stackTrace);
+        }
+      } catch (e, stackTrace) {
+        final appException = convertToAppException(e, stackTrace: stackTrace);
+        if (mounted) {
+          SettingsErrorHandler.handleError(
+            context,
+            appException,
+            stackTrace: stackTrace,
+          );
+        }
       }
     }
   }
@@ -1791,14 +1977,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   void _showSnackBar(String message, Color color) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message, style: GoogleFonts.tajawal()),
-        backgroundColor: color,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-    );
+    if (color == AppColors.success) {
+      AppToast.success(context, message);
+    } else if (color == AppColors.error) {
+      AppToast.error(context, message);
+    } else if (color == AppColors.warning) {
+      AppToast.warning(context, message);
+    } else {
+      AppToast.info(context, message);
+    }
   }
 }
 
@@ -1881,8 +2068,9 @@ class _SettingCard extends StatelessWidget {
 // Widget لنموذج إعدادات الصيدلية
 class _PharmacySettingsForm extends StatefulWidget {
   final Map<String, dynamic>? pharmacyData;
+  final VoidCallback? onSaved;
 
-  const _PharmacySettingsForm({this.pharmacyData});
+  const _PharmacySettingsForm({this.pharmacyData, this.onSaved});
 
   @override
   State<_PharmacySettingsForm> createState() => _PharmacySettingsFormState();
@@ -2179,33 +2367,15 @@ class _PharmacySettingsFormState extends State<_PharmacySettingsForm> {
       await _clearPharmacyCache();
 
       if (mounted) {
+        // تحديث الـ providers
+        widget.onSaved?.call();
+
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.white),
-                const SizedBox(width: 12),
-                Text('تم حفظ إعدادات الصيدلية بنجاح',
-                    style: GoogleFonts.tajawal(color: Colors.white)),
-              ],
-            ),
-            backgroundColor: AppColors.success,
-            behavior: SnackBarBehavior.floating,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          ),
-        );
+        AppToast.success(context, 'تم حفظ إعدادات الصيدلية بنجاح');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('خطأ في حفظ الإعدادات: $e',
-                style: GoogleFonts.tajawal(color: Colors.white)),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppToast.error(context, 'خطأ في حفظ الإعدادات: $e');
       }
     } finally {
       if (mounted) {

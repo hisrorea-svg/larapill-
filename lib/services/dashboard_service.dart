@@ -150,41 +150,47 @@ class DashboardService {
     }
   }
 
-  Future<Map<String, double>> getProductsCategoryData() async {
+  /// جلب أكثر المنتجات مبيعاً
+  Future<Map<String, double>> getTopSellingProducts({int limit = 5}) async {
     try {
       final database = await _db.database;
 
       final result = await database.rawQuery('''
-        SELECT category, COUNT(*) as count
-        FROM products
-        WHERE is_active = 1
-        GROUP BY category
-      ''');
+        SELECT p.name, COALESCE(SUM(si.quantity), 0) as total_sold
+        FROM sale_items si
+        INNER JOIN products p ON si.product_id = p.id
+        INNER JOIN sales s ON si.sale_id = s.id
+        WHERE s.status = 'completed'
+        GROUP BY si.product_id
+        ORDER BY total_sold DESC
+        LIMIT ?
+      ''', [limit]);
 
-      final Map<String, double> categoryData = {};
-      int totalCount = 0;
+      final Map<String, double> topProducts = {};
+      double totalSold = 0;
 
-      // حساب المجموع
+      // حساب المجموع الكلي
       for (var row in result) {
-        final count = (row['count'] as int?) ?? 0;
-        totalCount += count;
+        final sold = (row['total_sold'] as num?)?.toDouble() ?? 0;
+        totalSold += sold;
       }
 
       // حساب النسب المئوية
-      if (totalCount > 0) {
+      if (totalSold > 0) {
         for (var row in result) {
-          final category = row['category'] as String? ?? 'أخرى';
-          final count = (row['count'] as int?) ?? 0;
-          final percentage = (count / totalCount) * 100;
-          categoryData[category] = percentage;
+          final name = row['name'] as String? ?? 'غير معروف';
+          final sold = (row['total_sold'] as num?)?.toDouble() ?? 0;
+          final percentage = (sold / totalSold) * 100;
+          topProducts[name] = percentage;
         }
       }
 
-      developer.log('✅ Product Categories: $categoryData',
+      developer.log('✅ Top Selling Products: $topProducts',
           name: 'DashboardService');
-      return categoryData;
+      return topProducts;
     } catch (e) {
-      developer.log('❌ خطأ في جلب بيانات الفئات: $e', name: 'DashboardService');
+      developer.log('❌ خطأ في جلب أكثر المنتجات مبيعاً: $e',
+          name: 'DashboardService');
       return {};
     }
   }

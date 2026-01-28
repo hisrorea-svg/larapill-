@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/controllers/session_controller.dart';
+import '../../../providers/app_providers.dart';
 import '../../inventory/screens/inventory_screen.dart';
 import '../../purchases/screens/daily_purchase_requests_screen.dart';
 import '../../settings/screens/settings_screen.dart';
@@ -17,11 +18,9 @@ import 'dashboard_screen.dart';
 import '../../debts/screens/debts_screen.dart';
 import '../../reports/screens/modern_reports_screen.dart';
 import 'dart:developer' as developer;
+import '../../../core/services/realtime_sync_service.dart';
 
 final selectedIndexProvider = StateProvider<int>((ref) => 0);
-
-// Provider لاسم الصيدلية
-final pharmacyDisplayNameProvider = Provider<String>((ref) => 'صيدلية الشفاء');
 
 class MainLayout extends ConsumerStatefulWidget {
   const MainLayout({super.key});
@@ -35,6 +34,17 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
   void initState() {
     super.initState();
     _setFullScreen();
+    // ✅ بدء خدمة المزامنة التلقائية
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(realtimeSyncServiceProvider).start();
+    });
+  }
+
+  @override
+  void dispose() {
+    // ✅ إيقاف خدمة المزامنة لتوفير الموارد
+    ref.read(realtimeSyncServiceProvider).stop();
+    super.dispose();
   }
 
   void _setFullScreen() async {
@@ -53,7 +63,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
   @override
   Widget build(BuildContext context) {
     final selectedIndex = ref.watch(selectedIndexProvider);
-    
+
     // ✅ مراقبة حالة الجلسة
     ref.listen<SessionState>(sessionControllerProvider, (previous, next) {
       if (next.status == SessionStatus.warning && next.remainingTime != null) {
@@ -61,8 +71,8 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       } else if (next.status == SessionStatus.expired) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Row(
-              children: const [
+            content: const Row(
+              children: [
                 Icon(Icons.info, color: Colors.white),
                 SizedBox(width: 8),
                 Expanded(
@@ -83,8 +93,10 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
 
     return GestureDetector(
       // ✅ تحديث النشاط عبر الـ Controller
-      onTap: () => ref.read(sessionControllerProvider.notifier).updateActivity(),
-      onPanDown: (_) => ref.read(sessionControllerProvider.notifier).updateActivity(),
+      onTap: () =>
+          ref.read(sessionControllerProvider.notifier).updateActivity(),
+      onPanDown: (_) =>
+          ref.read(sessionControllerProvider.notifier).updateActivity(),
       child: Scaffold(
         backgroundColor: AppColors.background,
         body: Directionality(
@@ -180,14 +192,16 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       SessionWarningHelper.showWarning(
         context,
         remainingTime: remaining,
-        onExtendSession: () => ref.read(sessionControllerProvider.notifier).extendSession(),
+        onExtendSession: () =>
+            ref.read(sessionControllerProvider.notifier).extendSession(),
         onLogout: () => ref.read(sessionControllerProvider.notifier).logout(),
       );
     } else if (remaining.inMinutes <= 5) {
       SessionWarningHelper.showSimpleWarning(
         context,
         remainingTime: remaining,
-        onExtendSession: () => ref.read(sessionControllerProvider.notifier).extendSession(),
+        onExtendSession: () =>
+            ref.read(sessionControllerProvider.notifier).extendSession(),
       );
     }
   }

@@ -31,19 +31,17 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
     // تحديث البيانات تلقائياً عند فتح الصفحة
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        ref.invalidate(productsProvider);
+        // Reset filters and refresh data
+        ref.read(currentPageProvider.notifier).state = 0;
+        ref.invalidate(paginatedProductsResultProvider);
       }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final productsAsync = ref.watch(productsProvider);
-    final filteredProducts = ref.watch(filteredProductsProvider);
-    final paginatedProducts = ref.watch(paginatedProductsProvider);
-    final currentPage = ref.watch(currentPageProvider);
-    final totalPages = ref.watch(totalPagesProvider);
-    final totalCount = ref.watch(totalProductsCountProvider);
+    // Watch the Controller directly
+    final productsState = ref.watch(inventoryControllerProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -82,11 +80,6 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                 ref.read(searchQueryProvider.notifier).state = value;
                 ref.read(currentPageProvider.notifier).state = 0;
               },
-              onCategoryChanged: (category) {
-                ref.read(selectedCategoryProvider.notifier).state =
-                    category?.arabicName;
-                ref.read(currentPageProvider.notifier).state = 0;
-              },
               onAdvancedFilterChanged: (filter) {
                 ref.read(advancedFilterProvider.notifier).state = filter;
                 ref.read(currentPageProvider.notifier).state = 0;
@@ -110,22 +103,21 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                   ],
                 ),
                 padding: const EdgeInsets.all(12),
-                child: productsAsync.when(
-                  data: (_) {
-                    if (filteredProducts.isEmpty) {
+                child: productsState.when(
+                  data: (data) {
+                    if (data.items.isEmpty) {
                       return _buildEmptyState(context, ref);
                     }
                     return Column(
                       children: [
                         // ✅ DataTable2 داخل Expanded
                         Expanded(
-                          child:
-                              _buildDataTable(context, ref, paginatedProducts),
+                          child: _buildDataTable(context, ref, data.items),
                         ),
                         const SizedBox(height: 12),
-                        if (totalPages > 1)
-                          _buildPaginationControls(
-                              ref, currentPage, totalPages, totalCount),
+                        if (data.totalPages > 1)
+                          _buildPaginationControls(ref, data.currentPage,
+                              data.totalPages, data.totalCount),
                       ],
                     );
                   },
@@ -174,14 +166,15 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                 IconButton(
                   icon: const Icon(Icons.refresh, color: Colors.white),
                   onPressed: () {
-                    // إعادة تحميل المنتجات: invalidation + إعادة الصفحة إلى 0
-                    // Force refresh the providers immediately
-                    // Mark the providers as invalid so they are re-evaluated
-                    ref.invalidate(productsProvider);
-                    ref.invalidate(filteredProductsProvider);
+                    // إعادة تحميل المنتجات
+                    // Force refresh the specific controller provider
+                    ref.invalidate(inventoryControllerProvider);
                     ref.read(currentPageProvider.notifier).state = 0;
 
-                    // Feedback pequeño للمستخدم - يساعد على التأكد أن الزر يعمل
+                    // Also refresh summary stats if needed (productsProvider was used for that maybe?)
+                    // But sticking to controller logic
+
+                    // Feedback صغير
                     if (ScaffoldMessenger.maybeOf(context) != null) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
@@ -304,16 +297,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
           ),
           size: ColumnSize.S,
         ),
-        DataColumn2(
-          label: Center(
-            child: Text(
-              'الفئة',
-              style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
-            ),
-          ),
-          size: ColumnSize.M,
-          fixedWidth: 120,
-        ),
+
         DataColumn2(
           label: Center(
             child: Text(
@@ -419,29 +403,6 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    product.category,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.tajawal(
-                      fontSize: 12,
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-            DataCell(
-              Center(
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
                     color: product.quantity > 10
                         ? Colors.green.withValues(alpha: 0.1)
                         : Colors.red.withValues(alpha: 0.1),
@@ -517,17 +478,18 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                           const BoxConstraints(minWidth: 25, minHeight: 32),
                       icon: const Icon(Icons.edit,
                           color: Colors.blueAccent, size: 15),
-                      onPressed: () {
-                        showDialog(
+                      onPressed: () async {
+                        await showDialog(
                           context: context,
                           builder: (_) => ProfessionalEditProductDialog(
                             productId: product.id.toString(),
                             onProductUpdated: () {
-                              ref.invalidate(filteredProductsProvider);
-                              ref.invalidate(productsProvider);
+                              ref.invalidate(inventoryControllerProvider);
                             },
                           ),
                         );
+                        // Ensure refresh
+                        ref.invalidate(inventoryControllerProvider);
                       },
                     ),
                     IconButton(
@@ -587,8 +549,8 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
       context: context,
       builder: (_) => const SimpleAddProductDialog(),
     ).then((_) {
-      ref.invalidate(filteredProductsProvider);
-      ref.invalidate(productsProvider);
+      // Invalidate the controller to refresh data after add
+      ref.invalidate(inventoryControllerProvider);
     });
   }
 
@@ -653,13 +615,14 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
 
     if (confirm == true) {
       try {
-        final deleteUseCase = ref.read(deleteProductUseCaseProvider);
-        await deleteUseCase(product.id);
-        // invalidate providers to refresh data
-        ref.invalidate(filteredProductsProvider);
-        ref.invalidate(productsProvider);
+        // ✅ Use Controller for deletion (Reactive)
+        await ref
+            .read(inventoryControllerProvider.notifier)
+            .deleteProduct(product.id);
 
-        if (!context.mounted) return; // ✅ Use context.mounted
+        // No manual invalidation needed here if controller handles it (invalidateSelf)
+
+        if (!context.mounted) return;
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -668,7 +631,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
           ),
         );
       } catch (e) {
-        if (!context.mounted) return; // ✅ Use context.mounted
+        if (!context.mounted) return;
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

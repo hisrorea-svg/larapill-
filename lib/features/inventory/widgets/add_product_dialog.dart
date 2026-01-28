@@ -3,15 +3,16 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../models/product.dart';
-import '../../../models/medicine_unit.dart';
-import '../../../database/daos/product_dao.dart';
-import '../../../database/database_helper.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../services/meds_data_service.dart';
-import '../../../core/utils/input_sanitizer.dart';
+import '../domain/entities/add_product_params.dart';
+import '../../../../core/utils/input_sanitizer.dart';
 import '../providers/inventory_providers.dart';
 import 'package:month_picker_dialog/month_picker_dialog.dart';
 
+/// ═══════════════════════════════════════════════════════════════════════════
+/// حوار إضافة منتج جديد - تصميم مبسط مستوحى من Midgram
+/// ═══════════════════════════════════════════════════════════════════════════
 class SimpleAddProductDialog extends ConsumerStatefulWidget {
   const SimpleAddProductDialog({super.key});
 
@@ -23,36 +24,67 @@ class SimpleAddProductDialog extends ConsumerStatefulWidget {
 class _SimpleAddProductDialogState
     extends ConsumerState<SimpleAddProductDialog> {
   final _formKey = GlobalKey<FormState>();
+
+  // ═══════════════ Controllers ═══════════════
   final _nameController = TextEditingController();
   final _companyController = TextEditingController();
   final _barcodeController = TextEditingController();
-  final _quantityController = TextEditingController();
-  final _priceController = TextEditingController();
+  final _boxCountController = TextEditingController(text: '1');
+  final _unitsPerBoxController = TextEditingController(text: '1');
   final _costController = TextEditingController();
+  final _priceController = TextEditingController();
 
-  ProductCategory _category = ProductCategory.tablets;
+  // ═══════════════ State ═══════════════
   DateTime? _expiryDate;
   bool _isLoading = false;
-
-  // ✅ الوحدات - بتسميات واضحة
-  MedicineUnit _singleUnit = MedicineUnit.strip; // الوحدة المفردة
-  bool _hasPackage = false; // هل له تعبئة (باكيت/كرتون)؟
-  int _qtyPerPackage = 10; // كم وحدة في الباكيت
-
-  // ✅ توضيح السعر المُدخل
-  String _priceFor = 'single'; // 'single' أو 'package'
+  bool _hasBox = true;
 
   // AutoComplete
   List<Map<String, dynamic>> _suggestions = [];
   bool _showSuggestions = false;
   final FocusNode _nameFocusNode = FocusNode();
 
+  // ═══════════════ Computed Values ═══════════════
+  int get _boxCount =>
+      _hasBox ? (int.tryParse(_boxCountController.text) ?? 0) : 1;
+  int get _unitsPerBox =>
+      _hasBox ? (int.tryParse(_unitsPerBoxController.text) ?? 1) : 1;
+  int get _totalUnits => _hasBox
+      ? _boxCount * _unitsPerBox
+      : (int.tryParse(_boxCountController.text) ??
+          0); // في حالة وحدات فقط: _boxCountController = عدد الوحدات
+  double get _boxCost => double.tryParse(_costController.text) ?? 0;
+  double get _boxPrice => double.tryParse(_priceController.text) ?? 0;
+  double get _unitCost =>
+      _hasBox && _unitsPerBox > 0 ? _boxCost / _unitsPerBox : _boxCost;
+  double get _unitPrice =>
+      _hasBox && _unitsPerBox > 0 ? _boxPrice / _unitsPerBox : _boxPrice;
+
   @override
   void initState() {
     super.initState();
     _nameController.addListener(_onNameChanged);
+    // إعادة بناء عند تغيير القيم
+    _boxCountController.addListener(() => setState(() {}));
+    _unitsPerBoxController.addListener(() => setState(() {}));
+    _costController.addListener(() => setState(() {}));
+    _priceController.addListener(() => setState(() {}));
   }
 
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _companyController.dispose();
+    _barcodeController.dispose();
+    _boxCountController.dispose();
+    _unitsPerBoxController.dispose();
+    _costController.dispose();
+    _priceController.dispose();
+    _nameFocusNode.dispose();
+    super.dispose();
+  }
+
+  // ═══════════════ البحث الذكي ═══════════════
   void _onNameChanged() {
     final query = _nameController.text.trim();
     if (query.length < 2) {
@@ -70,198 +102,88 @@ class _SimpleAddProductDialogState
     });
   }
 
+  /// 🧠 اختيار من قاعدة البيانات - ملء تلقائي ذكي
   void _selectFromDatabase(Map<String, dynamic> med) {
     setState(() {
       _nameController.text = med['name'] ?? '';
       _companyController.text = med['manufacturer'] ?? '';
       _barcodeController.text = med['barcode'] ?? '';
 
-      // ✅ تحليل ذكي جداً للـ unit من JSON
-      final String unit = med['unit']?.toString().toLowerCase() ?? '';
-
-      // 🧠 تحليل الوحدة والفئة تلقائياً
-      _analyzeUnitAndCategory(unit);
-
+      // ✅ ملء الأسعار تلقائياً
       final double price = med['price']?.toDouble() ?? 0.0;
       final double cost = med['cost']?.toDouble() ?? 0.0;
-
       _priceController.text = price > 0 ? price.toStringAsFixed(0) : '';
       _costController.text = cost > 0 ? cost.toStringAsFixed(0) : '';
+
+      // ✅ ملء التعبئة إذا متوفرة
+      final int unitsPerBox =
+          med['units_per_box'] ?? med['strips_per_box'] ?? 0;
+      if (unitsPerBox > 0) {
+        _unitsPerBoxController.text = unitsPerBox.toString();
+        _hasBox = true;
+      }
 
       _showSuggestions = false;
       _suggestions = [];
     });
 
-    // ✅ إظهار رسالة التحليل الذكي
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '🧠 تحليل ذكي: ${_category.arabicName} • ${_singleUnit.arabicName}'
-            '${_hasPackage ? " • باكيت ($_qtyPerPackage)" : ""}',
-            style: GoogleFonts.tajawal(fontSize: 13),
-          ),
-          backgroundColor: AppColors.primary,
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppToast.info(context, '🧠 تم ملء البيانات تلقائياً');
     }
   }
 
-  /// 🧠 تحليل ذكي للوحدة والفئة من النص
-  void _analyzeUnitAndCategory(String unit) {
-    // تنظيف النص
-    final u = unit.toLowerCase().trim();
-
-    // ✅ أقراص وكبسولات
-    if (u.contains('tab') || u.contains('cap') || u.contains('caplet')) {
-      _category = ProductCategory.tablets;
-      _singleUnit = MedicineUnit.strip;
-      _hasPackage = true;
-      _priceFor = 'package';
-
-      // محاولة استخراج العدد من النص
-      final match = RegExp(r'(\d+)\s*(tab|cap)').firstMatch(u);
-      if (match != null) {
-        _qtyPerPackage = int.tryParse(match.group(1) ?? '10') ?? 10;
-      } else {
-        _qtyPerPackage = 10; // افتراضي
-      }
-    }
-    // ✅ شراب/زجاجة
-    else if (u.contains('syrup') ||
-        u.contains('bottle') ||
-        u.contains('susp')) {
-      _category = ProductCategory.syrups;
-      _singleUnit = MedicineUnit.bottle;
-      _hasPackage = false;
-      _priceFor = 'single';
-    }
-    // ✅ حقن - أمبول أو فيال
-    else if (u.contains('amp') ||
-        u.contains('vial') ||
-        u.contains('inj') ||
-        u.contains('i.m') ||
-        u.contains('i.v')) {
-      _category = ProductCategory.injections;
-
-      // تحديد أمبول أو فيال
-      if (u.contains('vial')) {
-        _singleUnit = MedicineUnit.vial;
-      } else {
-        _singleUnit = MedicineUnit.ampoule;
-      }
-
-      // هل له باكيت؟
-      final match = RegExp(r'(\d+)\s*(amp|vial)').firstMatch(u);
-      if (match != null) {
-        final qty = int.tryParse(match.group(1) ?? '1') ?? 1;
-        if (qty > 1) {
-          _hasPackage = true;
-          _qtyPerPackage = qty;
-          _priceFor = 'package';
-        } else {
-          _hasPackage = false;
-          _priceFor = 'single';
-        }
-      } else {
-        _hasPackage = false;
-        _priceFor = 'single';
-      }
-    }
-    // ✅ كريم/مرهم/جل
-    else if (u.contains('cream') || u.contains('oint') || u.contains('gel')) {
-      _category = ProductCategory.creams;
-      _singleUnit = MedicineUnit.tube;
-      _hasPackage = false;
-      _priceFor = 'single';
-    }
-    // ✅ قطرات
-    else if (u.contains('drop') || u.contains('eye') || u.contains('ear')) {
-      _category = ProductCategory.drops;
-      _singleUnit = MedicineUnit.drops;
-      _hasPackage = false;
-      _priceFor = 'single';
-    }
-    // ✅ بخاخ
-    else if (u.contains('spray') || u.contains('nasal')) {
-      _category = ProductCategory.sprays;
-      _singleUnit = MedicineUnit.spray;
-      _hasPackage = false;
-      _priceFor = 'single';
-    }
-    // ✅ تحاميل
-    else if (u.contains('supp')) {
-      _category = ProductCategory.suppositories;
-      _singleUnit = MedicineUnit.suppository;
-
-      final match = RegExp(r'(\d+)\s*supp').firstMatch(u);
-      if (match != null) {
-        _qtyPerPackage = int.tryParse(match.group(1) ?? '6') ?? 6;
-        _hasPackage = true;
-        _priceFor = 'package';
-      } else {
-        _qtyPerPackage = 6;
-        _hasPackage = true;
-        _priceFor = 'package';
-      }
-    }
-    // ✅ الافتراضي
-    else {
-      _category = ProductCategory.tablets;
-      _singleUnit = MedicineUnit.strip;
-      _hasPackage = false;
-      _priceFor = 'single';
-    }
-  }
-
+  // ═══════════════ BUILD ═══════════════
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      child: Container(
-        width: 750,
-        constraints: const BoxConstraints(maxHeight: 900),
-        padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(),
-                const SizedBox(height: 20),
-                _buildProductInfo(),
-                const SizedBox(height: 16),
-                _buildUnitsSection(),
-                const SizedBox(height: 16),
-                _buildPricingSection(),
-                const SizedBox(height: 16),
-                _buildExpiryDate(),
-                const SizedBox(height: 24),
-                _buildActions(),
-              ],
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth > 600;
+          final dialogWidth = isWide
+              ? constraints.maxWidth.clamp(500.0, 700.0)
+              : constraints.maxWidth;
+
+          return Container(
+            width: dialogWidth,
+            constraints: BoxConstraints(maxHeight: constraints.maxHeight * 0.9),
+            padding: EdgeInsets.all(isWide ? 20 : 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
             ),
-          ),
-        ),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildHeader(),
+                  const SizedBox(height: 16),
+                  Flexible(child: _buildContent(isWide)),
+                  const SizedBox(height: 16),
+                  _buildActions(),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
 
+  // ═══════════════ الهيدر ═══════════════
   Widget _buildHeader() {
     return Row(
       children: [
         Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: AppColors.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: const Icon(
-            Icons.add_shopping_cart,
-            color: AppColors.primary,
-            size: 28,
-          ),
+          child: const Icon(Icons.add_box_rounded,
+              color: AppColors.primary, size: 24),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -271,15 +193,15 @@ class _SimpleAddProductDialogState
               Text(
                 'إضافة منتج جديد',
                 style: GoogleFonts.tajawal(
-                  fontSize: 20,
+                  fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
+                  color: AppColors.textPrimary,
                 ),
               ),
               Text(
-                'أدخل البيانات بوضوح',
+                'أدخل بيانات المنتج',
                 style: GoogleFonts.tajawal(
-                  fontSize: 13,
+                  fontSize: 12,
                   color: AppColors.textSecondary,
                 ),
               ),
@@ -287,714 +209,599 @@ class _SimpleAddProductDialogState
           ),
         ),
         IconButton(
-          icon: const Icon(Icons.close),
           onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.close, size: 22),
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.grey.shade100,
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildProductInfo() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // اسم المنتج مع Autocomplete
-        SizedBox(
-          height: _showSuggestions ? 300 : 60,
-          child: Stack(
-            children: [
-              TextFormField(
-                controller: _nameController,
-                focusNode: _nameFocusNode,
-                inputFormatters: [
-                  FilteringTextInputFormatter.deny(RegExp(r'[<>{}"\\\[\]]')),
-                  LengthLimitingTextInputFormatter(200),
-                ],
-                decoration: InputDecoration(
-                  labelText: 'اسم المنتج *',
-                  hintText: 'ابدأ الكتابة للبحث...',
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.medication),
-                  labelStyle: GoogleFonts.tajawal(),
-                ),
-                validator: (v) {
-                  if (v?.trim().isEmpty ?? true) return 'مطلوب';
-                  if (InputSanitizer.containsXss(v!) ||
-                      InputSanitizer.containsSqlInjection(v)) {
-                    return 'اسم المنتج يحتوي على أحرف غير مسموح بها';
-                  }
-                  return null;
-                },
-              ),
-              if (_showSuggestions && _suggestions.isNotEmpty)
-                Positioned(
-                  top: 60,
-                  left: 0,
-                  right: 0,
-                  child: Material(
-                    elevation: 8,
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      constraints: const BoxConstraints(maxHeight: 230),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: AppColors.primary, width: 2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: _suggestions.length,
-                        itemBuilder: (context, index) {
-                          final med = _suggestions[index];
-                          return ListTile(
-                            leading: const Icon(Icons.medication,
-                                color: AppColors.primary),
-                            title: Text(med['name'] ?? '',
-                                style: GoogleFonts.tajawal(fontSize: 13)),
-                            subtitle: Text(
-                              '${med['manufacturer'] ?? ''} • ${med['price']} د.ع',
-                              style: GoogleFonts.tajawal(fontSize: 11),
-                            ),
-                            onTap: () => _selectFromDatabase(med),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        // الشركة والباركود
-        Row(
-          children: [
-            Expanded(
-              flex: 2,
-              child: TextFormField(
-                controller: _companyController,
-                inputFormatters: [
-                  FilteringTextInputFormatter.deny(RegExp(r'[<>{}"\\\[\]]')),
-                  LengthLimitingTextInputFormatter(100),
-                ],
-                decoration: InputDecoration(
-                  labelText: 'الشركة',
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.business),
-                  labelStyle: GoogleFonts.tajawal(),
-                ),
-              ),
+  // ═══════════════ المحتوى الرئيسي ═══════════════
+  Widget _buildContent(bool isWide) {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ─── معلومات المنتج ───
+          _buildSectionTitle('📦 معلومات المنتج'),
+          const SizedBox(height: 8),
+          _buildProductNameField(),
+          const SizedBox(height: 10),
+          _buildRow([
+            _buildTextField(
+              controller: _companyController,
+              label: 'الشركة المصنعة',
+              icon: Icons.business,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextFormField(
-                controller: _barcodeController,
-                inputFormatters: InputSanitizer.barcodeFormatters,
-                decoration: InputDecoration(
-                  labelText: 'باركود',
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.qr_code),
-                  labelStyle: GoogleFonts.tajawal(),
-                ),
+            _buildTextField(
+              controller: _barcodeController,
+              label: 'الباركود',
+              icon: Icons.qr_code,
+            ),
+          ]),
+
+          const SizedBox(height: 20),
+
+          // ─── المخزون ───
+          _buildSectionTitle('📊 المخزون'),
+          const SizedBox(height: 8),
+
+          // ✅ Toggle: وحدات فقط / علبة + وحدات
+          _buildEntryModeToggle(),
+          const SizedBox(height: 12),
+
+          // الحقول حسب نوع الإدخال
+          if (_hasBox) ...[
+            // علبة + وحدات
+            _buildRow([
+              _buildNumberField(
+                controller: _boxCountController,
+                label: 'عدد العلب',
+                icon: Icons.inventory_2_outlined,
               ),
+              _buildNumberField(
+                controller: _unitsPerBoxController,
+                label: 'التعبئة (وحدة/علبة)',
+                icon: Icons.grid_view_rounded,
+              ),
+            ]),
+          ] else ...[
+            // وحدات فقط
+            _buildNumberField(
+              controller: _boxCountController,
+              label: 'عدد الوحدات',
+              icon: Icons.inventory_2_outlined,
             ),
           ],
-        ),
-        const SizedBox(height: 12),
+          const SizedBox(height: 8),
+          _buildTotalUnitsCard(),
 
-        // الفئة
-        DropdownButtonFormField<ProductCategory>(
-          initialValue: _category,
-          decoration: InputDecoration(
-            labelText: 'الفئة *',
-            border: const OutlineInputBorder(),
-            prefixIcon: const Icon(Icons.category),
-            labelStyle: GoogleFonts.tajawal(),
-          ),
-          items: ProductCategory.values
-              .map((cat) => DropdownMenuItem(
-                    value: cat,
-                    child: Text(cat.arabicName, style: GoogleFonts.tajawal()),
-                  ))
-              .toList(),
-          onChanged: (v) => setState(() => _category = v!),
-        ),
-      ],
+          const SizedBox(height: 20),
+
+          // ─── الأسعار ───
+          _buildSectionTitle(
+              _hasBox ? '💰 الأسعار (للعلبة الواحدة)' : '💰 الأسعار (للوحدة)'),
+          const SizedBox(height: 8),
+          _buildRow([
+            _buildPriceField(
+              controller: _costController,
+              label: 'سعر الشراء',
+              icon: Icons.shopping_cart_outlined,
+              color: Colors.orange,
+            ),
+            _buildPriceField(
+              controller: _priceController,
+              label: 'سعر البيع',
+              icon: Icons.sell_outlined,
+              color: Colors.green,
+            ),
+          ]),
+          if (_hasBox && _unitsPerBox > 1) ...[
+            const SizedBox(height: 8),
+            _buildUnitPricesCard(),
+          ],
+
+          const SizedBox(height: 20),
+
+          // ─── تاريخ الصلاحية ───
+          _buildSectionTitle('📅 تاريخ الصلاحية'),
+          const SizedBox(height: 8),
+          _buildExpiryDateField(),
+        ],
+      ),
     );
   }
 
-  Widget _buildUnitsSection() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
-        borderRadius: BorderRadius.circular(12),
-        color: Colors.blue.shade50,
+  // ═══════════════ عنوان القسم ═══════════════
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: GoogleFonts.tajawal(
+        fontSize: 14,
+        fontWeight: FontWeight.bold,
+        color: AppColors.primary,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.inventory_2, color: AppColors.primary, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                'إعدادات الوحدات والتعبئة',
-                style: GoogleFonts.tajawal(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
+    );
+  }
 
-          // ✅ الوحدة المفردة (واضحة)
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+  // ═══════════════ صف من الحقول ═══════════════
+  Widget _buildRow(List<Widget> children) {
+    return Row(
+      children: children
+          .expand((w) => [Expanded(child: w), const SizedBox(width: 10)])
+          .toList()
+        ..removeLast(),
+    );
+  }
+
+  // ═══════════════ Toggle: وحدة/علبة ═══════════════
+  Widget _buildEntryModeToggle() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          // وحدات فقط
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _hasBox = false),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: !_hasBox ? AppColors.primary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
+                    Icon(
+                      Icons.water_drop_outlined,
+                      size: 18,
+                      color: !_hasBox ? Colors.white : Colors.grey,
+                    ),
+                    const SizedBox(width: 6),
                     Text(
-                      'الوحدة المفردة (الأساس)',
+                      'وحدات فقط',
                       style: GoogleFonts.tajawal(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
+                        color: !_hasBox ? Colors.white : Colors.grey.shade600,
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    DropdownButtonFormField<MedicineUnit>(
-                      initialValue: _singleUnit,
-                      decoration: InputDecoration(
-                        border: const OutlineInputBorder(),
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
-                        labelStyle: GoogleFonts.tajawal(),
-                      ),
-                      items: [
-                        MedicineUnit.strip,
-                        MedicineUnit.bottle,
-                        MedicineUnit.ampoule,
-                        MedicineUnit.vial,
-                        MedicineUnit.tube,
-                        MedicineUnit.suppository,
-                        MedicineUnit.drops,
-                        MedicineUnit.spray,
-                      ]
-                          .map((u) => DropdownMenuItem(
-                                value: u,
-                                child: Text(u.arabicName,
-                                    style: GoogleFonts.tajawal()),
-                              ))
-                          .toList(),
-                      onChanged: (v) => setState(() => _singleUnit = v!),
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // ✅ هل له تعبئة (باكيت/كرتون)؟
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: Row(
-              children: [
-                Checkbox(
-                  value: _hasPackage,
-                  onChanged: (v) => setState(() => _hasPackage = v ?? false),
-                  activeColor: AppColors.primary,
-                ),
-                Expanded(
-                  child: Text(
-                    'هل المنتج يأتي في باكيت أو كرتون؟',
-                    style: GoogleFonts.tajawal(fontSize: 14),
-                  ),
-                ),
-              ],
             ),
           ),
-
-          // ✅ إذا كان له باكيت - كم وحدة في الباكيت؟
-          if (_hasPackage) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.success.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.success, width: 2),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'كم ${_singleUnit.arabicName} في الباكيت/الكرتون؟',
-                    style: GoogleFonts.tajawal(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.success,
+          // علبة + وحدات
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _hasBox = true),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: _hasBox ? AppColors.primary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.inventory_2_outlined,
+                      size: 18,
+                      color: _hasBox ? Colors.white : Colors.grey,
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    initialValue: _qtyPerPackage.toString(),
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      border: const OutlineInputBorder(),
-                      filled: true,
-                      fillColor: Colors.white,
-                      hintText: 'مثال: 10',
-                      labelStyle: GoogleFonts.tajawal(),
+                    const SizedBox(width: 6),
+                    Text(
+                      'علبة + وحدات',
+                      style: GoogleFonts.tajawal(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: _hasBox ? Colors.white : Colors.grey.shade600,
+                      ),
                     ),
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    onChanged: (v) =>
-                        setState(() => _qtyPerPackage = int.tryParse(v) ?? 10),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '✅ 1 باكيت = $_qtyPerPackage ${_singleUnit.arabicName}',
-                    style: GoogleFonts.tajawal(
-                      fontSize: 12,
-                      color: AppColors.success,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildPricingSection() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
-        borderRadius: BorderRadius.circular(12),
-        color: Colors.amber.shade50,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.attach_money,
-                  color: AppColors.primary, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                'الأسعار والكمية',
-                style: GoogleFonts.tajawal(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // ✅ الكمية - ديناميكية حسب وجود الباكيت
-          TextFormField(
-            controller: _quantityController,
-            keyboardType: TextInputType.number,
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(8),
-            ],
-            decoration: InputDecoration(
-              labelText: _hasPackage
-                  ? 'الكمية (بالباكيت) *'
-                  : 'الكمية (بالـ ${_singleUnit.arabicName}) *',
-              hintText: _hasPackage
-                  ? 'كم باكيت موجود؟'
-                  : 'كم ${_singleUnit.arabicName} موجود؟',
-              border: const OutlineInputBorder(),
-              prefixIcon: const Icon(Icons.inventory),
-              labelStyle: GoogleFonts.tajawal(),
-              helperText: _hasPackage
-                  ? 'سيتم حساب عدد ${_singleUnit.arabicName} تلقائياً'
-                  : null,
-              helperStyle: GoogleFonts.tajawal(
-                fontSize: 11,
-                color: AppColors.success,
-              ),
-            ),
-            validator: (v) =>
-                int.tryParse(v ?? '') == null ? 'أدخل رقم صحيح' : null,
-          ),
-
-          // ✅ عرض الحساب التلقائي للوحدات
-          if (_hasPackage && _quantityController.text.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: AppColors.primary.withValues(alpha: 0.3),
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.calculate,
-                      color: AppColors.primary, size: 18),
-                  const SizedBox(width: 8),
-                  Text(
-                    'الإجمالي: ${(int.tryParse(_quantityController.text) ?? 0) * _qtyPerPackage} ${_singleUnit.arabicName}',
-                    style: GoogleFonts.tajawal(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+  // ═══════════════ حقل اسم المنتج مع البحث ═══════════════
+  Widget _buildProductNameField() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TextFormField(
+          controller: _nameController,
+          focusNode: _nameFocusNode,
+          style: GoogleFonts.tajawal(fontSize: 14),
+          inputFormatters: [
+            FilteringTextInputFormatter.deny(RegExp(r'[<>{}\"\\]')),
+            LengthLimitingTextInputFormatter(200),
           ],
+          decoration: InputDecoration(
+            labelText: 'اسم المنتج *',
+            hintText: 'ابدأ الكتابة للبحث...',
+            isDense: true,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            prefixIcon: const Icon(Icons.medication, size: 20),
+            labelStyle: GoogleFonts.tajawal(fontSize: 13),
+          ),
+          validator: (v) {
+            if (v?.trim().isEmpty ?? true) return 'مطلوب';
+            if (InputSanitizer.containsXss(v!) ||
+                InputSanitizer.containsSqlInjection(v)) {
+              return 'اسم غير صالح';
+            }
+            return null;
+          },
+        ),
+        if (_showSuggestions && _suggestions.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(top: 4),
+            constraints: const BoxConstraints(maxHeight: 150),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: AppColors.primary, width: 2),
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: ListView.separated(
+              shrinkWrap: true,
+              padding: EdgeInsets.zero,
+              itemCount: _suggestions.length.clamp(0, 5),
+              separatorBuilder: (_, __) =>
+                  Divider(height: 1, color: Colors.grey.shade200),
+              itemBuilder: (context, index) {
+                final med = _suggestions[index];
+                return ListTile(
+                  dense: true,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  leading: const Icon(Icons.medication,
+                      color: AppColors.primary, size: 20),
+                  title: Text(
+                    med['name'] ?? '',
+                    style: GoogleFonts.tajawal(
+                        fontSize: 13, fontWeight: FontWeight.w500),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    med['manufacturer'] ?? '',
+                    style:
+                        GoogleFonts.tajawal(fontSize: 11, color: Colors.grey),
+                    maxLines: 1,
+                  ),
+                  onTap: () => _selectFromDatabase(med),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
 
-          const SizedBox(height: 16),
+  // ═══════════════ حقل نص عادي ═══════════════
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+  }) {
+    return TextFormField(
+      controller: controller,
+      style: GoogleFonts.tajawal(fontSize: 14),
+      decoration: InputDecoration(
+        labelText: label,
+        isDense: true,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        prefixIcon: Icon(icon, size: 20),
+        labelStyle: GoogleFonts.tajawal(fontSize: 13),
+      ),
+    );
+  }
 
-          // ✅ السعر المُدخل لـ ؟
+  // ═══════════════ حقل رقم ═══════════════
+  Widget _buildNumberField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+  }) {
+    return TextFormField(
+      controller: controller,
+      style: GoogleFonts.tajawal(fontSize: 14),
+      keyboardType: TextInputType.number,
+      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+      decoration: InputDecoration(
+        labelText: label,
+        isDense: true,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        prefixIcon: Icon(icon, size: 20),
+        labelStyle: GoogleFonts.tajawal(fontSize: 13),
+      ),
+      validator: (v) {
+        if (v?.isEmpty ?? true) return 'مطلوب';
+        if ((int.tryParse(v!) ?? 0) <= 0) return 'أدخل رقم صحيح';
+        return null;
+      },
+    );
+  }
+
+  // ═══════════════ حقل سعر ═══════════════
+  Widget _buildPriceField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    required Color color,
+  }) {
+    return TextFormField(
+      controller: controller,
+      style: GoogleFonts.tajawal(fontSize: 14),
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      inputFormatters: [
+        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+      ],
+      decoration: InputDecoration(
+        labelText: label,
+        isDense: true,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        prefixIcon: Icon(icon, size: 20, color: color),
+        suffixText: 'د.ع',
+        labelStyle: GoogleFonts.tajawal(fontSize: 13),
+      ),
+      validator: (v) {
+        if (v?.isEmpty ?? true) return 'مطلوب';
+        return null;
+      },
+    );
+  }
+
+  // ═══════════════ بطاقة إجمالي الوحدات ═══════════════
+  Widget _buildTotalUnitsCard() {
+    // بناء نص الإجمالي بالترتيب العربي الصحيح
+    String detailText = '';
+    if (_hasBox) {
+      detailText = '  ($_boxCount علبة × $_unitsPerBox وحدة)';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.calculate_outlined,
+              color: AppColors.primary, size: 20),
+          const SizedBox(width: 8),
           Text(
-            'السعر المُدخل هو لـ:',
+            'الإجمالي: $_totalUnits وحدة$detailText',
             style: GoogleFonts.tajawal(
               fontSize: 13,
               fontWeight: FontWeight.w600,
+              color: AppColors.primary,
             ),
+            textDirection: TextDirection.rtl,
           ),
-          const SizedBox(height: 8),
-          RadioGroup<String>(
-            groupValue: _priceFor,
-            onChanged: (value) {
-              if (value == null) return;
-              setState(() => _priceFor = value);
-            },
-            child: Row(
-              children: [
-                Expanded(
-                  child: RadioListTile<String>(
-                    title: Text('${_singleUnit.arabicName} واحد',
-                        style: GoogleFonts.tajawal(fontSize: 13)),
-                    value: 'single',
-                    activeColor: AppColors.primary,
-                    dense: true,
-                  ),
-                ),
-                if (_hasPackage)
-                  Expanded(
-                    child: RadioListTile<String>(
-                      title: Text('الباكيت كامل',
-                          style: GoogleFonts.tajawal(fontSize: 13)),
-                      value: 'package',
-                      activeColor: AppColors.primary,
-                      dense: true,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // الأسعار
-          Row(
-            children: [
-              Expanded(
-                child: TextFormField(
-                  controller: _costController,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(
-                        RegExp(r'^\d+\.?\d{0,2}')),
-                    LengthLimitingTextInputFormatter(10),
-                  ],
-                  decoration: InputDecoration(
-                    labelText: 'سعر التكلفة *',
-                    suffixText: 'د.ع',
-                    border: const OutlineInputBorder(),
-                    prefixIcon: const Icon(Icons.shopping_cart),
-                    labelStyle: GoogleFonts.tajawal(),
-                  ),
-                  validator: (v) =>
-                      double.tryParse(v ?? '') == null ? 'مطلوب' : null,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextFormField(
-                  controller: _priceController,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(
-                        RegExp(r'^\d+\.?\d{0,2}')),
-                    LengthLimitingTextInputFormatter(10),
-                  ],
-                  decoration: InputDecoration(
-                    labelText: 'سعر البيع *',
-                    suffixText: 'د.ع',
-                    border: const OutlineInputBorder(),
-                    prefixIcon: const Icon(Icons.sell),
-                    labelStyle: GoogleFonts.tajawal(),
-                  ),
-                  validator: (v) =>
-                      double.tryParse(v ?? '') == null ? 'مطلوب' : null,
-                ),
-              ),
-            ],
-          ),
-
-          // ✅ عرض الأسعار المحسوبة
-          if (_priceFor == 'package' && _hasPackage) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '💡 الأسعار للوحدة المفردة:',
-                    style: GoogleFonts.tajawal(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  _buildCalculatedPrice(
-                    'التكلفة',
-                    double.tryParse(_costController.text) ?? 0,
-                  ),
-                  _buildCalculatedPrice(
-                    'البيع',
-                    double.tryParse(_priceController.text) ?? 0,
-                  ),
-                ],
-              ),
-            ),
-          ],
         ],
       ),
     );
   }
 
-  Widget _buildCalculatedPrice(String label, double packagePrice) {
-    final singlePrice = packagePrice / _qtyPerPackage;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  // ═══════════════ بطاقة أسعار الوحدة ═══════════════
+  Widget _buildUnitPricesCard() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildPriceChip('تكلفة الوحدة', _unitCost, Colors.orange),
+          Container(width: 1, height: 30, color: Colors.grey.shade300),
+          _buildPriceChip('بيع الوحدة', _unitPrice, Colors.green),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPriceChip(String label, double value, Color color) {
+    return Column(
       children: [
         Text(
-          '$label للـ${_singleUnit.arabicName}:',
+          label,
           style:
               GoogleFonts.tajawal(fontSize: 11, color: AppColors.textSecondary),
         ),
+        const SizedBox(height: 2),
         Text(
-          '${singlePrice.toStringAsFixed(0)} د.ع',
+          '${value.toStringAsFixed(0)} د.ع',
           style: GoogleFonts.tajawal(
-            fontSize: 12,
+            fontSize: 13,
             fontWeight: FontWeight.bold,
-            color: AppColors.success,
+            color: color,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildExpiryDate() {
-    bool showError = (_expiryDate == null);
-    return GestureDetector(
-      onTap: () async {
-        final picked = await showMonthPicker(
-          context: context,
-          initialDate:
-              _expiryDate ?? DateTime.now().add(const Duration(days: 365)),
-          firstDate: DateTime.now(),
-          lastDate: DateTime(2040),
-        );
-        if (picked != null) {
-          setState(
-              () => _expiryDate = DateTime(picked.year, picked.month + 1, 0));
-        }
-      },
+  // ═══════════════ حقل تاريخ الصلاحية ═══════════════
+  Widget _buildExpiryDateField() {
+    return InkWell(
+      onTap: _pickExpiryDate,
+      borderRadius: BorderRadius.circular(10),
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
-          border: Border.all(
-            color: showError ? Colors.red.shade700 : Colors.grey.shade300,
-          ),
-          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey.shade400),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           children: [
-            const Icon(Icons.calendar_month, color: AppColors.primary),
-            const SizedBox(width: 12),
+            Icon(
+              Icons.calendar_month,
+              size: 20,
+              color: _expiryDate != null ? AppColors.primary : Colors.grey,
+            ),
+            const SizedBox(width: 10),
             Text(
               _expiryDate != null
-                  ? 'الصلاحية: ${_expiryDate!.month}/${_expiryDate!.year}'
-                  : 'تاريخ الصلاحية ',
+                  ? '${_expiryDate!.month}/${_expiryDate!.year}'
+                  : 'اختر تاريخ الانتهاء *',
               style: GoogleFonts.tajawal(
                 fontSize: 14,
-                color: showError ? Colors.red.shade700 : Colors.black87,
+                color:
+                    _expiryDate != null ? AppColors.textPrimary : Colors.grey,
               ),
             ),
+            const Spacer(),
+            if (_expiryDate != null)
+              const Icon(Icons.check_circle, color: Colors.green, size: 20),
           ],
         ),
       ),
     );
   }
 
+  Future<void> _pickExpiryDate() async {
+    final picked = await showMonthPicker(
+      context: context,
+      initialDate: _expiryDate ?? DateTime.now().add(const Duration(days: 365)),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 10)),
+    );
+    if (picked != null) {
+      setState(() {
+        _expiryDate = DateTime(picked.year, picked.month, 1);
+      });
+    }
+  }
+
+  // ═══════════════ الأزرار ═══════════════
   Widget _buildActions() {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text('إلغاء', style: GoogleFonts.tajawal()),
+        Expanded(
+          child: OutlinedButton(
+            onPressed: () => Navigator.pop(context),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: Text(
+              'إلغاء',
+              style: GoogleFonts.tajawal(
+                  fontSize: 14, fontWeight: FontWeight.w500),
+            ),
+          ),
         ),
         const SizedBox(width: 12),
-        ElevatedButton.icon(
-          onPressed: _isLoading ? null : _saveProduct,
-          icon: _isLoading
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-              : const Icon(Icons.save),
-          label: Text('حفظ المنتج', style: GoogleFonts.tajawal(fontSize: 15)),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+        Expanded(
+          flex: 2,
+          child: ElevatedButton.icon(
+            onPressed: _isLoading ? null : _submit,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            icon: _isLoading
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.add_circle_outline, size: 20),
+            label: Text(
+              _isLoading ? 'جاري الإضافة...' : 'إضافة المنتج',
+              style: GoogleFonts.tajawal(
+                  fontSize: 14, fontWeight: FontWeight.bold),
+            ),
           ),
         ),
       ],
     );
   }
 
-  Future<void> _saveProduct() async {
+  // ═══════════════ إرسال البيانات ═══════════════
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (_expiryDate == null) {
+      AppToast.warning(context, 'اختر تاريخ الانتهاء');
+      return;
+    }
 
     setState(() => _isLoading = true);
 
     try {
-      final dao = ProductDAO();
-      final db = await DatabaseHelper().database;
-      final result = await db.rawQuery(
-          'SELECT MAX(CAST(id AS INTEGER)) as maxId FROM products WHERE id GLOB "[0-9]*"');
-      final maxId = (result.first['maxId'] as int?) ?? 0;
-      final newId = (maxId + 1).toString();
-
-      var quantity = int.parse(_quantityController.text);
-      var costPrice = double.parse(_costController.text);
-      var sellPrice = double.parse(_priceController.text);
-
-      // ✅ تحويل الكمية من باكيت إلى وحدات أساسية
-      if (_hasPackage) {
-        quantity = quantity * _qtyPerPackage; // الكمية المُدخلة كانت بالباكيت
-      }
-
-      // ✅ تحويل الأسعار إذا كانت للباكيت
-      if (_priceFor == 'package' && _hasPackage) {
-        costPrice = costPrice / _qtyPerPackage;
-        sellPrice = sellPrice / _qtyPerPackage;
-      }
-
-      // بناء unitInfo
-      final Map<MedicineUnit, UnitInfo> unitInfo = {
-        _singleUnit: UnitInfo(
-          sellingPrice: sellPrice,
-          costPrice: costPrice,
-          conversionToBase: 1.0,
-          description: _singleUnit.arabicName,
-        ),
-      };
-
-      if (_hasPackage) {
-        unitInfo[MedicineUnit.carton] = UnitInfo(
-          sellingPrice: sellPrice * _qtyPerPackage,
-          costPrice: costPrice * _qtyPerPackage,
-          conversionToBase: _qtyPerPackage.toDouble(),
-          description: 'باكيت = $_qtyPerPackage ${_singleUnit.arabicName}',
-        );
-      }
-
-      final product = Product(
-        id: newId,
+      final params = AddProductParams(
         name: _nameController.text.trim(),
-        scientificName: null,
-        company: _companyController.text.trim().ifEmpty('غير محدد'),
-        category: _category,
-        barcode: _barcodeController.text.trim().ifEmpty('BARCODE$newId'),
-        baseUnit: _singleUnit,
-        unitInfo: unitInfo,
-        currentStock: quantity.toDouble(),
-        minStockLevel: 10.0,
-        expiryDate: _expiryDate,
-        productionDate: null,
-        isActive: true,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
+        company: _companyController.text.trim(),
+        barcode: _barcodeController.text.trim(),
+        quantity: _totalUnits,
+        cost: _unitCost,
+        price: _unitPrice,
+        expiryDate: _expiryDate!,
+        boxCount: _boxCount,
+        unitsPerBox: _unitsPerBox,
+        boxCost: _boxCost,
+        boxPrice: _boxPrice,
       );
 
-      await dao.insert(product);
+      await ref.read(inventoryControllerProvider.notifier).addProduct(params);
 
-      if (!mounted) return;
-
-      ref.invalidate(productsProvider);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content:
-              Text('✅ تم حفظ ${product.name}', style: GoogleFonts.tajawal()),
-          backgroundColor: AppColors.success,
-        ),
-      );
-
-      Navigator.pop(context);
+      if (mounted) {
+        AppToast.success(context, 'تم إضافة المنتج بنجاح ✅');
+        Navigator.pop(context);
+      }
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('❌ خطأ: $e', style: GoogleFonts.tajawal()),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      if (mounted) {
+        AppToast.error(context, 'حدث خطأ: $e');
+      }
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _companyController.dispose();
-    _barcodeController.dispose();
-    _quantityController.dispose();
-    _priceController.dispose();
-    _costController.dispose();
-    _nameFocusNode.dispose();
-    super.dispose();
-  }
-}
-
-extension on String {
-  String ifEmpty(String defaultValue) => isEmpty ? defaultValue : this;
 }

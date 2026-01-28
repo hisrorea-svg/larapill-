@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:developer' as developer;
 import '../daos/product_dao.dart';
 import '../../models/product.dart';
-import '../../models/medicine_unit.dart';
 
 /// Repository للتعامل مع عمليات المنتجات
 /// يستخدم ProductDAO للتفاعل مع قاعدة البيانات
@@ -137,17 +136,6 @@ class ProductRepository {
       developer.log('❌ خطأ في getProductByBarcode: $e',
           name: 'ProductRepository');
       return null;
-    }
-  }
-
-  // ==================== جلب المنتجات حسب الفئة ====================
-  Future<List<Product>> getProductsByCategory(ProductCategory category) async {
-    try {
-      return await _dao.findByCategory(category);
-    } catch (e) {
-      developer.log('❌ خطأ في getProductsByCategory: $e',
-          name: 'ProductRepository');
-      rethrow;
     }
   }
 

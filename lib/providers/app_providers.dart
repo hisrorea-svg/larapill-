@@ -1,7 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/config/pharmacy_info.dart';
-import '../features/notifications/models/notification.dart'; // ✅ تم الإضافة
-import '../services/notification_service.dart'; // ✅ تم الإضافة
 import '../services/user_service.dart'; // ✅ User model موجود هنا
 import '../database/database_helper.dart';
 
@@ -143,48 +141,6 @@ final userPermissionsProvider = Provider<List<String>>((ref) {
 final isLoggedInProvider = Provider<bool>((ref) {
   return ref.watch(currentUserProvider).when(
         data: (user) => user != null,
-        loading: () => false,
-        error: (_, __) => false,
-      );
-});
-
-// ======================================================================
-// Notification Providers
-// ======================================================================
-
-// ✅ خدمة الإشعارات
-final notificationServiceProvider =
-    Provider<NotificationService>((ref) => NotificationService());
-
-// ✅ جلب جميع الإشعارات
-final notificationsProvider =
-    FutureProvider<List<AppNotification>>((ref) async {
-  final service = ref.read(notificationServiceProvider);
-  return await service.getAllNotifications();
-});
-
-// ✅ عدد الإشعارات غير المقروءة
-final unreadNotificationsCountProvider = FutureProvider<int>((ref) async {
-  final service = ref.read(notificationServiceProvider);
-  return await service.getUnreadCount();
-});
-
-// ✅ الإشعارات غير المقروءة فقط
-final unreadNotificationsProvider =
-    Provider<AsyncValue<List<AppNotification>>>((ref) {
-  return ref.watch(notificationsProvider).when(
-        data: (notifications) => AsyncValue.data(
-          notifications.where((n) => !n.isRead).toList(),
-        ),
-        loading: () => const AsyncValue.loading(),
-        error: (error, stack) => AsyncValue.error(error, stack),
-      );
-});
-
-// ✅ هل يوجد إشعارات غير مقروءة
-final hasUnreadNotificationsProvider = Provider<bool>((ref) {
-  return ref.watch(unreadNotificationsCountProvider).when(
-        data: (count) => count > 0,
         loading: () => false,
         error: (_, __) => false,
       );

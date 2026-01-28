@@ -1,15 +1,19 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:developer' as developer;
 import '../../../core/theme/app_colors.dart';
 import '../../../providers/app_providers.dart';
-import '../../../features/notifications/models/notification.dart';
+import '../../../features/notifications/domain/entities/notification_entity.dart';
+import '../../../features/notifications/domain/entities/notification_type.dart';
+import '../../../features/notifications/domain/entities/notification_priority.dart';
+import '../../../features/notifications/presentation/providers/notification_providers.dart';
 import '../../../services/user_service.dart';
-import '../../../services/notification_service.dart';
 import '../../../services/session_timeout_service.dart';
 import '../../../core/navigation/app_navigator.dart';
-import '../../search/global_search_delegate.dart';
+import '../../../core/navigation/notification_router.dart';
+import '../../notifications/screens/notifications_screen.dart';
 import '../../shared/widgets/session_status_widget.dart';
 import 'package:pelaicons/pelaicons.dart';
 
@@ -40,8 +44,7 @@ class TopBar extends ConsumerWidget {
               color: Colors.white.withValues(alpha: 0.3),
             ),
             const SizedBox(width: 20),
-            _NotificationButton(),
-            const SizedBox(width: 12),
+            // تم دمج أيقونة الإشعارات داخل الشريط
             _UserInfoWidget(),
           ],
         ),
@@ -50,13 +53,58 @@ class TopBar extends ConsumerWidget {
   }
 }
 
-// 🔍 Global Search Button - تصميم نظيف
-class _GlobalSearchButton extends StatelessWidget {
+// 🔔 شريط الإشعارات المتحرك - يعرض الإشعارات واحداً تلو الآخر
+// ✅ مربوط بـ StreamProvider للتحديثات اللحظية
+// ✅ يدعم النقر للتوجيه للصفحة المناسبة
+class _GlobalSearchButton extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<_GlobalSearchButton> createState() =>
+      _GlobalSearchButtonState();
+}
+
+class _GlobalSearchButtonState extends ConsumerState<_GlobalSearchButton>
+    with SingleTickerProviderStateMixin {
+  int _currentIndex = 0;
+  late AnimationController _pulseController;
+  late final StreamSubscription<int> _tickerSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    // تبديل الإشعار كل 8 ثواني
+    _tickerSubscription = Stream.periodic(
+      const Duration(seconds: 8),
+      (i) => i,
+    ).listen((_) {
+      if (mounted) {
+        setState(() {
+          _currentIndex++;
+        });
+      }
+    });
+
+    // أنيميشن نبض للأيقونة
+    _pulseController = AnimationController(
+      duration: const Duration(seconds: 2),
+      vsync: this,
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _tickerSubscription.cancel(); // ✅ إلغاء الاشتراك
+    _pulseController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    // استخدام StreamProvider للتحديثات اللحظية
+    final notificationsAsync = ref.watch(notificationsStreamProvider);
+
     return Container(
       height: 40,
-      constraints: const BoxConstraints(maxWidth: 450),
+      constraints: const BoxConstraints(maxWidth: 500),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(20),
@@ -64,136 +112,199 @@ class _GlobalSearchButton extends StatelessWidget {
           color: Colors.white.withValues(alpha: 0.3),
         ),
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: () {
-            showSearch(
-              context: context,
-              delegate: GlobalSearchDelegate(),
-            );
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.search,
-                  color: Colors.white.withValues(alpha: 0.9),
-                  size: 20,
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  'بحث عن منتج، باركود، أو فاتورة...',
-                  style: GoogleFonts.tajawal(
-                    fontSize: 13,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: notificationsAsync.when(
+          data: (allNotifications) {
+            // فلترة الإشعارات غير المقروءة فقط
+            final notifications =
+                allNotifications.where((n) => !n.isRead).toList();
+
+            if (notifications.isEmpty) {
+              return Row(
+                children: [
+                  Icon(
+                    Icons.notifications_none,
                     color: Colors.white.withValues(alpha: 0.9),
+                    size: 20,
                   ),
-                ),
-                const Spacer(),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    'Ctrl+K',
+                  const SizedBox(width: 12),
+                  Text(
+                    'لا توجد إشعارات جديدة',
                     style: GoogleFonts.tajawal(
-                      fontSize: 11,
-                      color: Colors.white.withValues(alpha: 0.8),
-                      fontWeight: FontWeight.w500,
+                      fontSize: 13,
+                      color: Colors.white.withValues(alpha: 0.9),
                     ),
                   ),
+                ],
+              );
+            }
+
+            // اختيار الإشعار الحالي بناءً على المؤشر
+            final currentNotification =
+                notifications[_currentIndex % notifications.length];
+
+            return InkWell(
+              onTap: () => _onNotificationTap(currentNotification),
+              borderRadius: BorderRadius.circular(20),
+              child: Row(
+                children: [
+                  // أيقونة نابضة
+                  AnimatedBuilder(
+                    animation: _pulseController,
+                    builder: (context, child) {
+                      return Transform.scale(
+                        scale: 1.0 + (_pulseController.value * 0.1),
+                        child: Icon(
+                          Icons.notifications_active,
+                          color: Colors.white.withValues(alpha: 0.95),
+                          size: 18,
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 12),
+
+                  // نص الإشعار مع أنيميشن slide + fade
+                  Expanded(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 400),
+                      transitionBuilder: (child, animation) {
+                        return FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(0, 0.5),
+                              end: Offset.zero,
+                            ).animate(CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeOutBack,
+                            )),
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: Text(
+                        currentNotification.title,
+                        key: ValueKey(currentNotification.id),
+                        style: GoogleFonts.tajawal(
+                          fontSize: 13,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 12),
+
+                  // عداد الإشعارات غير المقروءة
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade400,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${notifications.length} جديد',
+                      style: GoogleFonts.tajawal(
+                        fontSize: 10,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+
+                  // مؤشر التقدم
+                  const SizedBox(width: 8),
+                  Text(
+                    '${(_currentIndex % notifications.length) + 1}/${notifications.length}',
+                    style: GoogleFonts.tajawal(
+                      fontSize: 10,
+                      color: Colors.white.withValues(alpha: 0.7),
+                    ),
+                  ),
+
+                  // زر فتح قائمة الإشعارات
+                  const SizedBox(width: 8),
+                  InkWell(
+                    onTap: () => _showNotificationsPanel(context, ref),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.list,
+                        color: Colors.white.withValues(alpha: 0.9),
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+          loading: () => Row(
+            children: [
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white.withValues(alpha: 0.7),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'جاري تحميل الإشعارات...',
+                style: GoogleFonts.tajawal(
+                  fontSize: 13,
+                  color: Colors.white.withValues(alpha: 0.9),
+                ),
+              ),
+            ],
+          ),
+          error: (_, __) => Row(
+            children: [
+              Icon(
+                Icons.error_outline,
+                color: Colors.white.withValues(alpha: 0.9),
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'خطأ في تحميل الإشعارات',
+                style: GoogleFonts.tajawal(
+                  fontSize: 13,
+                  color: Colors.white.withValues(alpha: 0.9),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
-}
 
-// 🔔 Notification Button - تصميم بسيط
-class _NotificationButton extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final unreadCount = ref.watch(unreadNotificationsCountProvider);
+  /// عند النقر على الإشعار
+  void _onNotificationTap(NotificationEntity notification) {
+    // التنقل الذكي بناءً على نوع الإشعار
+    NotificationRouter.navigate(context, notification);
 
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        IconButton(
-          onPressed: () => _showNotifications(context),
-          icon: Icon(
-            Pelaicons.notification3LightOutline,
-            color: Colors.white.withValues(alpha: 0.9),
-            size: 30,
-          ),
-          tooltip: 'الإشعارات',
-          style: IconButton.styleFrom(
-            backgroundColor: Colors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        ),
-
-        // Badge للإشعارات
-        unreadCount.when(
-          data: (count) => count > 0
-              ? Positioned(
-                  right: 1,
-                  top: 1,
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.red.shade400,
-                          Colors.red.shade600,
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white, width: 2),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.red.withValues(alpha: 0.4),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 20,
-                      minHeight: 20,
-                    ),
-                    child: Text(
-                      count > 99 ? '99+' : count.toString(),
-                      style: GoogleFonts.tajawal(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        height: 1.1,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                )
-              : const SizedBox.shrink(),
-          loading: () => const SizedBox.shrink(),
-          error: (_, __) => const SizedBox.shrink(),
-        ),
-      ],
-    );
+    // تعليم الإشعار كمقروء إذا لم يكن كذلك
+    if (!notification.isRead) {
+      ref.read(markNotificationAsReadUseCaseProvider).call(notification.id);
+    }
   }
 
-  void _showNotifications(BuildContext context) {
-    // استخدام Dropdown بدلاً من Bottom Sheet
+  /// فتح قائمة الإشعارات المنسدلة
+  void _showNotificationsPanel(BuildContext context, WidgetRef ref) {
     final RenderBox button = context.findRenderObject() as RenderBox;
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
@@ -391,47 +502,63 @@ class _UserInfoWidget extends ConsumerWidget {
   }
 
   void _performLogout(BuildContext context, WidgetRef ref) async {
+    // إغلاق حوار التأكيد
     Navigator.pop(context);
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => Center(
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircularProgressIndicator(color: AppColors.primary),
-              const SizedBox(height: 16),
-              Text(
-                'جاري تسجيل الخروج...',
-                style: GoogleFonts.tajawal(
-                    fontSize: 16, fontWeight: FontWeight.w600),
-              ),
-            ],
+    // إظهار حوار التحميل
+    if (context.mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => Center(
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(color: AppColors.primary),
+                const SizedBox(height: 16),
+                Text(
+                  'جاري تسجيل الخروج...',
+                  style: GoogleFonts.tajawal(
+                      fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
           ),
         ),
-      ),
-    );
+      );
+    }
 
     try {
       SessionTimeoutService.endSession(reason: 'manual_logout');
       await UserService.logout();
 
-      ref.invalidate(currentUserProvider);
-      ref.invalidate(pharmacyInfoProvider);
-      ref.invalidate(notificationsProvider);
-      ref.invalidate(unreadNotificationsCountProvider);
+      // استخدام try-catch لتجنب خطأ ref disposed
+      try {
+        ref.invalidate(currentUserProvider);
+        ref.invalidate(pharmacyInfoProvider);
+        // ref.invalidate(notificationsStreamProvider); // Auto-disposed
+      } catch (e) {
+        // تجاهل الخطأ إذا كانت الـ widget قد تخلصت
+      }
 
-      AppNavigator.pop(); // إغلاق حوار الانتظار إن كان مفتوحاً
-      await Future.delayed(const Duration(milliseconds: 200));
+      // إغلاق حوار التحميل
+      AppNavigator.pop();
 
-      await AppNavigator.pushNamedAndRemoveUntil('/login');
+      // تأخير بسيط لضمان انتهاء الأنيميشن
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      if (context.mounted) {
+        await AppNavigator.pushNamedAndRemoveUntil('/login');
+      } else {
+        // في حال فقدان الـ context، نستخدم المفتاح العام كحل أخير
+        await AppNavigator.pushNamedAndRemoveUntil('/login');
+      }
     } catch (e) {
       developer.log('❌ خطأ في تسجيل الخروج: $e', name: 'Logout');
       AppNavigator.pop();
@@ -506,46 +633,42 @@ class NotificationsDropdownContent extends ConsumerWidget {
                   ),
                 ),
                 const Spacer(),
-                ref.watch(unreadNotificationsCountProvider).when(
-                      data: (count) => count > 0
-                          ? Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 5),
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xFFE53935),
-                                    Color(0xFFD32F2F)
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFFE53935)
-                                        .withValues(alpha: 0.4),
-                                    blurRadius: 8,
-                                  ),
-                                ],
-                              ),
-                              child: Text(
-                                '$count',
-                                style: GoogleFonts.tajawal(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            )
-                          : const SizedBox.shrink(),
-                      loading: () => const SizedBox.shrink(),
-                      error: (_, __) => const SizedBox.shrink(),
+                const Spacer(),
+                Consumer(builder: (context, ref, child) {
+                  final count = ref.watch(unreadCountProvider);
+                  if (count == 0) return const SizedBox.shrink();
+
+                  return Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFE53935), Color(0xFFD32F2F)],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFE53935).withValues(alpha: 0.4),
+                          blurRadius: 8,
+                        ),
+                      ],
                     ),
+                    child: Text(
+                      '$count',
+                      style: GoogleFonts.tajawal(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  );
+                }),
               ],
             ),
           ),
           // Notifications List
           Flexible(
-            child: ref.watch(notificationsProvider).when(
+            child: ref.watch(notificationsStreamProvider).when(
                   data: (notifications) {
                     if (notifications.isEmpty) {
                       return _buildEmptyState();
@@ -558,7 +681,7 @@ class NotificationsDropdownContent extends ConsumerWidget {
                       itemCount: recentNotifications.length,
                       itemBuilder: (context, index) {
                         return _buildNotificationItem(
-                            recentNotifications[index], ref);
+                            context, recentNotifications[index], ref);
                       },
                     );
                   },
@@ -609,6 +732,12 @@ class NotificationsDropdownContent extends ConsumerWidget {
                     onPressed: () {
                       Navigator.pop(context);
                       // فتح صفحة جميع الإشعارات
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const NotificationsScreen(),
+                        ),
+                      );
                     },
                     icon: const Icon(Icons.list_alt, size: 16),
                     label: Text(
@@ -625,9 +754,10 @@ class NotificationsDropdownContent extends ConsumerWidget {
                 Expanded(
                   child: TextButton.icon(
                     onPressed: () async {
-                      await NotificationService().markAllAsRead();
-                      ref.invalidate(notificationsProvider);
-                      ref.invalidate(unreadNotificationsCountProvider);
+                      await ref
+                          .read(markAllNotificationsAsReadUseCaseProvider)
+                          .call();
+                      // لا حاجة لـ invalidate لأن Stream سيتحدث تلقائياً
                     },
                     icon: const Icon(Icons.done_all, size: 16),
                     label: Text(
@@ -686,11 +816,26 @@ class NotificationsDropdownContent extends ConsumerWidget {
     );
   }
 
-  Widget _buildNotificationItem(AppNotification notification, WidgetRef ref) {
+  Widget _buildNotificationItem(
+      BuildContext context, NotificationEntity notification, WidgetRef ref) {
     return InkWell(
       onTap: () async {
-        await NotificationService().markAsRead(notification.id);
-        ref.invalidate(notificationsProvider);
+        // تعليم كمقروء
+        if (!notification.isRead) {
+          await ref
+              .read(markNotificationAsReadUseCaseProvider)
+              .call(notification.id);
+        }
+
+        // إغلاق القائمة
+        if (context.mounted) {
+          Navigator.pop(context);
+        }
+
+        // الانتقال للوجهة المطلوبة
+        if (context.mounted) {
+          NotificationRouter.navigate(context, notification);
+        }
       },
       borderRadius: BorderRadius.circular(8),
       child: Container(
@@ -877,7 +1022,7 @@ class _NotificationsBottomSheetState
 
           // Notifications List للمستخدم الحالي ✅
           Expanded(
-            child: ref.watch(notificationsProvider).when(
+            child: ref.watch(notificationsStreamProvider).when(
                   data: (notifications) => notifications.isEmpty
                       ? _buildEmptyState()
                       : _buildNotificationsList(notifications),
@@ -928,28 +1073,26 @@ class _NotificationsBottomSheetState
           const Spacer(),
 
           // عدد الإشعارات غير المقروءة للمستخدم الحالي ✅
-          ref.watch(unreadNotificationsCountProvider).when(
-                data: (count) => count > 0
-                    ? Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.error,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          '$count جديد',
-                          style: GoogleFonts.tajawal(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      )
-                    : const SizedBox.shrink(),
-                loading: () => const SizedBox.shrink(),
-                error: (_, __) => const SizedBox.shrink(),
+          Consumer(builder: (context, ref, child) {
+            final count = ref.watch(unreadCountProvider);
+            if (count == 0) return const SizedBox.shrink();
+
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.error,
+                borderRadius: BorderRadius.circular(12),
               ),
+              child: Text(
+                '$count جديد',
+                style: GoogleFonts.tajawal(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            );
+          }),
 
           const SizedBox(width: 8),
           TextButton(
@@ -969,7 +1112,7 @@ class _NotificationsBottomSheetState
     );
   }
 
-  Widget _buildNotificationsList(List<AppNotification> notifications) {
+  Widget _buildNotificationsList(List<NotificationEntity> notifications) {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: notifications.length,
@@ -980,7 +1123,7 @@ class _NotificationsBottomSheetState
     );
   }
 
-  Widget _buildNotificationTile(AppNotification notification) {
+  Widget _buildNotificationTile(NotificationEntity notification) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -1132,8 +1275,6 @@ class _NotificationsBottomSheetState
   }
 
   Widget _buildEmptyState() {
-    final userName = ref.watch(userDisplayNameProvider);
-
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -1164,7 +1305,7 @@ class _NotificationsBottomSheetState
           Container(
             constraints: const BoxConstraints(maxWidth: 300),
             child: Text(
-              'ستظهر الإشعارات الجديدة لـ $userName هنا عند حدوث أي نشاط مهم', // للمستخدم الحالي ✅
+              'ستظهر الإشعارات الجديدة هنا عند حدوث أي نشاط مهم', // fixed text for simplicity
               style: GoogleFonts.tajawal(
                 fontSize: 14,
                 color: AppColors.textSecondary.withValues(alpha: 0.7),
@@ -1174,15 +1315,6 @@ class _NotificationsBottomSheetState
             ),
           ),
           const SizedBox(height: 32),
-          OutlinedButton.icon(
-            onPressed: _generateSampleNotifications,
-            icon: const Icon(Icons.add, size: 18),
-            label: Text('إنشاء إشعارات تجريبية', style: GoogleFonts.tajawal()),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.primary,
-              side: const BorderSide(color: AppColors.primary),
-            ),
-          ),
         ],
       ),
     );
@@ -1267,43 +1399,32 @@ class _NotificationsBottomSheetState
     }
   }
 
-  void _markAsRead(AppNotification notification) async {
+  void _markAsRead(NotificationEntity notification) async {
     if (!notification.isRead) {
-      final service = ref.read(notificationServiceProvider);
-      await service.markAsRead(notification.id);
-      ref.invalidate(notificationsProvider);
-      ref.invalidate(unreadNotificationsCountProvider);
+      await ref
+          .read(markNotificationAsReadUseCaseProvider)
+          .call(notification.id);
     }
   }
 
   void _markAllAsRead() async {
-    final service = ref.read(notificationServiceProvider);
-    await service.markAllAsRead();
-    ref.invalidate(notificationsProvider);
-    ref.invalidate(unreadNotificationsCountProvider);
+    await ref.read(markAllNotificationsAsReadUseCaseProvider).call();
   }
 
   void _handleNotificationAction(
-      String action, AppNotification notification) async {
-    final service = ref.read(notificationServiceProvider);
-
+      String action, NotificationEntity notification) async {
     switch (action) {
       case 'mark_read':
-        await service.markAsRead(notification.id);
+        await ref
+            .read(markNotificationAsReadUseCaseProvider)
+            .call(notification.id);
         break;
       case 'delete':
-        await service.deleteNotification(notification.id);
+        final repository = ref.read(notificationRepositoryProvider);
+        await repository.delete(notification.id);
         break;
     }
-
-    ref.invalidate(notificationsProvider);
-    ref.invalidate(unreadNotificationsCountProvider);
   }
 
-  void _generateSampleNotifications() async {
-    final service = ref.read(notificationServiceProvider);
-    await service.generateSampleNotifications();
-    ref.invalidate(notificationsProvider);
-    ref.invalidate(unreadNotificationsCountProvider);
-  }
+  // _generateSampleNotifications removed
 }

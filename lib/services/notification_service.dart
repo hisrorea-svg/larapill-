@@ -1,4 +1,5 @@
-// lib/services/notification_service.dart - محدث للعمل مع النماذج الموجودة
+// lib/services/notification_service.dart - نظام إشعارات لحظي متكامل
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,6 +10,21 @@ class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
   NotificationService._internal();
+
+  // 🔔 Stream للتحديثات اللحظية
+  static final _notificationsController =
+      StreamController<List<AppNotification>>.broadcast();
+
+  /// Stream للاستماع للتحديثات اللحظية
+  Stream<List<AppNotification>> get notificationsStream =>
+      _notificationsController.stream;
+
+  /// بث التحديثات للمستمعين
+  void _broadcastUpdate(List<AppNotification> notifications) {
+    if (!_notificationsController.isClosed) {
+      _notificationsController.add(notifications);
+    }
+  }
 
   // جلب جميع الإشعارات
   Future<List<AppNotification>> getAllNotifications() async {
@@ -33,6 +49,7 @@ class NotificationService {
     }
 
     await _saveNotifications(notifications);
+    _broadcastUpdate(notifications); // 🔔 بث التحديث
   }
 
   // تعين إشعار كمقروء
@@ -43,6 +60,7 @@ class NotificationService {
     if (index != -1) {
       notifications[index] = notifications[index].copyWith(isRead: true);
       await _saveNotifications(notifications);
+      _broadcastUpdate(notifications); // 🔔 بث التحديث
     }
   }
 
@@ -53,6 +71,7 @@ class NotificationService {
         notifications.map((n) => n.copyWith(isRead: true)).toList();
 
     await _saveNotifications(updatedNotifications);
+    _broadcastUpdate(updatedNotifications); // 🔔 بث التحديث
   }
 
   // حذف إشعار
@@ -60,12 +79,21 @@ class NotificationService {
     final notifications = await getAllNotifications();
     notifications.removeWhere((n) => n.id == notificationId);
     await _saveNotifications(notifications);
+    _broadcastUpdate(notifications); // 🔔 بث التحديث
   }
 
   // عدد الإشعارات غير المقروءة
   Future<int> getUnreadCount() async {
     final notifications = await getAllNotifications();
     return notifications.where((n) => !n.isRead).length;
+  }
+
+  // حذف الإشعارات المقروءة
+  Future<void> clearReadNotifications() async {
+    final notifications = await getAllNotifications();
+    final unreadNotifications = notifications.where((n) => !n.isRead).toList();
+    await _saveNotifications(unreadNotifications);
+    _broadcastUpdate(unreadNotifications); // 🔔 بث التحديث
   }
 
   // إنشاء إشعارات تجريبية

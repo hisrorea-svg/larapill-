@@ -8,6 +8,7 @@ import '../../../features/pos/models/sale.dart';
 import '../providers/pos_providers.dart';
 import '../../../services/user_service.dart';
 import '../../../services/printer_service.dart';
+import '../../../core/widgets/app_toast.dart';
 
 class PaymentDialog extends ConsumerStatefulWidget {
   final List<SaleItem> items;
@@ -574,69 +575,19 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
       } catch (printError) {
         // إذا فشلت الطباعة، نعرض رسالة لكن لا نلغي البيع
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'تم حفظ البيع بنجاح لكن فشلت الطباعة: $printError',
-              style: GoogleFonts.tajawal(),
-            ),
-            backgroundColor: AppColors.warning,
-            duration: const Duration(seconds: 4),
-          ),
-        );
+        AppToast.warning(context, 'تم حفظ البيع لكن فشلت الطباعة');
       }
 
       if (!mounted) return;
 
       // حفظ context قبل العمليات async
       final navigator = Navigator.of(context);
-      final messenger = ScaffoldMessenger.of(context);
 
       widget.onPaymentComplete(sale);
       navigator.pop();
 
       // Success message مع رقم الفاتورة المحدث
-      messenger.showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle, color: Colors.white, size: 22),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'تمت العملية بنجاح ✓',
-                      style: GoogleFonts.tajawal(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'فاتورة رقم: ${sale.id}',
-                      style: GoogleFonts.tajawal(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: AppColors.success,
-          duration: const Duration(seconds: 4),
-          behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.all(16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-      );
+      AppToast.success(context, 'تمت العملية بنجاح ✓ فاتورة رقم: ${sale.id}');
     } catch (e) {
       if (!mounted) return;
 
@@ -647,16 +598,6 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          message,
-          style: GoogleFonts.tajawal(),
-        ),
-        backgroundColor: AppColors.error,
-        duration: const Duration(seconds: 3),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    AppToast.error(context, message);
   }
 }

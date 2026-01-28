@@ -38,7 +38,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 10, // ✅ النسخة 10: إضافة حقل unit لطلبيات الشراء اليومية
+      version: 12, // ✅ النسخة 12: إضافة جدول الإشعارات
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -63,9 +63,31 @@ class DatabaseHelper {
           min_stock_level REAL DEFAULT 0,
           is_active INTEGER DEFAULT 1,
           created_at TEXT NOT NULL,
-          updated_at TEXT NOT NULL
+          updated_at TEXT NOT NULL,
+          updated_at INTEGER DEFAULT 0
         )
       ''');
+
+      // 🔔 جدول الإشعارات (للإنشاء الجديد)
+      await db.execute('''
+        CREATE TABLE notifications (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          body TEXT NOT NULL,
+          type TEXT NOT NULL,
+          priority TEXT NOT NULL,
+          is_read INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL,
+          action_data TEXT,
+          user_id TEXT
+        )
+      ''');
+
+      // فهرس الإشعارات
+      await db.execute(
+          'CREATE INDEX idx_notifications_is_read ON notifications(is_read)');
+      await db.execute(
+          'CREATE INDEX idx_notifications_created_at ON notifications(created_at DESC)');
 
       // جدول وحدات المنتج والأسعار
       await db.execute('''
@@ -389,6 +411,28 @@ class DatabaseHelper {
         )
       ''');
 
+      // 🔌 جدول إعدادات الـ Terminal
+      await db.execute('''
+        CREATE TABLE terminal_config (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        )
+      ''');
+
+      // 🔌 جدول قائمة المزامنة (المبيعات المعلّقة)
+      await db.execute('''
+        CREATE TABLE sync_queue (
+          id TEXT PRIMARY KEY,
+          action TEXT NOT NULL,
+          payload TEXT NOT NULL,
+          status INTEGER DEFAULT 0,
+          retry_count INTEGER DEFAULT 0,
+          error_message TEXT,
+          created_at INTEGER NOT NULL,
+          last_attempt_at INTEGER
+        )
+      ''');
+
       // فهارس لتحسين الأداء
       final indexes = [
         // فهارس المنتجات
@@ -447,6 +491,10 @@ class DatabaseHelper {
         'CREATE INDEX idx_customer_debts_remaining ON customer_debts (remaining_debt)',
         'CREATE INDEX idx_debt_payments_customer ON debt_payments (customer_debt_id)',
         'CREATE INDEX idx_debt_payments_date ON debt_payments (payment_date)',
+
+        // 🔌 فهارس المزامنة
+        'CREATE INDEX idx_sync_queue_status ON sync_queue (status)',
+        'CREATE INDEX idx_sync_queue_created ON sync_queue (created_at)',
       ];
 
       for (final index in indexes) {
@@ -782,6 +830,86 @@ class DatabaseHelper {
             name: 'DatabaseHelper');
       } catch (e) {
         developer.log('❌ خطأ في إضافة حقل الوحدة: $e', name: 'DatabaseHelper');
+      }
+    }
+
+    // 🔌 إضافة جداول المزامنة في النسخة 11
+    if (oldVersion < 11) {
+      try {
+        // جدول إعدادات الـ Terminal
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS terminal_config (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+          )
+        ''');
+
+        // جدول قائمة المزامنة (المبيعات المعلّقة)
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS sync_queue (
+            id TEXT PRIMARY KEY,
+            action TEXT NOT NULL,
+            payload TEXT NOT NULL,
+            status INTEGER DEFAULT 0,
+            retry_count INTEGER DEFAULT 0,
+            error_message TEXT,
+            created_at INTEGER NOT NULL,
+            last_attempt_at INTEGER
+          )
+        ''');
+
+        // إضافة حقل updated_at للمنتجات
+        try {
+          await db.execute(
+              'ALTER TABLE products ADD COLUMN updated_at INTEGER DEFAULT 0');
+        } catch (_) {
+          // الحقل موجود مسبقاً
+        }
+
+        // إضافة فهارس للمزامنة
+        await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_sync_queue_status ON sync_queue (status)');
+        await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_sync_queue_created ON sync_queue (created_at)');
+        await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_products_updated_at ON products (updated_at)');
+
+        developer.log('✅ تم إضافة جداول المزامنة بنجاح (النسخة 11)',
+            name: 'DatabaseHelper');
+      } catch (e) {
+        developer.log('❌ خطأ في إضافة جداول المزامنة: $e',
+            name: 'DatabaseHelper');
+      }
+    }
+
+    // 🔔 إضافة جدول الإشعارات في النسخة 12
+    if (oldVersion < 12) {
+      try {
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS notifications (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            body TEXT NOT NULL,
+            type TEXT NOT NULL,
+            priority TEXT NOT NULL,
+            is_read INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            action_data TEXT,
+            user_id TEXT
+          )
+        ''');
+
+        // إضافة فهارس الإشعارات
+        await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read)');
+        await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC)');
+
+        developer.log('✅ تم إضافة جدول الإشعارات بنجاح (النسخة 12)',
+            name: 'DatabaseHelper');
+      } catch (e) {
+        developer.log('❌ خطأ في إضافة جدول الإشعارات: $e',
+            name: 'DatabaseHelper');
       }
     }
   }

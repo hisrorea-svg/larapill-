@@ -1,17 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../models/medicine_unit.dart';
 
 class InventoryFilters extends StatefulWidget {
   final Function(String) onSearchChanged;
-  final Function(ProductCategory?) onCategoryChanged;
   final Function(String?)? onAdvancedFilterChanged;
 
   const InventoryFilters({
     super.key,
     required this.onSearchChanged,
-    required this.onCategoryChanged,
     this.onAdvancedFilterChanged,
   });
 
@@ -21,7 +18,6 @@ class InventoryFilters extends StatefulWidget {
 
 class _InventoryFiltersState extends State<InventoryFilters> {
   final TextEditingController _searchController = TextEditingController();
-  ProductCategory? _selectedCategory;
   String? _selectedFilter;
 
   @override
@@ -59,79 +55,10 @@ class _InventoryFiltersState extends State<InventoryFilters> {
         ),
         const SizedBox(width: 16),
 
-        // Category Filter
-        Expanded(
-          child: DropdownButtonFormField<ProductCategory>(
-            initialValue: _selectedCategory,
-            onChanged: (value) {
-              setState(() {
-                _selectedCategory = value;
-              });
-              widget.onCategoryChanged(value);
-            },
-            style: GoogleFonts.tajawal(color: AppColors.textPrimary),
-            decoration: InputDecoration(
-              hintText: 'جميع الفئات',
-              hintStyle: GoogleFonts.tajawal(color: AppColors.textSecondary),
-              prefixIcon:
-                  const Icon(Icons.category, color: AppColors.textSecondary),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.border),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.border),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.primary),
-              ),
-              filled: true,
-              fillColor: AppColors.border,
-            ),
-            items: [
-              // خيار "الكل" في البداية
-              DropdownMenuItem<ProductCategory>(
-                value: null,
-                child: Row(
-                  children: [
-                    const Icon(Icons.select_all,
-                        size: 18, color: AppColors.primary),
-                    const SizedBox(width: 8),
-                    Text('جميع الفئات', style: GoogleFonts.tajawal()),
-                  ],
-                ),
-              ),
-              // باقي الفئات
-              ...ProductCategory.values.map((category) {
-                return DropdownMenuItem(
-                  value: category,
-                  child: Row(
-                    children: [
-                      Icon(
-                        _getCategoryIcon(category),
-                        size: 18,
-                        color: category.color,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        category.arabicName,
-                        style: GoogleFonts.tajawal(),
-                      ),
-                    ],
-                  ),
-                );
-              }),
-            ],
-          ),
-        ),
-        const SizedBox(width: 12),
-
         // Advanced Filter Dropdown
         Expanded(
           child: DropdownButtonFormField<String>(
-            initialValue: _selectedFilter,
+            value: _selectedFilter,
             onChanged: (value) {
               setState(() {
                 _selectedFilter = value;
@@ -280,45 +207,10 @@ class _InventoryFiltersState extends State<InventoryFilters> {
   void _clearFilters() {
     setState(() {
       _searchController.clear();
-      _selectedCategory = null;
       _selectedFilter = null;
     });
     widget.onSearchChanged('');
-    widget.onCategoryChanged(null);
     widget.onAdvancedFilterChanged?.call(null);
-  }
-
-  IconData _getCategoryIcon(ProductCategory category) {
-    switch (category) {
-      case ProductCategory.tablets:
-        return Icons.medication;
-      case ProductCategory.syrups:
-        return Icons.local_drink;
-      case ProductCategory.injections:
-        return Icons.vaccines;
-      case ProductCategory.creams:
-        return Icons.colorize;
-      case ProductCategory.suppositories:
-        return Icons.rectangle;
-      case ProductCategory.drops:
-        return Icons.water_drop;
-      case ProductCategory.sprays:
-        return Icons.air;
-      case ProductCategory.medicalSupplies:
-        return Icons.medical_services;
-      case ProductCategory.bandages:
-        return Icons.healing;
-      case ProductCategory.syringes:
-        return Icons.science;
-      case ProductCategory.gloves:
-        return Icons.back_hand;
-      case ProductCategory.masks:
-        return Icons.masks;
-      case ProductCategory.antiseptics:
-        return Icons.clean_hands;
-      case ProductCategory.cosmetics:
-        return Icons.face;
-    }
   }
 
   @override

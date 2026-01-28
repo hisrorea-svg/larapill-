@@ -8,9 +8,11 @@ import 'core/init/app_bootstrap.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/app_colors.dart';
 import 'core/navigation/app_navigator.dart';
-import 'features/dashboard/screens/main_layout.dart';
+import 'features/menu/screens/menu_screen.dart';
 import 'features/auth/screens/login_screen.dart';
 import 'features/auth/screens/force_password_change_screen.dart';
+import 'features/sync/presentation/screens/sync_setup_screen.dart';
+import 'features/splash/screens/splash_screen.dart';
 import 'services/user_service.dart';
 
 void main() async {
@@ -62,7 +64,7 @@ class LaRaPillApp extends StatelessWidget {
 
           case '/main':
             return MaterialPageRoute(
-              builder: (context) => const MainLayout(),
+              builder: (context) => const MenuScreen(),
               settings: settings,
             );
 
@@ -71,6 +73,12 @@ class LaRaPillApp extends StatelessWidget {
             return MaterialPageRoute(
               builder: (context) =>
                   ForcePasswordChangeScreen(userId: userId ?? ''),
+              settings: settings,
+            );
+
+          case '/sync-setup':
+            return MaterialPageRoute(
+              builder: (context) => const SyncSetupScreen(),
               settings: settings,
             );
 
@@ -95,16 +103,14 @@ class AppInitializer extends StatefulWidget {
 
 class _AppInitializerState extends State<AppInitializer> {
   @override
-  void initState() {
-    super.initState();
-    _checkUserSession();
+  Widget build(BuildContext context) {
+    return SplashScreen(
+      onComplete: () => _checkUserSession(),
+    );
   }
 
   Future<void> _checkUserSession() async {
     try {
-      // تأخير قصير لإظهار شاشة التحميل
-      await Future.delayed(const Duration(milliseconds: 500));
-
       // فحص جلسة المستخدم الحالي
       final currentUser = await UserService.getCurrentUser();
 
@@ -124,72 +130,6 @@ class _AppInitializerState extends State<AppInitializer> {
         Navigator.pushReplacementNamed(context, '/login');
       }
     }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.primary,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // شعار التطبيق
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white.withAlpha(25),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Icon(
-                Icons.app_registration,
-                size: 80,
-                color: Colors.white,
-              ),
-            ),
-
-            const SizedBox(height: 32),
-
-            // اسم التطبيق
-            Text(
-              'LaRaPill',
-              style: GoogleFonts.tajawal(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-
-            const SizedBox(height: 8),
-
-            Text(
-              'نظام إدارة الصيدلية الشامل',
-              style: GoogleFonts.tajawal(
-                fontSize: 16,
-                color: Colors.white.withAlpha(200),
-              ),
-            ),
-
-            const SizedBox(height: 48),
-
-            // مؤشر التحميل
-            const CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-            ),
-
-            const SizedBox(height: 16),
-
-            Text(
-              'جاري التحميل...',
-              style: GoogleFonts.tajawal(
-                fontSize: 14,
-                color: Colors.white.withAlpha(200),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 

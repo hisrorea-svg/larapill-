@@ -5,7 +5,6 @@ class Product {
   final String name;
   final String? scientificName;
   final String company;
-  final ProductCategory category;
   final String barcode;
   final DateTime? expiryDate;
   final DateTime? productionDate;
@@ -22,7 +21,6 @@ class Product {
     required this.name,
     this.scientificName,
     required this.company,
-    required this.category,
     required this.barcode,
     this.expiryDate,
     this.productionDate,
@@ -101,7 +99,6 @@ class Product {
     String? name,
     String? scientificName,
     String? company,
-    ProductCategory? category,
     String? barcode,
     DateTime? expiryDate,
     DateTime? productionDate,
@@ -118,7 +115,6 @@ class Product {
       name: name ?? this.name,
       scientificName: scientificName ?? this.scientificName,
       company: company ?? this.company,
-      category: category ?? this.category,
       barcode: barcode ?? this.barcode,
       expiryDate: expiryDate ?? this.expiryDate,
       productionDate: productionDate ?? this.productionDate,
@@ -138,7 +134,6 @@ class Product {
       'name': name,
       'scientificName': scientificName,
       'company': company,
-      'category': category.name,
       'barcode': barcode,
       'expiryDate': expiryDate?.toIso8601String(),
       'productionDate': productionDate?.toIso8601String(),
@@ -153,6 +148,6 @@ class Product {
 
   @override
   String toString() {
-    return 'Product(id: $id, name: $name, company: $company, category: $category, currentStock: $currentStock)';
+    return 'Product(id: $id, name: $name, company: $company, currentStock: $currentStock)';
   }
 }

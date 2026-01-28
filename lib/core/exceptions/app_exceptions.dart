@@ -79,6 +79,24 @@ class DatabaseConnectionException extends DatabaseException {
       userMessage ?? 'فشل الاتصال بقاعدة البيانات. تحقق من إعدادات التطبيق.';
 }
 
+// ==================== ذاكرة التخزين المؤقتة ====================
+
+/// استثناء عند فشل عمليات ذاكرة التخزين المؤقتة (SharedPreferences)
+class CacheException extends AppException {
+  CacheException(
+    super.message, {
+    super.userMessage,
+    super.code,
+    super.originalError,
+    super.stackTrace,
+  });
+
+  @override
+  String getUserMessage() =>
+      userMessage ??
+      'فشل في الوصول إلى بيانات التطبيق. يرجى المحاولة مرة أخرى.';
+}
+
 /// استثناء عند انتهاء مهلة عملية قاعدة البيانات
 class DatabaseTimeoutException extends DatabaseException {
   final Duration timeout;

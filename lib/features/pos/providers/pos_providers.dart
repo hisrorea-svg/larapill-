@@ -1,41 +1,65 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../database/repositories/product_repository.dart';
 import '../../../database/daos/product_dao.dart';
-import '../../../database/daos/sale_dao.dart';
 import '../../../models/product.dart';
 import '../../../models/medicine_unit.dart';
 import '../models/sale.dart';
-import '../../../services/sales_service.dart';
+import '../../../core/network/sync_aware_dao.dart';
+import '../../../core/network/sync_aware_sales_service.dart';
+import '../../../features/purchases/providers/daily_purchase_provider.dart';
 
-// ✅ Provider لجلب جميع المنتجات من قاعدة البيانات
-// ✅ Provider لجلب جميع المنتجات من قاعدة البيانات (AutoDispose لضمان التحديث)
-final productsProvider = FutureProvider.autoDispose<List<Product>>((ref) async {
-  final repository = ProductRepository();
-  return await repository.getAllProducts(activeOnly: true);
-});
+// ============================================================================
+// 📦 POS PROVIDERS - مزودات نقطة البيع
+// ============================================================================
+// ✨ يدعم المزامنة التلقائية (Sync-Aware) للعمل في بيئة متعددة الأجهزة
+// ✨ يتحقق من المخزون قبل كل عملية
+// ✨ يدعم الدفع الجزئي والآجل
+// ============================================================================
+
+/// مدة الانتظار لمعالجة النواقص التلقائية بعد البيع
+const _kAutoReorderDelay = Duration(milliseconds: 300);
+
+// ────────────────────────────────────────────────────────────────────────────
+// 🎯 POS Controller - جلب المنتجات
+// ────────────────────────────────────────────────────────────────────────────
+
+/// Controller تفاعلي لإدارة منتجات نقطة البيع
+/// - يستخدم Sync-Aware DAO للعمل مع قاعدة بيانات محلية أو عن بعد
+/// - يتحدث تلقائياً عند تغيير حالة الاتصال
+final posControllerProvider =
+    AsyncNotifierProvider.autoDispose<POSController, List<Product>>(
+        POSController.new);
+
+class POSController extends AutoDisposeAsyncNotifier<List<Product>> {
+  @override
+  Future<List<Product>> build() async {
+    try {
+      // ✨ محاولة استخدام Sync-Aware DAO
+      final syncDao = ref.watch(syncAwareProductDaoProvider);
+      return await syncDao.findAll(activeOnly: true);
+    } catch (e) {
+      // ⚠️ Fallback: استخدام DAO المحلي مباشرة
+      debugPrint('⚠️ SyncAwareDAO failed, using local: $e');
+      final localDao = ProductDAO();
+      return await localDao.findAll(activeOnly: true);
+    }
+  }
+
+  /// تحديث القائمة (يُستدعى بعد البيع)
+  void refresh() => ref.invalidateSelf();
+}
 
 // ✅ Provider للبحث
-final searchQueryProvider = StateProvider<String>((ref) => '');
-
-// ✅ Provider للفئة المختارة (ProductCategory enum)
-final selectedCategoryProvider = StateProvider<ProductCategory?>((ref) => null);
+final searchQueryProvider = StateProvider.autoDispose<String>((ref) => '');
 
 // ✅ Provider للمنتجات المفلترة والبحث
-final searchedProductsProvider = Provider<List<Product>>((ref) {
-  final productsAsync = ref.watch(productsProvider);
-  final selectedCategory = ref.watch(selectedCategoryProvider);
+final searchedProductsProvider = Provider.autoDispose<List<Product>>((ref) {
+  final productsAsync = ref.watch(posControllerProvider);
   final searchQuery = ref.watch(searchQueryProvider);
 
   return productsAsync.when(
     data: (products) {
       var filtered = products;
-
-      // فلترة حسب الفئة (ProductCategory enum)
-      if (selectedCategory != null) {
-        filtered =
-            filtered.where((p) => p.category == selectedCategory).toList();
-      }
 
       // فلترة حسب البحث
       if (searchQuery.isNotEmpty) {
@@ -58,7 +82,11 @@ final searchedProductsProvider = Provider<List<Product>>((ref) {
   );
 });
 
-// ✅ CartProvider المحسّن مع Stock Validation
+// ────────────────────────────────────────────────────────────────────────────
+// 🛒 Cart Provider - إدارة السلة
+// ────────────────────────────────────────────────────────────────────────────
+
+/// مزود السلة مع Stock Validation ودعم الوحدات المتعددة
 final cartProvider = ChangeNotifierProvider((ref) => CartProvider(ref));
 
 class CartProvider extends ChangeNotifier {
@@ -73,6 +101,18 @@ class CartProvider extends ChangeNotifier {
   double get total => subtotal;
   int get itemCount => _items.length;
 
+  // ✨ Helper: جلب المنتج مع Fallback
+  Future<Product?> _getProduct(String productId) async {
+    try {
+      final syncDao = ref.read(syncAwareProductDaoProvider);
+      return await syncDao.findById(productId);
+    } catch (e) {
+      // Fallback to local DAO
+      final localDao = ProductDAO();
+      return await localDao.findById(productId);
+    }
+  }
+
   // ✅ إضافة منتج مع Stock Validation
   Future<void> addItemWithUnit(
       Product product, MedicineUnit selectedUnit) async {
@@ -81,9 +121,8 @@ class CartProvider extends ChangeNotifier {
       throw Exception('معلومات الوحدة غير موجودة');
     }
 
-    // ✅ جلب آخر حالة للمنتج من قاعدة البيانات
-    final productDao = ProductDAO();
-    final latestProduct = await productDao.findById(product.id);
+    // ✨ جلب آخر حالة للمنتج (with fallback)
+    final latestProduct = await _getProduct(product.id);
 
     if (latestProduct == null) {
       throw Exception('المنتج غير موجود');
@@ -147,9 +186,8 @@ class CartProvider extends ChangeNotifier {
 
     final item = _items[index];
 
-    // ✅ جلب المنتج الحالي
-    final productDao = ProductDAO();
-    final product = await productDao.findById(item.productId);
+    // ✨ جلب المنتج الحالي (with fallback)
+    final product = await _getProduct(item.productId);
 
     if (product == null) {
       throw Exception('المنتج غير موجود');
@@ -189,7 +227,7 @@ class CartProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ✅ معالجة البيع (استخدام SalesService) مع دعم الدفع الجزئي
+  // ✅ معالجة البيع (مع دعم المزامنة) مع دعم الدفع الجزئي
   Future<Sale> completeSale({
     required String cashierId,
     required String cashierName,
@@ -203,9 +241,9 @@ class CartProvider extends ChangeNotifier {
       throw Exception('السلة فارغة');
     }
 
-    // 🆕 توليد رقم فاتورة احترافي
-    final saleDao = SaleDAO();
-    final saleId = await saleDao.generateSaleId();
+    // 🆕 توليد رقم فاتورة احترافي (عبر Sync-Aware DAO)
+    final syncSaleDao = ref.read(syncAwareSaleDaoProvider);
+    final saleId = await syncSaleDao.generateSaleId();
 
     final totalAmount = subtotal - discount;
     final actualPaidAmount = paidAmount ?? totalAmount;
@@ -241,14 +279,26 @@ class CartProvider extends ChangeNotifier {
       createdAt: DateTime.now(),
     );
 
-    // ✅ حفظ البيع وتحديث المخزون
-    await SalesService.instance.saveSale(sale);
+    // ✅ حفظ البيع (يدعم المزامنة التلقائية والـ Offline Queue)
+    final syncSalesService = ref.read(syncAwareSalesServiceProvider);
+    await syncSalesService.saveSale(sale,
+        userId: cashierId, userName: cashierName);
 
     // ✅ تنظيف السلة
     clearCart();
 
-    // ✅ تحديث قائمة المنتجات
-    ref.invalidate(productsProvider);
+    // ✅ تحديث قائمة المنتجات باستخدام Controller الجديد
+    ref.read(posControllerProvider.notifier).refresh();
+
+    // ✨ انتظار لمعالجة النواقص التلقائية (تعمل بشكل غير متزامن في SyncAwareSalesService)
+    await Future.delayed(_kAutoReorderDelay);
+
+    // ✅ تحديث قائمة طلبيات اليوم (للنواقص التلقائية)
+    ref.invalidate(todayPurchaseRequestsProvider);
+    ref.invalidate(outOfStockCountProvider);
+    ref.invalidate(purchaseRequestsStatsProvider);
+    // ✅ تحديث واجهة الطلبيات (StateNotifier) لضمان ظهور النواقص فوراً
+    ref.invalidate(dailyPurchaseNotifierProvider);
 
     return sale;
   }

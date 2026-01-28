@@ -23,6 +23,8 @@ class SalesService {
   final _dbHelper = DatabaseHelper();
   final _productDao = ProductDAO();
   final _customerDebtDao = CustomerDebtDAO();
+  // TODO: Replace with new sync module when fully integrated
+  // final _syncQueueService = SyncQueueService();
 
   /// حفظ البيع وتحديث المخزون - محسّن مع معالجة أخطاء احترافية ⚡
   Future<String> saveSale(Sale sale, {String? userId, String? userName}) async {
@@ -203,6 +205,29 @@ class SalesService {
           itemsCount: sale.items.length,
         );
       }
+
+      // 🔄 9. إضافة المبيعة لقائمة المزامنة (Sync Queue)
+      // TODO: Integrate with new sync module (features/sync)
+      // The new sync module uses SyncLocalDataSource.enqueueSale()
+      // For now, sync is disabled until integration is complete
+      /*
+      try {
+        await _syncQueueService.enqueueSale(
+          saleId: sale.id,
+          saleData: sale.toMap(),
+        );
+        developer.log(
+          '🔄 تم إضافة المبيعة للـ Sync Queue',
+          name: 'SalesService',
+        );
+      } catch (syncError) {
+        // لا نريد فشل حفظ البيع بسبب خطأ في الـ Sync Queue
+        developer.log(
+          '⚠️ فشل إضافة المبيعة للـ Sync Queue: $syncError',
+          name: 'SalesService',
+        );
+      }
+      */
 
       stopwatch.stop();
       developer.log(
@@ -484,6 +509,30 @@ class SalesService {
     }
   }
 
+  /// 🛒 فحص النواقص من عملية البيع (للاستخدام الخارجي)
+  ///
+  /// يُستخدم عند الحفظ عبر Remote حيث لا يتم استدعاء saveSale المحلي
+  Future<void> checkAndAddOutOfStockFromSale(Sale sale) async {
+    try {
+      // جلب بيانات المنتجات
+      final productsMap = <String, dynamic>{};
+      for (final item in sale.items) {
+        final product = await _productDao.findById(item.productId);
+        if (product != null) {
+          productsMap[item.productId] = product;
+        }
+      }
+
+      // استدعاء الفحص الداخلي
+      await _checkAndAddOutOfStock(productsMap, sale.items);
+    } catch (e) {
+      developer.log(
+        '⚠️ خطأ في فحص النواقص من البيع: $e',
+        name: 'AutoReorder',
+      );
+    }
+  }
+
   /// 🛒 فحص المنتجات الناقصة وإضافتها تلقائياً لطلبية اليوم
   Future<void> _checkAndAddOutOfStock(
     Map<String, dynamic> productsMap,
@@ -493,19 +542,49 @@ class SalesService {
       final purchaseDao = DailyPurchaseRequestDao();
       final today = DateTime.now();
 
+      developer.log(
+        '🔍 فحص ${saleItems.length} منتج للإضافة التلقائية للطلبية (Logic V2)',
+        name: 'AutoReorder',
+      );
+
       for (final item in saleItems) {
         final productId = item.productId;
-        final product = productsMap[productId];
 
-        if (product != null) {
-          // حساب المخزون الجديد
-          final unitInfo = product.unitInfo[item.unit];
+        // ✅ استخدام البيانات الموجودة مسبقاً (قبل البيع) لحساب الرصيد المتبقي
+        // هذا يحل مشكلة عدم تحديث قاعدة البيانات المحلية عند البيع عن بعد
+        final beforeSaleProduct = productsMap[productId];
+
+        if (beforeSaleProduct != null) {
+          final currentStockBeforeSale = beforeSaleProduct.currentStock;
+
+          // الحصول على الوحدة والتحويل
+          MedicineUnit unit;
+          double quantity;
+
+          if (item is SaleItem) {
+            unit = item.unit;
+            quantity = item.quantity;
+          } else {
+            // fallback for dynamic maps if needed, though strictly we pass SaleItem usually
+            unit = MedicineUnit.values.firstWhere(
+                (u) => u.name == item.unit.name,
+                orElse: () => MedicineUnit.packet);
+            quantity = (item.quantity as num).toDouble();
+          }
+
+          final unitInfo = beforeSaleProduct.unitInfo[unit];
+
           if (unitInfo != null) {
-            final baseQuantity = item.quantity * unitInfo.conversionToBase;
-            final newStock = product.currentStock - baseQuantity;
+            final soldQuantityInBase = quantity * unitInfo.conversionToBase;
+            final remainingStock = currentStockBeforeSale - soldQuantityInBase;
 
-            // إذا وصل المخزون إلى صفر أو أقل
-            if (newStock <= 0) {
+            developer.log(
+              '📦 ${beforeSaleProduct.name}: الرصيد قبل=$currentStockBeforeSale - المباع=$soldQuantityInBase = المتبقي المتوقع=$remainingStock',
+              name: 'AutoReorder',
+            );
+
+            // إذا كان الرصيد المتبقي صفر أو أقل (مع هامش خطأ)
+            if (remainingStock < 0.001) {
               // التحقق من عدم وجود المنتج في طلبية اليوم
               final alreadyExists =
                   await purchaseDao.isProductInTodayRequest(productId);
@@ -515,10 +594,9 @@ class SalesService {
                 final request = DailyPurchaseRequest(
                   id: const Uuid().v4(),
                   productId: productId,
-                  productName:
-                      product.name, // استخدام اسم المنتج من قاعدة البيانات
-                  requestedQuantity: 10, // كمية افتراضية (يمكن تحسينها لاحقاً)
-                  unit: item.unit, // حفظ الوحدة
+                  productName: beforeSaleProduct.name,
+                  requestedQuantity: 5, // ✅ تم التعديل إلى 5 حسب الطلب
+                  unit: unit.name,
                   autoAdded: true,
                   date: today,
                   createdAt: DateTime.now(),
@@ -527,20 +605,21 @@ class SalesService {
                 await purchaseDao.insertRequest(request);
 
                 developer.log(
-                  '🛒 تمت إضافة ${product.name} تلقائياً لطلبية اليوم (نفد من المخزون)',
-                  name: 'SalesService',
+                  '✅ تمت إضافة ${beforeSaleProduct.name} تلقائياً لطلبية اليوم (كمية 5)!',
+                  name: 'AutoReorder',
                 );
               }
             }
           }
         }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       developer.log(
-        '⚠️ خطأ في فحص النواقص: $e',
-        name: 'SalesService',
+        '❌ خطأ في فحص النواقص: $e',
+        name: 'AutoReorder',
+        error: e,
+        stackTrace: stackTrace,
       );
-      // لا نرمي الخطأ لأن هذه وظيفة ثانوية
     }
   }
 }

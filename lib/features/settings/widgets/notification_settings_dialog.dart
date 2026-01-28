@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/theme/app_colors.dart';
+import '../presentation/providers/notification_settings_notifier.dart';
+import '../presentation/utils/error_handler.dart';
 
-class NotificationSettingsDialog extends StatefulWidget {
+/// Dialog لإعدادات الإشعارات
+/// 
+/// يستخدم Riverpod StateNotifier لإدارة الحالة
+class NotificationSettingsDialog extends ConsumerWidget {
   const NotificationSettingsDialog({super.key});
 
   static Future<void> show(BuildContext context) {
@@ -14,61 +19,10 @@ class NotificationSettingsDialog extends StatefulWidget {
   }
 
   @override
-  State<NotificationSettingsDialog> createState() =>
-      _NotificationSettingsDialogState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notifier = ref.watch(notificationSettingsNotifierProvider.notifier);
+    final state = ref.watch(notificationSettingsNotifierProvider);
 
-class _NotificationSettingsDialogState
-    extends State<NotificationSettingsDialog> {
-  bool _expiryAlerts = true;
-  bool _lowStockAlerts = true;
-  bool _salesNotifications = true;
-  bool _systemNotifications = true;
-  bool _soundEnabled = true;
-  int _expiryDays = 30;
-  bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadSettings();
-  }
-
-  Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _expiryAlerts = prefs.getBool('expiry_alerts') ?? true;
-      _lowStockAlerts = prefs.getBool('low_stock_alerts') ?? true;
-      _salesNotifications = prefs.getBool('sales_notifications') ?? true;
-      _systemNotifications = prefs.getBool('system_notifications') ?? true;
-      _soundEnabled = prefs.getBool('sound_enabled') ?? true;
-      _expiryDays = prefs.getInt('expiry_days') ?? 30;
-      _isLoading = false;
-    });
-  }
-
-  Future<void> _saveSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('expiry_alerts', _expiryAlerts);
-    await prefs.setBool('low_stock_alerts', _lowStockAlerts);
-    await prefs.setBool('sales_notifications', _salesNotifications);
-    await prefs.setBool('system_notifications', _systemNotifications);
-    await prefs.setBool('sound_enabled', _soundEnabled);
-    await prefs.setInt('expiry_days', _expiryDays);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('تم حفظ الإعدادات', style: GoogleFonts.tajawal()),
-          backgroundColor: AppColors.success,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      Navigator.pop(context);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: Row(
@@ -85,104 +39,173 @@ class _NotificationSettingsDialogState
           Text('إعدادات الإشعارات', style: GoogleFonts.tajawal(fontSize: 18)),
         ],
       ),
-      content: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SizedBox(
-              width: 500,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildNotificationSetting(
-                      title: 'تنبيهات انتهاء الصلاحية',
-                      subtitle: 'إشعار عند قرب انتهاء صلاحية المنتجات',
-                      value: _expiryAlerts,
-                      onChanged: (value) =>
-                          setState(() => _expiryAlerts = value),
-                      icon: Icons.calendar_today,
-                      color: AppColors.warning,
-                    ),
-                    if (_expiryAlerts) ...[
-                      const SizedBox(height: 8),
-                      Padding(
-                        padding: const EdgeInsets.only(right: 48),
-                        child: Row(
-                          children: [
-                            Text('التنبيه قبل:',
-                                style: GoogleFonts.tajawal(fontSize: 14)),
-                            const SizedBox(width: 16),
-                            DropdownButton<int>(
-                              value: _expiryDays,
-                              items: [3, 7, 14, 30, 60, 90]
-                                  .map((days) => DropdownMenuItem(
-                                        value: days,
-                                        child: Text('$days يوم',
-                                            style: GoogleFonts.tajawal()),
-                                      ))
-                                  .toList(),
-                              onChanged: (value) {
-                                if (value != null) {
-                                  setState(() => _expiryDays = value);
-                                }
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                    const Divider(height: 24),
-                    _buildNotificationSetting(
-                      title: 'تنبيهات نقص المخزون',
-                      subtitle: 'إشعار عند نقص كمية المنتجات',
-                      value: _lowStockAlerts,
-                      onChanged: (value) =>
-                          setState(() => _lowStockAlerts = value),
-                      icon: Icons.inventory_2_outlined,
-                      color: AppColors.error,
-                    ),
-                    const Divider(height: 24),
-                    _buildNotificationSetting(
-                      title: 'إشعارات المبيعات',
-                      subtitle: 'تنبيه عند إتمام العمليات البيعية',
-                      value: _salesNotifications,
-                      onChanged: (value) =>
-                          setState(() => _salesNotifications = value),
-                      icon: Icons.shopping_cart,
-                      color: AppColors.success,
-                    ),
-                    const Divider(height: 24),
-                    _buildNotificationSetting(
-                      title: 'إشعارات النظام',
-                      subtitle: 'تنبيهات النسخ الاحتياطي والتحديثات',
-                      value: _systemNotifications,
-                      onChanged: (value) =>
-                          setState(() => _systemNotifications = value),
-                      icon: Icons.system_update,
-                      color: AppColors.info,
-                    ),
-                    const Divider(height: 24),
-                    _buildNotificationSetting(
-                      title: 'تفعيل الصوت',
-                      subtitle: 'صوت تنبيه عند الإشعارات',
-                      value: _soundEnabled,
-                      onChanged: (value) =>
-                          setState(() => _soundEnabled = value),
-                      icon: Icons.volume_up,
-                      color: AppColors.secondary,
-                    ),
-                  ],
+      content: state.settings.when(
+        data: (settings) => SizedBox(
+          width: 500,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildNotificationSetting(
+                  title: 'تنبيهات انتهاء الصلاحية',
+                  subtitle: 'إشعار عند قرب انتهاء صلاحية المنتجات',
+                  value: settings.expiryAlerts,
+                  onChanged: (value) => notifier.updateExpiryAlerts(value),
+                  icon: Icons.calendar_today,
+                  color: AppColors.warning,
                 ),
-              ),
+                if (settings.expiryAlerts) ...[
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 48),
+                    child: Row(
+                      children: [
+                        Text('التنبيه قبل:',
+                            style: GoogleFonts.tajawal(fontSize: 14)),
+                        const SizedBox(width: 16),
+                        DropdownButton<int>(
+                          value: settings.expiryDays,
+                          items: [3, 7, 14, 30, 60, 90]
+                              .map((days) => DropdownMenuItem(
+                                    value: days,
+                                    child: Text('$days يوم',
+                                        style: GoogleFonts.tajawal()),
+                                  ))
+                              .toList(),
+                          onChanged: (value) {
+                            if (value != null) {
+                              notifier.updateExpiryDays(value);
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const Divider(height: 24),
+                _buildNotificationSetting(
+                  title: 'تنبيهات نقص المخزون',
+                  subtitle: 'إشعار عند نقص كمية المنتجات',
+                  value: settings.lowStockAlerts,
+                  onChanged: (value) => notifier.updateLowStockAlerts(value),
+                  icon: Icons.inventory_2_outlined,
+                  color: AppColors.error,
+                ),
+                const Divider(height: 24),
+                _buildNotificationSetting(
+                  title: 'إشعارات المبيعات',
+                  subtitle: 'تنبيه عند إتمام العمليات البيعية',
+                  value: settings.salesNotifications,
+                  onChanged: (value) => notifier.updateSalesNotifications(value),
+                  icon: Icons.shopping_cart,
+                  color: AppColors.success,
+                ),
+                const Divider(height: 24),
+                _buildNotificationSetting(
+                  title: 'إشعارات النظام',
+                  subtitle: 'تنبيهات النسخ الاحتياطي والتحديثات',
+                  value: settings.systemNotifications,
+                  onChanged: (value) => notifier.updateSystemNotifications(value),
+                  icon: Icons.system_update,
+                  color: AppColors.info,
+                ),
+                const Divider(height: 24),
+                _buildNotificationSetting(
+                  title: 'تفعيل الصوت',
+                  subtitle: 'صوت تنبيه عند الإشعارات',
+                  value: settings.soundEnabled,
+                  onChanged: (value) => notifier.updateSoundEnabled(value),
+                  icon: Icons.volume_up,
+                  color: AppColors.secondary,
+                ),
+              ],
             ),
+          ),
+        ),
+        loading: () => const SizedBox(
+          width: 500,
+          height: 200,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+        error: (error, stackTrace) => SizedBox(
+          width: 500,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+              const SizedBox(height: 16),
+              Text(
+                'حدث خطأ في تحميل الإعدادات',
+                style: GoogleFonts.tajawal(
+                  fontSize: 16,
+                  color: Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                SettingsErrorHandler.getErrorMessage(error),
+                style: GoogleFonts.tajawal(
+                  fontSize: 12,
+                  color: Colors.grey[500],
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () {
+                  ref.read(notificationSettingsNotifierProvider.notifier).refresh();
+                },
+                icon: const Icon(Icons.refresh),
+                label: Text('إعادة المحاولة', style: GoogleFonts.tajawal()),
+              ),
+            ],
+          ),
+        ),
+      ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: Text('إلغاء', style: GoogleFonts.tajawal()),
         ),
         ElevatedButton(
-          onPressed: _saveSettings,
+          onPressed: state.isSaving
+              ? null
+              : () async {
+                  await notifier.saveSettings();
+                  final currentState =
+                      ref.read(notificationSettingsNotifierProvider);
+                  
+                  if (currentState.hasError) {
+                    // الخطأ معروض بالفعل في state.settings
+                    return;
+                  }
+
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'تم حفظ الإعدادات',
+                          style: GoogleFonts.tajawal(),
+                        ),
+                        backgroundColor: AppColors.success,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                    Navigator.pop(context);
+                  }
+                },
           style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-          child: Text('حفظ', style: GoogleFonts.tajawal(color: Colors.white)),
+          child: state.isSaving
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+              : Text('حفظ', style: GoogleFonts.tajawal(color: Colors.white)),
         ),
       ],
     );

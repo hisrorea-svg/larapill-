@@ -303,7 +303,6 @@ class GlobalSearchDelegate extends SearchDelegate<String> {
             children: [
               _buildDetailRow('الباركود', product.barcode),
               _buildDetailRow('الشركة', product.company),
-              _buildDetailRow('التصنيف', product.category.arabicName),
               const Divider(),
               _buildDetailRow(
                   'سعر البيع', '${sellingPrice.toStringAsFixed(0)} د.ع'),

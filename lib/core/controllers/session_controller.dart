@@ -4,7 +4,6 @@ import 'dart:developer' as developer;
 import '../../services/session_timeout_service.dart';
 import '../../services/user_service.dart';
 import '../navigation/app_navigator.dart';
-import '../../features/shared/widgets/session_warning_dialog.dart';
 
 // ✅ حالة الجلسة
 enum SessionStatus { active, warning, expired }
@@ -90,7 +89,8 @@ class SessionController extends StateNotifier<SessionState>
   }
 
   void _handleWarning(Duration remaining) {
-    state = SessionState(status: SessionStatus.warning, remainingTime: remaining);
+    state =
+        SessionState(status: SessionStatus.warning, remainingTime: remaining);
   }
 
   void _handleIdleCheck(Duration remaining) {

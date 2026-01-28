@@ -27,7 +27,7 @@ class ProductsPieChart extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'توزيع المنتجات حسب الفئة',
+            'أكثر المنتجات مبيعاً',
             style: GoogleFonts.tajawal(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -37,7 +37,7 @@ class ProductsPieChart extends StatelessWidget {
           const SizedBox(height: 16),
           Expanded(
             child: FutureBuilder<Map<String, double>>(
-              future: DashboardService().getProductsCategoryData(),
+              future: DashboardService().getTopSellingProducts(limit: 10),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -55,8 +55,8 @@ class ProductsPieChart extends StatelessWidget {
                   );
                 }
 
-                final categoryData = snapshot.data!;
-                final categories = categoryData.keys.toList();
+                final productData = snapshot.data!;
+                final productNames = productData.keys.toList();
                 final colors = [
                   Colors.red,
                   Colors.blue,
@@ -110,23 +110,28 @@ class ProductsPieChart extends StatelessWidget {
                                   sectionsSpace: 2,
                                   centerSpaceRadius: 40,
                                   sections:
-                                      List.generate(categories.length, (i) {
+                                      List.generate(productNames.length, (i) {
                                     final isTouched = i == touchedIndex;
-                                    final fontSize = isTouched ? 14.0 : 11.0;
-                                    final radius = isTouched ? 65.0 : 60.0;
-                                    final category = categories[i];
-                                    final value = categoryData[category]!;
+                                    final fontSize = isTouched ? 10.0 : 9.0;
+                                    final radius = isTouched ? 70.0 : 60.0;
+                                    final productName = productNames[i];
+                                    final value = productData[productName]!;
 
                                     return PieChartSectionData(
                                       color: colors[i % colors.length],
                                       value: value,
-                                      title: '${value.toStringAsFixed(0)}%',
+                                      // عند التحويم يظهر اسم المنتج
+                                      title: isTouched
+                                          ? productName
+                                          : '${value.toStringAsFixed(0)}%',
                                       radius: radius,
                                       titleStyle: GoogleFonts.tajawal(
                                         fontSize: fontSize,
                                         fontWeight: FontWeight.bold,
                                         color: Colors.white,
                                       ),
+                                      titlePositionPercentageOffset:
+                                          isTouched ? 0.55 : 0.5,
                                     );
                                   }),
                                 ),
@@ -134,7 +139,7 @@ class ProductsPieChart extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 16),
+                        const SizedBox(width: 8),
 
                         // ✅ Legend - نسبة أكبر
                         Expanded(
@@ -142,7 +147,7 @@ class ProductsPieChart extends StatelessWidget {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.start,
-                            children: List.generate(categories.length, (i) {
+                            children: List.generate(productNames.length, (i) {
                               return Padding(
                                 padding:
                                     const EdgeInsets.symmetric(vertical: 4),
@@ -159,7 +164,7 @@ class ProductsPieChart extends StatelessWidget {
                                     const SizedBox(width: 6),
                                     Flexible(
                                       child: Text(
-                                        categories[i],
+                                        productNames[i],
                                         style: GoogleFonts.tajawal(
                                           fontSize: 11,
                                           fontWeight: touchedIndex == i

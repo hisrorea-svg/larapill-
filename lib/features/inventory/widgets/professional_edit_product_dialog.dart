@@ -45,8 +45,7 @@ class _ProfessionalEditProductDialogState
   DateTime? _expiryDate;
   DateTime? _productionDate;
 
-  // Category & Base Unit
-  ProductCategory? _selectedCategory;
+  // Base Unit
   MedicineUnit? _selectedBaseUnit;
 
   // Units info
@@ -87,8 +86,7 @@ class _ProfessionalEditProductDialogState
         _expiryDate = product.expiryDate;
         _productionDate = product.productionDate;
 
-        // Category & Base Unit
-        _selectedCategory = product.category;
+        // Base Unit
         _selectedBaseUnit = product.baseUnit;
 
         // Units data
@@ -277,70 +275,34 @@ class _ProfessionalEditProductDialogState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle('التصنيف والوحدة', Icons.category),
+        _buildSectionTitle('الوحدة الأساسية', Icons.inventory_2),
         const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: DropdownButtonFormField<ProductCategory>(
-                initialValue: _selectedCategory,
-                decoration: InputDecoration(
-                  labelText: 'الفئة *',
-                  labelStyle: GoogleFonts.tajawal(),
-                  prefixIcon: const Icon(Icons.category),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  filled: true,
-                  fillColor: AppColors.surface,
-                ),
-                items: ProductCategory.values.map((category) {
-                  return DropdownMenuItem(
-                    value: category,
-                    child: Text(
-                      category.arabicName,
-                      style: GoogleFonts.tajawal(),
-                    ),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() => _selectedCategory = value);
-                },
-                validator: (value) =>
-                    value == null ? 'الرجاء اختيار الفئة' : null,
-              ),
+        DropdownButtonFormField<MedicineUnit>(
+          value: _selectedBaseUnit,
+          decoration: InputDecoration(
+            labelText: 'الوحدة الأساسية *',
+            labelStyle: GoogleFonts.tajawal(),
+            prefixIcon: const Icon(Icons.inventory_2),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: DropdownButtonFormField<MedicineUnit>(
-                initialValue: _selectedBaseUnit,
-                decoration: InputDecoration(
-                  labelText: 'الوحدة الأساسية *',
-                  labelStyle: GoogleFonts.tajawal(),
-                  prefixIcon: const Icon(Icons.inventory_2),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  filled: true,
-                  fillColor: AppColors.surface,
-                ),
-                items: MedicineUnit.values.map((unit) {
-                  return DropdownMenuItem(
-                    value: unit,
-                    child: Text(
-                      unit.arabicName,
-                      style: GoogleFonts.tajawal(),
-                    ),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() => _selectedBaseUnit = value);
-                },
-                validator: (value) =>
-                    value == null ? 'الرجاء اختيار الوحدة الأساسية' : null,
+            filled: true,
+            fillColor: AppColors.surface,
+          ),
+          items: MedicineUnit.values.map((unit) {
+            return DropdownMenuItem(
+              value: unit,
+              child: Text(
+                unit.arabicName,
+                style: GoogleFonts.tajawal(),
               ),
-            ),
-          ],
+            );
+          }).toList(),
+          onChanged: (value) {
+            setState(() => _selectedBaseUnit = value);
+          },
+          validator: (value) =>
+              value == null ? 'الرجاء اختيار الوحدة الأساسية' : null,
         ),
       ],
     );
@@ -698,7 +660,6 @@ class _ProfessionalEditProductDialogState
             ? _scientificNameController.text.trim()
             : null,
         company: _companyController.text.trim(),
-        category: _selectedCategory!,
         barcode: _barcodeController.text.trim(),
         baseUnit: _selectedBaseUnit!,
         currentStock: double.tryParse(_currentStockController.text) ?? 0.0,

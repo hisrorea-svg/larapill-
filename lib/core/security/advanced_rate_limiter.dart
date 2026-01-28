@@ -10,9 +10,9 @@ import 'dart:developer' as developer;
 class AdvancedRateLimiter {
   static const String _storageKey = 'login_attempts';
   static const int maxAttempts = 5;
-  static const Duration baseLockoutDuration = Duration(minutes: 15);
-  static const Duration extendedLockoutDuration = Duration(hours: 1);
-  static const Duration maxLockoutDuration = Duration(hours: 24);
+  static const Duration baseLockoutDuration = Duration(minutes: 1);
+  static const Duration extendedLockoutDuration = Duration(minutes: 15);
+  static const Duration maxLockoutDuration = Duration(hours: 6);
 
   /// فحص إمكانية محاولة تسجيل الدخول
   static Future<Map<String, dynamic>> checkAttempt(String identifier) async {
@@ -164,15 +164,15 @@ class AdvancedRateLimiter {
   static Duration _getLockoutDuration(int consecutiveFailures) {
     switch (consecutiveFailures) {
       case 0:
-        return baseLockoutDuration; // 15 دقيقة
+        return baseLockoutDuration; // 1 دقيقة
       case 1:
-        return const Duration(minutes: 30); // 30 دقيقة
+        return const Duration(minutes: 5); // 5 دقائق
       case 2:
-        return extendedLockoutDuration; // ساعة واحدة
+        return extendedLockoutDuration; // 15 ساعة
       case 3:
-        return const Duration(hours: 4); // 4 ساعات
+        return const Duration(minutes: 30); // 30 دقيقة
       default:
-        return maxLockoutDuration; // 24 ساعة
+        return maxLockoutDuration; // 6 ساعات
     }
   }
 
