@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../database/daos/product_dao.dart';
+import '../../../features/inventory/data/datasources/local/product_dao.dart';
 import '../../../models/product.dart';
 import '../../../models/medicine_unit.dart';
 import '../domain/entities/sale.dart';

@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:month_picker_dialog/month_picker_dialog.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../database/daos/product_dao.dart';
+import '../data/datasources/local/product_dao.dart';
 import '../../../models/product.dart';
 import '../../../models/medicine_unit.dart';
 import '../providers/inventory_providers.dart';

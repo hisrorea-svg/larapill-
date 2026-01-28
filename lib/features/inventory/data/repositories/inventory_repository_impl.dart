@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:uuid/uuid.dart';
 
-import '../../../../database/daos/product_dao.dart';
+import '../datasources/local/product_dao.dart';
 import '../../../../models/product.dart';
 import '../../../../models/medicine_unit.dart';
 import '../../domain/entities/add_product_params.dart';

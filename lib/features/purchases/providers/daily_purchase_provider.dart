@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:developer' as developer;
 import '../models/daily_purchase_request.dart';
-import '../../../database/daos/daily_purchase_request_dao.dart';
+import '../data/datasources/local/daily_purchase_request_dao.dart';
 
 /// Provider لـ DAO
 final dailyPurchaseRequestDaoProvider =

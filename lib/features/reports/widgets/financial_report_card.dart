@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../database/daos/sale_dao.dart';
+import '../../pos/data/datasources/local/sale_dao.dart';
 
 class FinancialReportCard extends ConsumerWidget {
   final String period;

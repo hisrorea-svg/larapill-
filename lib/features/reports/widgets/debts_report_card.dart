@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../database/daos/customer_debt_dao.dart';
+import '../../debts/data/datasources/local/customer_debt_dao.dart';
 
 class DebtsReportCard extends ConsumerWidget {
   final String period;

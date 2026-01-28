@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:shelf/shelf.dart';
 
-import '../../../database/daos/product_dao.dart';
+import '../../../features/inventory/data/datasources/local/product_dao.dart';
 import '../../../services/sales_service.dart';
 import '../../../features/pos/domain/entities/sale.dart';
 import 'sync_constants.dart';
