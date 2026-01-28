@@ -10,8 +10,7 @@ import '../../database/database_helper.dart';
 import '../../core/config/pharmacy_info.dart';
 import '../../services/user_service.dart';
 import '../../services/meds_data_service.dart';
-import '../../services/smart_notification_service.dart';
-
+// Note: SmartNotificationService removed - using Clean Architecture notifications
 
 /// كلاس مسؤول عن تهيئة التطبيق وكل ما يلزم قبل تشغيل الواجهة
 class AppBootstrap {
@@ -32,16 +31,11 @@ class AppBootstrap {
 
       // 5. تهيئة قاعدة البيانات والخدمات
       await _initServices();
-      
     } catch (e, stack) {
-      developer.log(
-        '❌ خطأ كارثي أثناء تهيئة التطبيق', 
-        name: 'AppBootstrap', 
-        error: e, 
-        stackTrace: stack
-      );
+      developer.log('❌ خطأ كارثي أثناء تهيئة التطبيق',
+          name: 'AppBootstrap', error: e, stackTrace: stack);
       // يمكن هنا إضافة منطق لإظهار شاشة خطأ للمستخدم في حال فشل التهيئة تماماً
-      rethrow; 
+      rethrow;
     }
   }
 
@@ -64,7 +58,8 @@ class AppBootstrap {
     if (Platform.isWindows || Platform.isLinux) {
       sqfliteFfiInit();
       databaseFactory = databaseFactoryFfi;
-      developer.log('🔧 تم تهيئة sqflite_common_ffi للويندوز/لينكس', name: 'AppBootstrap');
+      developer.log('🔧 تم تهيئة sqflite_common_ffi للويندوز/لينكس',
+          name: 'AppBootstrap');
     }
   }
 
@@ -94,14 +89,15 @@ class AppBootstrap {
         '📊 المنتجات: ${stats['products']}, المبيعات: ${stats['sales']}, الموردين: ${stats['suppliers']}',
         name: 'AppBootstrap');
 
-    developer.log('🎉 قاعدة البيانات وإعدادات الصيدلية جاهزة!', name: 'AppBootstrap');
-    
+    developer.log('🎉 قاعدة البيانات وإعدادات الصيدلية جاهزة!',
+        name: 'AppBootstrap');
+
     // تحميل بيانات الأدوية
     await MedsDataService.loadMeds();
 
-    // بدء خدمة الإشعارات الذكية
-    developer.log('🔔 بدء خدمة الإشعارات الذكية...', name: 'AppBootstrap');
-    SmartNotificationService().startMonitoring();
+    // TODO: Initialize notification monitoring via Clean Architecture when needed
+    developer.log('🔔 نظام الإشعارات يستخدم Clean Architecture',
+        name: 'AppBootstrap');
   }
 
   // 🔥 دالة إنشاء المستخدم الافتراضي
@@ -137,7 +133,8 @@ class AppBootstrap {
               name: 'UserInit');
         }
       } else {
-        developer.log('👥 يوجد ${users.length} مستخدم في النظام', name: 'UserInit');
+        developer.log('👥 يوجد ${users.length} مستخدم في النظام',
+            name: 'UserInit');
       }
 
       // إحصائيات المستخدمين
@@ -184,7 +181,8 @@ class AppBootstrap {
 
       developer.log('✅ تم إنشاء المستخدمين التجريبيين', name: 'UserInit');
     } catch (e) {
-      developer.log('❌ خطأ في إنشاء المستخدمين التجريبيين: $e', name: 'UserInit');
+      developer.log('❌ خطأ في إنشاء المستخدمين التجريبيين: $e',
+          name: 'UserInit');
     }
   }
 }

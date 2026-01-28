@@ -5,7 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/controllers/session_controller.dart';
-import '../../../providers/app_providers.dart';
+import '../../../core/providers/app_providers.dart';
 import '../../inventory/screens/inventory_screen.dart';
 import '../../purchases/screens/daily_purchase_requests_screen.dart';
 import '../../settings/screens/settings_screen.dart';

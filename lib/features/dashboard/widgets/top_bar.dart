@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:developer' as developer;
 import '../../../core/theme/app_colors.dart';
-import '../../../providers/app_providers.dart';
+import '../../../core/providers/app_providers.dart';
 import '../../../features/notifications/domain/entities/notification_entity.dart';
 import '../../../features/notifications/domain/entities/notification_type.dart';
 import '../../../features/notifications/domain/entities/notification_priority.dart';

@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../providers/app_providers.dart';
+import '../../../core/providers/app_providers.dart';
 import '../widgets/menu_tile.dart';
 import '../widgets/terminal_type_selector.dart';
 import '../../inventory/screens/inventory_screen.dart';

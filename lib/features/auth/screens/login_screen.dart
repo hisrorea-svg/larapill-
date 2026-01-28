@@ -8,7 +8,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../services/user_service.dart';
 import '../../../core/security/advanced_rate_limiter.dart';
 import '../../../core/utils/input_sanitizer.dart';
-import '../../../providers/app_providers.dart';
+import '../../../core/providers/app_providers.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});

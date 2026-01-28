@@ -14,7 +14,7 @@ import '../presentation/utils/error_handler.dart';
 import '../../../core/exceptions/app_exceptions.dart';
 import 'package:sqflite/sqflite.dart' as sqflite;
 import '../../network/presentation/screens/network_settings_screen.dart';
-import '../../../providers/app_providers.dart';
+import '../../../core/providers/app_providers.dart';
 import '../../../core/widgets/app_toast.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
