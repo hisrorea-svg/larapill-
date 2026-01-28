@@ -7,7 +7,7 @@ import 'package:path_provider/path_provider.dart';
 // ✅ إزالة استيراد crypto القديم - لن نحتاجه
 // import 'dart:convert';
 // import 'package:crypto/crypto.dart';
-import '../services/password_hasher.dart'; // ✅ استيراد خدمة التشفير الجديدة
+import '../core/services/password_hasher.dart'; // ✅ استيراد خدمة التشفير الجديدة
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();

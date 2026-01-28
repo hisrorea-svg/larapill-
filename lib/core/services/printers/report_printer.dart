@@ -3,8 +3,8 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:intl/intl.dart';
 import 'dart:typed_data';
-import '../../features/purchases/models/daily_purchase_request.dart';
-import '../pharmacy_settings_service.dart';
+import '../../../features/purchases/models/daily_purchase_request.dart';
+import '../../../services/pharmacy_settings_service.dart';
 
 class ReportPrinter {
   // طباعة طلبات الشراء اليومية

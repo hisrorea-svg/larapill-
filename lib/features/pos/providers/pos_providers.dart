@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../database/daos/product_dao.dart';
 import '../../../models/product.dart';
 import '../../../models/medicine_unit.dart';
-import '../models/sale.dart';
+import '../domain/entities/sale.dart';
 import '../../../core/network/sync_aware_dao.dart';
 import '../../../core/network/sync_aware_sales_service.dart';
 import '../../../features/purchases/providers/daily_purchase_provider.dart';

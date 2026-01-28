@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../models/customer_debt.dart';
+import '../domain/entities/customer_debt.dart';
 import '../../../database/daos/customer_debt_dao.dart';
 import '../../../database/daos/debt_payment_dao.dart';
 import '../../../services/user_service.dart';

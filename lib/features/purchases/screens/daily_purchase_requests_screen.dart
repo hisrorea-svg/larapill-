@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../services/printer_service.dart';
+import '../../../core/services/printer_service.dart';
 import '../providers/daily_purchase_provider.dart';
 import '../widgets/add_product_dialog_purchase.dart';
 import '../widgets/purchase_requests_table.dart';

@@ -5,10 +5,10 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/input_sanitizer.dart';
 import '../../../core/widgets/app_toast.dart';
-import '../models/sale.dart';
+import '../domain/entities/sale.dart';
 import '../providers/pos_providers.dart';
 import '../../../services/user_service.dart';
-import '../../../services/printer_service.dart';
+import '../../../core/services/printer_service.dart';
 
 /// Checkout Panel - لوحة الدفع المدمجة
 class CheckoutPanel extends ConsumerStatefulWidget {

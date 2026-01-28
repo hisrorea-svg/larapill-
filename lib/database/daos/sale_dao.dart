@@ -1,5 +1,5 @@
 import 'package:larapill/models/medicine_unit.dart';
-import '../../features/pos/models/sale.dart';
+import '../../features/pos/domain/entities/sale.dart';
 import '../database_helper.dart';
 
 class SaleDAO {

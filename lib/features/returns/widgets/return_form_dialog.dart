@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../models/return.dart';
+import '../domain/entities/return_entity.dart';
 import '../../../services/return_service.dart';
 import '../../../services/sales_service.dart';
 import '../../../services/user_service.dart';
-import '../../../features/pos/models/sale.dart';
+import '../../pos/domain/entities/sale.dart';
 
 class ReturnFormDialog extends StatefulWidget {
   final VoidCallback onReturnCreated;

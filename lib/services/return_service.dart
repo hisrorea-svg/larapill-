@@ -1,7 +1,7 @@
 import 'dart:developer' as developer;
 import '../database/database_helper.dart';
-import '../models/return.dart';
-import '../features/pos/models/sale.dart';
+import '../features/returns/domain/entities/return_entity.dart';
+import '../features/pos/domain/entities/sale.dart';
 
 class ReturnService {
   static final ReturnService _instance = ReturnService._internal();

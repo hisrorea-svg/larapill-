@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:sqflite/sqflite.dart' as sqflite;
 import '../database/database_helper.dart';
-import '../features/pos/models/sale.dart';
+import '../features/pos/domain/entities/sale.dart';
 import '../models/medicine_unit.dart';
 import '../database/daos/product_dao.dart';
 import '../database/daos/customer_debt_dao.dart';

@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:data_table_2/data_table_2.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../../models/return.dart';
+import '../domain/entities/return_entity.dart';
 import '../providers/returns_providers.dart';
 import '../widgets/return_form_dialog.dart';
 import '../widgets/return_details_dialog.dart';

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../models/customer_debt.dart';
+import '../domain/entities/customer_debt.dart';
 
 class DebtListItem extends StatelessWidget {
   final CustomerDebt debt;

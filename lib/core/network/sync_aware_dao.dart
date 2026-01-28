@@ -5,7 +5,7 @@ import '../../database/daos/product_dao.dart';
 import '../../database/daos/sale_dao.dart';
 import '../../models/product.dart';
 import '../../models/medicine_unit.dart';
-import '../../features/pos/models/sale.dart';
+import '../../features/pos/domain/entities/sale.dart';
 import '../../features/network/presentation/providers/lan_providers.dart';
 
 /// Sync-Aware Product DAO

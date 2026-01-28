@@ -7,7 +7,7 @@ import 'package:shelf/shelf.dart';
 
 import '../../../database/daos/product_dao.dart';
 import '../../../services/sales_service.dart';
-import '../../../features/pos/models/sale.dart';
+import '../../../features/pos/domain/entities/sale.dart';
 import 'sync_constants.dart';
 
 /// API handlers for sync server endpoints

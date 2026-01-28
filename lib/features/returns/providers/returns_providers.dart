@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../services/return_service.dart';
-import '../../../models/return.dart';
+import '../domain/entities/return_entity.dart';
 
 // ===== الخدمة =====
 final returnServiceProvider = Provider<ReturnService>((ref) {

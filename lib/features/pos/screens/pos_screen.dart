@@ -10,7 +10,7 @@ import '../../../models/product.dart';
 import '../../../models/medicine_unit.dart';
 import '../../../core/network/sync_aware_dao.dart';
 import '../../returns/widgets/return_form_dialog.dart';
-import '../models/sale.dart';
+import '../domain/entities/sale.dart';
 import '../widgets/checkout_panel.dart';
 import '../providers/pos_providers.dart';
 

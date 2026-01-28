@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../database/database_helper.dart';
-import '../../../services/password_hasher.dart';
+import '../../../core/services/password_hasher.dart';
 import '../../../services/pharmacy_settings_service.dart';
 import '../widgets/notification_settings_dialog.dart';
 import '../widgets/security_settings_dialog.dart';

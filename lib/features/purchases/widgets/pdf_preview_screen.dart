@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:printing/printing.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../services/printer_service.dart';
+import '../../../core/services/printer_service.dart';
 import '../models/daily_purchase_request.dart';
 
 class PdfPreviewScreen extends ConsumerWidget {

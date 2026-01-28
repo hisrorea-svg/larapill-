@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart' as sqflite;
 import 'dart:developer' as developer;
 import '../database/database_helper.dart';
-import '../services/password_hasher.dart';
+import '../core/services/password_hasher.dart';
 import '../core/exceptions/app_exceptions.dart';
 import '../core/services/audit_logger.dart';
 import '../core/utils/input_sanitizer.dart';

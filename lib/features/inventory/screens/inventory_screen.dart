@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:data_table_2/data_table_2.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../services/printer_service.dart';
+import '../../../core/services/printer_service.dart';
 import '../../../core/utils/input_sanitizer.dart';
 import '../../../core/models/barcode_type.dart';
 import '../../../core/models/barcode_label_size.dart';

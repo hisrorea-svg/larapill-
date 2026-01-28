@@ -5,7 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../models/daily_purchase_request.dart';
 import '../providers/daily_purchase_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../services/printer_service.dart';
+import '../../../core/services/printer_service.dart';
 import 'pdf_preview_screen.dart';
 
 class PurchaseRequestsTable extends ConsumerWidget {

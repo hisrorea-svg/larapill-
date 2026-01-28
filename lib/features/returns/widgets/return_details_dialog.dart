@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../models/return.dart';
+import '../domain/entities/return_entity.dart';
 
 class ReturnDetailsDialog extends StatelessWidget {
   final Return return_;
