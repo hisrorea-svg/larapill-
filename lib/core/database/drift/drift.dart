@@ -9,3 +9,6 @@ export 'app_database.dart';
 
 // Provider
 export 'database_provider.dart';
+
+// DAOs
+export 'daos/daos.dart';
