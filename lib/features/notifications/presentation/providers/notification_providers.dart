@@ -143,7 +143,7 @@ final groupedNotificationsProvider =
 final startupNotificationCheckUseCaseProvider =
     Provider<StartupNotificationCheckUseCase>((ref) {
   return StartupNotificationCheckUseCase(
-    productRepository: ProductRepository(),
+    productRepository: ref.watch(productRepositoryProvider),
     createLowStockNotification:
         ref.watch(createLowStockNotificationUseCaseProvider),
     createNearExpiryNotification:

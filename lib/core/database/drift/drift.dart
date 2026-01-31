@@ -12,3 +12,6 @@ export 'database_provider.dart';
 
 // DAOs
 export 'daos/daos.dart';
+
+// Mappers
+export 'mappers/mappers.dart';

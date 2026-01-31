@@ -5,7 +5,9 @@ import '../../../inventory/data/repositories/product_repository.dart';
 import '../../../../core/models/shared/product.dart';
 
 class GlobalSearchDelegate extends SearchDelegate<String> {
-  final ProductRepository _productRepository = ProductRepository();
+  final ProductRepository _productRepository;
+
+  GlobalSearchDelegate(this._productRepository);
 
   @override
   String get searchFieldLabel => 'بحث عن دواء أو اسم تجاري...';
