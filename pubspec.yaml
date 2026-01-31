@@ -13,6 +13,10 @@ dependencies:
   # State Management
   flutter_riverpod: ^2.4.9
 
+  # 🗄️ Database - Drift ORM
+  drift: ^2.24.0
+  sqlite3_flutter_libs: ^0.5.28
+  # Legacy (to be removed after migration)
   sqflite_common_ffi: ^2.3.6
   sqlite3: 2.9.2
   sqflite: ^2.3.0
@@ -67,6 +71,9 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^3.0.0
   flutter_launcher_icons: ^0.14.1
+  # 🛠️ Drift Code Generation
+  drift_dev: ^2.24.0
+  build_runner: ^2.4.14
 
 flutter:
   uses-material-design: true
