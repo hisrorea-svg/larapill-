@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/usecases/filter_products_usecase.dart';
-import '../../providers/inventory_providers.dart';
+import '../providers/inventory_providers.dart';
 import '../states/inventory_state.dart';
 
 /// Controller for the inventory list screen

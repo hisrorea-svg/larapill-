@@ -1,6 +1,6 @@
-import 'package:larapill/models/medicine_unit.dart';
-import '../../features/pos/domain/entities/sale.dart';
-import '../database_helper.dart';
+import '../../../../../../core/models/shared/medicine_unit.dart';
+import '../../../domain/entities/sale.dart';
+import '../../../../../database/database_helper.dart';
 
 class SaleDAO {
   final DatabaseHelper _dbHelper = DatabaseHelper();

@@ -1,4 +1,4 @@
-import '../entities/user_entity.dart';
+import '../../../auth/domain/models/user.dart';
 import '../repositories/users_repository.dart';
 import '../repositories/settings_repository.dart'; // For Either
 import '../failures/settings_failure.dart';
@@ -10,7 +10,7 @@ class GetUsersUseCase {
   const GetUsersUseCase(this._repository);
 
   /// تنفيذ Use Case
-  Future<Either<SettingsFailure, List<UserEntity>>> call() async {
+  Future<Either<SettingsFailure, List<User>>> call() async {
     return await _repository.getActiveUsers();
   }
 }

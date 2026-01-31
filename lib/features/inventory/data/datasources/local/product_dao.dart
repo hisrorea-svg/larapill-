@@ -2,13 +2,13 @@ import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:sqflite/sqflite.dart' as sqflite;
 import 'package:uuid/uuid.dart';
-import '../database_helper.dart';
-import '../../models/product.dart';
-import '../../models/medicine_unit.dart';
-import '../../features/inventory/domain/entities/product_entity.dart';
-import '../../core/exceptions/app_exceptions.dart';
-import '../../core/services/audit_logger.dart';
-import '../../core/utils/input_sanitizer.dart';
+import '../../../../../database/database_helper.dart';
+import '../../../../../core/models/shared/product.dart';
+import '../../../../../core/models/shared/medicine_unit.dart';
+import '../../../domain/entities/product_entity.dart';
+import '../../../../../core/exceptions/app_exceptions.dart';
+import '../../../../../core/services/audit_logger.dart';
+import '../../../../../core/utils/input_sanitizer.dart';
 
 /// DAO للتعامل مع جدول المنتجات
 class ProductDAO {

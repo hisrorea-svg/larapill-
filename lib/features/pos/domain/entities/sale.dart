@@ -1,4 +1,4 @@
-import '../../../models/medicine_unit.dart';
+import '../../../../core/models/shared/medicine_unit.dart';
 
 class Sale {
   final String id;

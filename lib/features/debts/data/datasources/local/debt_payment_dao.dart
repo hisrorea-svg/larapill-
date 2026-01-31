@@ -1,7 +1,7 @@
 import 'dart:developer' as developer;
 import 'package:uuid/uuid.dart';
-import '../../features/debts/domain/entities/debt_payment.dart';
-import '../database_helper.dart';
+import '../../../domain/entities/debt_payment.dart';
+import '../../../../../database/database_helper.dart';
 
 /// 💳 DAO لإدارة دفعات تسديد الديون
 class DebtPaymentDAO {

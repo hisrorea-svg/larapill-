@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'remote_database_service.dart';
 import '../../features/inventory/data/datasources/local/product_dao.dart';
 import '../../features/pos/data/datasources/local/sale_dao.dart';
-import '../../models/product.dart';
-import '../../models/medicine_unit.dart';
+import '../models/shared/product.dart';
+import '../models/shared/medicine_unit.dart';
 import '../../features/pos/domain/entities/sale.dart';
 import '../../features/network/presentation/providers/lan_providers.dart';
 

@@ -1,4 +1,4 @@
-import '../entities/user_entity.dart';
+import '../../../auth/domain/models/user.dart';
 import '../repositories/users_repository.dart';
 import '../repositories/settings_repository.dart'; // For Either
 import '../failures/settings_failure.dart';
@@ -21,7 +21,7 @@ class UpdateUserPermissionsUseCase {
   const UpdateUserPermissionsUseCase(this._repository);
 
   /// تنفيذ Use Case
-  Future<Either<SettingsFailure, UserEntity>> call(
+  Future<Either<SettingsFailure, User>> call(
       UpdateUserPermissionsParams params) async {
     // التحقق من وجود المستخدم
     final userResult = await _repository.getUserById(params.userId);
@@ -35,8 +35,8 @@ class UpdateUserPermissionsUseCase {
 
         // منع تحديث صلاحيات admin
         if (user.isAdmin) {
-          return const Either.left(PermissionDeniedFailure(
-              'لا يمكن تحديث صلاحيات مدير النظام'));
+          return const Either.left(
+              PermissionDeniedFailure('لا يمكن تحديث صلاحيات مدير النظام'));
         }
 
         return await _repository.updatePermissions(

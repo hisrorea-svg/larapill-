@@ -11,6 +11,8 @@ import '../../domain/usecases/clear_read_notifications_usecase.dart';
 import '../../domain/usecases/create_low_stock_notification_usecase.dart';
 import '../../domain/usecases/create_near_expiry_notification_usecase.dart';
 import '../../domain/usecases/create_sale_notification_usecase.dart';
+import '../../domain/usecases/startup_notification_check_usecase.dart';
+import '../../../../features/inventory/data/repositories/product_repository.dart';
 import '../controllers/notification_controller.dart';
 import '../controllers/notification_state.dart';
 
@@ -131,4 +133,28 @@ final unreadCountProvider = Provider<int>((ref) {
 final groupedNotificationsProvider =
     Provider<Map<String, List<NotificationEntity>>>((ref) {
   return ref.watch(notificationControllerProvider).groupedNotifications;
+});
+
+// ======================================================================
+// Startup Notification Check
+// ======================================================================
+
+/// Provider لـ StartupNotificationCheckUseCase
+final startupNotificationCheckUseCaseProvider =
+    Provider<StartupNotificationCheckUseCase>((ref) {
+  return StartupNotificationCheckUseCase(
+    productRepository: ProductRepository(),
+    createLowStockNotification:
+        ref.watch(createLowStockNotificationUseCaseProvider),
+    createNearExpiryNotification:
+        ref.watch(createNearExpiryNotificationUseCaseProvider),
+  );
+});
+
+/// Provider لتنفيذ الفحص التلقائي عند بدء التطبيق
+/// يتم تفعيله تلقائياً عند أول قراءة له
+final startupNotificationCheckProvider =
+    FutureProvider<NotificationCheckResult>((ref) async {
+  final useCase = ref.watch(startupNotificationCheckUseCaseProvider);
+  return useCase();
 });

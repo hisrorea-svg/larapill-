@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/responsive_spacing.dart';
 
@@ -28,7 +27,8 @@ class EmptyNotificationsWidget extends StatelessWidget {
           SizedBox(height: context.spacing24),
           Text(
             'لا توجد إشعارات',
-            style: GoogleFonts.tajawal(
+            style: TextStyle(
+              fontFamily: 'Tajawal',
               fontSize: context.fontSize20,
               fontWeight: FontWeight.bold,
               color: AppColors.textPrimary,
@@ -37,7 +37,8 @@ class EmptyNotificationsWidget extends StatelessWidget {
           SizedBox(height: context.spacing8),
           Text(
             'ستظهر الإشعارات الجديدة هنا',
-            style: GoogleFonts.tajawal(
+            style: TextStyle(
+              fontFamily: 'Tajawal',
               fontSize: context.fontSize14,
               color: AppColors.textSecondary,
             ),

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../services/session_timeout_service.dart';
 import '../../../core/theme/app_colors.dart';
 import 'dart:async';
@@ -161,7 +160,8 @@ class _SessionStatusWidgetState extends State<SessionStatusWidget>
                   const SizedBox(width: 4),
                   Text(
                     _getTimeText(),
-                    style: GoogleFonts.tajawal(
+                    style: TextStyle(
+                      fontFamily: 'Tajawal',
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: Colors.white.withValues(alpha: 0.9),
@@ -224,9 +224,10 @@ class _SessionStatusWidgetState extends State<SessionStatusWidget>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         'حالة الجلسة',
-                        style: GoogleFonts.tajawal(
+                        style: TextStyle(
+                          fontFamily: 'Tajawal',
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
                           color: AppColors.textPrimary,
@@ -234,7 +235,8 @@ class _SessionStatusWidgetState extends State<SessionStatusWidget>
                       ),
                       Text(
                         'باقي ${_getTimeText()}',
-                        style: GoogleFonts.tajawal(
+                        style: TextStyle(
+                          fontFamily: 'Tajawal',
                           fontSize: 12,
                           color: _getStatusColor(),
                           fontWeight: FontWeight.w600,
@@ -247,7 +249,8 @@ class _SessionStatusWidgetState extends State<SessionStatusWidget>
                   onPressed: _showSessionDetails,
                   child: Text(
                     'التفاصيل',
-                    style: GoogleFonts.tajawal(
+                    style: TextStyle(
+                      fontFamily: 'Tajawal',
                       fontSize: 12,
                       color: _getStatusColor(),
                     ),
@@ -308,10 +311,12 @@ class _SessionDetailsDialogState extends State<SessionDetailsDialog> {
       widget.onExtendSession?.call();
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text(
             '✅ تم تمديد الجلسة لساعتين إضافيتين',
-            style: GoogleFonts.tajawal(),
+            style: TextStyle(
+              fontFamily: 'Tajawal',
+            ),
           ),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
@@ -326,13 +331,14 @@ class _SessionDetailsDialogState extends State<SessionDetailsDialog> {
     final sessionDuration = widget.sessionInfo['sessionDuration'] as int?;
 
     return AlertDialog(
-      title: Row(
+      title: const Row(
         children: [
-          const Icon(Icons.schedule, color: AppColors.primary),
-          const SizedBox(width: 8),
+          Icon(Icons.schedule, color: AppColors.primary),
+          SizedBox(width: 8),
           Text(
             'تفاصيل الجلسة',
-            style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
+            style:
+                TextStyle(fontFamily: 'Tajawal', fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -388,7 +394,10 @@ class _SessionDetailsDialogState extends State<SessionDetailsDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text('إغلاق', style: GoogleFonts.tajawal()),
+          child: const Text('إغلاق',
+              style: TextStyle(
+                fontFamily: 'Tajawal',
+              )),
         ),
         if (remainingMinutes != null && remainingMinutes > 0)
           ElevatedButton(
@@ -397,7 +406,10 @@ class _SessionDetailsDialogState extends State<SessionDetailsDialog> {
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
             ),
-            child: Text('تمديد الجلسة', style: GoogleFonts.tajawal()),
+            child: const Text('تمديد الجلسة',
+                style: TextStyle(
+                  fontFamily: 'Tajawal',
+                )),
           ),
       ],
     );
@@ -420,7 +432,8 @@ class _SessionDetailsDialogState extends State<SessionDetailsDialog> {
         children: [
           Text(
             title,
-            style: GoogleFonts.tajawal(
+            style: const TextStyle(
+              fontFamily: 'Tajawal',
               fontSize: 14,
               fontWeight: FontWeight.bold,
               color: AppColors.primary,
@@ -441,14 +454,16 @@ class _SessionDetailsDialogState extends State<SessionDetailsDialog> {
         children: [
           Text(
             label,
-            style: GoogleFonts.tajawal(
+            style: const TextStyle(
+              fontFamily: 'Tajawal',
               fontSize: 12,
               color: AppColors.textSecondary,
             ),
           ),
           Text(
             value,
-            style: GoogleFonts.tajawal(
+            style: const TextStyle(
+              fontFamily: 'Tajawal',
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,

@@ -1,4 +1,7 @@
+import 'package:uuid/uuid.dart';
+
 import '../../domain/entities/product_entity.dart';
+import '../../domain/entities/add_product_params.dart';
 import '../models/product_model.dart';
 
 /// Mapper for converting between ProductEntity and ProductModel
@@ -51,6 +54,27 @@ class ProductMapper {
       isActive: 1,
       sellingPrice: entity.price,
       costPrice: entity.costPrice,
+    );
+  }
+
+  /// تحويل AddProductParams إلى ProductModel للإضافة
+  static ProductModel toModelFromParams(AddProductParams params) {
+    final now = DateTime.now().toIso8601String();
+    return ProductModel(
+      id: const Uuid().v4(),
+      name: params.name,
+      company: params.company,
+      category: 'medicalSupplies', // القيمة الافتراضية
+      barcode: params.barcode,
+      baseUnit: 'piece',
+      currentStock: params.quantity.toDouble(),
+      minStockLevel: 10.0,
+      expiryDate: params.expiryDate.toIso8601String(),
+      createdAt: now,
+      updatedAt: now,
+      isActive: 1,
+      sellingPrice: params.price,
+      costPrice: params.cost,
     );
   }
 

@@ -3,7 +3,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../../models/barcode_type.dart';
 import '../../models/barcode_label_size.dart';
-import '../../../services/pharmacy_settings_service.dart';
+import '../pharmacy_settings_service.dart';
 
 class BarcodePrinter {
   /// طباعة باركود منتج - نسخة محسّنة

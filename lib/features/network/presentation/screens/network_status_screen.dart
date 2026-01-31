@@ -28,8 +28,8 @@ class _NetworkStatusScreenState extends ConsumerState<NetworkStatusScreen> {
     _loadPendingOperations();
   }
 
-  Future<void> _loadPendingOperations() async {
-    await _offlineQueue.loadQueue();
+  void _loadPendingOperations() {
+    _offlineQueue.loadQueue();
     setState(() {
       _pendingOperations = _offlineQueue.getPendingOperations();
     });
@@ -49,7 +49,7 @@ class _NetworkStatusScreenState extends ConsumerState<NetworkStatusScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        await _loadPendingOperations();
+        _loadPendingOperations();
       }
     } catch (e) {
       if (mounted) {
@@ -80,7 +80,10 @@ class _NetworkStatusScreenState extends ConsumerState<NetworkStatusScreen> {
       child: Scaffold(
         backgroundColor: Colors.grey[100],
         appBar: AppBar(
-          title: Text('حالة الشبكة', style: GoogleFonts.tajawal()),
+          title: const Text('حالة الشبكة',
+              style: TextStyle(
+                fontFamily: 'Tajawal',
+              )),
           backgroundColor: Colors.teal,
           foregroundColor: Colors.white,
           actions: [
@@ -157,14 +160,16 @@ class _NetworkStatusScreenState extends ConsumerState<NetworkStatusScreen> {
                         settings.mode == NetworkMode.server
                             ? 'وضع السيرفر'
                             : 'وضع الكلاينت',
-                        style: GoogleFonts.tajawal(
+                        style: const TextStyle(
+                          fontFamily: 'Tajawal',
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(
                         isOnline ? 'متصل ✓' : 'غير متصل',
-                        style: GoogleFonts.tajawal(
+                        style: TextStyle(
+                          fontFamily: 'Tajawal',
                           color: isOnline ? Colors.green : Colors.grey,
                         ),
                       ),
@@ -217,8 +222,11 @@ class _NetworkStatusScreenState extends ConsumerState<NetworkStatusScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: GoogleFonts.tajawal(color: Colors.grey[600])),
-          Text(value, style: GoogleFonts.tajawal(fontWeight: FontWeight.w500)),
+          Text(label,
+              style: TextStyle(fontFamily: 'Tajawal', color: Colors.grey[600])),
+          Text(value,
+              style: const TextStyle(
+                  fontFamily: 'Tajawal', fontWeight: FontWeight.w500)),
         ],
       ),
     );
@@ -248,16 +256,18 @@ class _NetworkStatusScreenState extends ConsumerState<NetworkStatusScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         'العمليات المعلقة',
-                        style: GoogleFonts.tajawal(
+                        style: TextStyle(
+                          fontFamily: 'Tajawal',
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(
                         '${_pendingOperations.length} عملية في الانتظار',
-                        style: GoogleFonts.tajawal(color: Colors.grey[600]),
+                        style: TextStyle(
+                            fontFamily: 'Tajawal', color: Colors.grey[600]),
                       ),
                     ],
                   ),
@@ -272,7 +282,9 @@ class _NetworkStatusScreenState extends ConsumerState<NetworkStatusScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2))
                         : const Icon(Icons.sync, size: 18),
                     label: Text(_isProcessing ? 'جاري...' : 'مزامنة',
-                        style: GoogleFonts.tajawal()),
+                        style: const TextStyle(
+                          fontFamily: 'Tajawal',
+                        )),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.teal,
                       foregroundColor: Colors.white,
@@ -292,7 +304,7 @@ class _NetworkStatusScreenState extends ConsumerState<NetworkStatusScreen> {
                     ),
                     title: Text(
                       _getOperationTitle(op.type),
-                      style: GoogleFonts.tajawal(fontSize: 13),
+                      style: const TextStyle(fontFamily: 'Tajawal', fontSize: 13),
                     ),
                     subtitle: Text(
                       _formatDateTime(op.createdAt),
@@ -301,8 +313,10 @@ class _NetworkStatusScreenState extends ConsumerState<NetworkStatusScreen> {
                     ),
                     trailing: op.retryCount > 0
                         ? Text('محاولة ${op.retryCount}',
-                            style: GoogleFonts.tajawal(
-                                fontSize: 11, color: Colors.red))
+                            style: const TextStyle(
+                                fontFamily: 'Tajawal',
+                                fontSize: 11,
+                                color: Colors.red))
                         : null,
                   )),
               if (_pendingOperations.length > 5)
@@ -340,9 +354,10 @@ class _NetworkStatusScreenState extends ConsumerState<NetworkStatusScreen> {
                   child: const Icon(Icons.history, color: Colors.blue),
                 ),
                 const SizedBox(width: 12),
-                Text(
+                const Text(
                   'سجل النشاط',
-                  style: GoogleFonts.tajawal(
+                  style: TextStyle(
+                    fontFamily: 'Tajawal',
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
@@ -355,9 +370,9 @@ class _NetworkStatusScreenState extends ConsumerState<NetworkStatusScreen> {
                 children: [
                   Icon(Icons.inbox_outlined, size: 48, color: Colors.grey[300]),
                   const SizedBox(height: 8),
-                  Text(
+                  const Text(
                     'لا توجد أنشطة حديثة',
-                    style: GoogleFonts.tajawal(color: Colors.grey),
+                    style: TextStyle(fontFamily: 'Tajawal', color: Colors.grey),
                   ),
                 ],
               ),

@@ -1,7 +1,6 @@
 // lib/features/network/presentation/screens/network_setup_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../providers/network_settings_notifier.dart';
 import '../providers/lan_providers.dart';
 import '../../../../core/network/http_client_service.dart';
@@ -58,9 +57,10 @@ class _NetworkSetupScreenState extends ConsumerState<NetworkSetupScreen> {
                     const SizedBox(height: 32),
 
                     // العنوان
-                    Text(
+                    const Text(
                       'إعداد الشبكة',
-                      style: GoogleFonts.tajawal(
+                      style: TextStyle(
+                        fontFamily: 'Tajawal',
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
@@ -69,7 +69,8 @@ class _NetworkSetupScreenState extends ConsumerState<NetworkSetupScreen> {
                     const SizedBox(height: 8),
                     Text(
                       'اختر دور هذا الجهاز في الشبكة',
-                      style: GoogleFonts.tajawal(
+                      style: TextStyle(
+                        fontFamily: 'Tajawal',
                         fontSize: 16,
                         color: Colors.white.withAlpha(200),
                       ),
@@ -87,7 +88,8 @@ class _NetworkSetupScreenState extends ConsumerState<NetworkSetupScreen> {
                       onPressed: _skipSetup,
                       child: Text(
                         'تخطي الإعداد',
-                        style: GoogleFonts.tajawal(
+                        style: TextStyle(
+                          fontFamily: 'Tajawal',
                           color: Colors.white.withAlpha(180),
                           decoration: TextDecoration.underline,
                         ),
@@ -171,7 +173,8 @@ class _NetworkSetupScreenState extends ConsumerState<NetworkSetupScreen> {
                   children: [
                     Text(
                       title,
-                      style: GoogleFonts.tajawal(
+                      style: const TextStyle(
+                        fontFamily: 'Tajawal',
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -179,7 +182,8 @@ class _NetworkSetupScreenState extends ConsumerState<NetworkSetupScreen> {
                     const SizedBox(height: 4),
                     Text(
                       description,
-                      style: GoogleFonts.tajawal(
+                      style: TextStyle(
+                        fontFamily: 'Tajawal',
                         fontSize: 13,
                         color: Colors.grey[600],
                       ),
@@ -220,9 +224,10 @@ class _NetworkSetupScreenState extends ConsumerState<NetworkSetupScreen> {
             icon: const Icon(Icons.arrow_back),
           ),
           const SizedBox(height: 8),
-          Text(
+          const Text(
             'أدخل IP السيرفر',
-            style: GoogleFonts.tajawal(
+            style: TextStyle(
+              fontFamily: 'Tajawal',
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
@@ -230,13 +235,17 @@ class _NetworkSetupScreenState extends ConsumerState<NetworkSetupScreen> {
           const SizedBox(height: 16),
           TextField(
             controller: ipController,
-            decoration: InputDecoration(
+            decoration: const InputDecoration(
               labelText: 'IP السيرفر',
               hintText: '192.168.1.1',
-              border: const OutlineInputBorder(),
-              prefixIcon: const Icon(Icons.lan),
-              labelStyle: GoogleFonts.tajawal(),
-              hintStyle: GoogleFonts.tajawal(),
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.lan),
+              labelStyle: TextStyle(
+                fontFamily: 'Tajawal',
+              ),
+              hintStyle: TextStyle(
+                fontFamily: 'Tajawal',
+              ),
             ),
             keyboardType: TextInputType.number,
           ),
@@ -255,7 +264,9 @@ class _NetworkSetupScreenState extends ConsumerState<NetworkSetupScreen> {
                 : const Icon(Icons.search),
             label: Text(
               isDiscovering ? 'جارٍ البحث...' : 'بحث تلقائي',
-              style: GoogleFonts.tajawal(),
+              style: const TextStyle(
+                fontFamily: 'Tajawal',
+              ),
             ),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size(double.infinity, 45),
@@ -277,7 +288,10 @@ class _NetworkSetupScreenState extends ConsumerState<NetworkSetupScreen> {
                     ),
                   )
                 : const Icon(Icons.link),
-            label: Text('اتصال', style: GoogleFonts.tajawal()),
+            label: const Text('اتصال',
+                style: TextStyle(
+                  fontFamily: 'Tajawal',
+                )),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green,
               foregroundColor: Colors.white,

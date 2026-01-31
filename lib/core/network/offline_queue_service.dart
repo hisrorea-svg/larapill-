@@ -1,7 +1,7 @@
 // lib/core/network/offline_queue_service.dart
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../storage/hive_storage.dart';
 
 /// أنواع العمليات المخزنة
 enum QueueOperationType {
@@ -61,10 +61,9 @@ class OfflineQueueService {
   bool get hasPendingOperations => _queue.isNotEmpty;
 
   /// تحميل الـ Queue من التخزين
-  Future<void> loadQueue() async {
+  void loadQueue() {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final queueJson = prefs.getString(_queueKey);
+      final queueJson = HiveStorage.getCache<String>(_queueKey);
 
       if (queueJson != null) {
         final List<dynamic> queueList = jsonDecode(queueJson);
@@ -83,9 +82,8 @@ class OfflineQueueService {
   /// حفظ الـ Queue في التخزين
   Future<void> _saveQueue() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
       final queueJson = jsonEncode(_queue.map((op) => op.toJson()).toList());
-      await prefs.setString(_queueKey, queueJson);
+      await HiveStorage.setCache(_queueKey, queueJson);
     } catch (e) {
       if (kDebugMode) debugPrint('❌ خطأ في حفظ الـ Queue: $e');
     }

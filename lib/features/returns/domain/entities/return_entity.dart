@@ -1,4 +1,4 @@
-import 'package:larapill/models/medicine_unit.dart';
+import '../../../../core/models/shared/medicine_unit.dart';
 
 // أسباب الإرجاع المتاحة
 enum ReturnReason {

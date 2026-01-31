@@ -4,7 +4,7 @@
 library;
 
 // Entities
-export 'entities/user_entity.dart';
+
 export 'entities/pharmacy_settings_entity.dart';
 export 'entities/notification_settings_entity.dart';
 

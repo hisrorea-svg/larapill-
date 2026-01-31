@@ -38,7 +38,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 12, // ✅ النسخة 12: إضافة جدول الإشعارات
+      version: 14, // ✅ النسخة 14: نظام الحد الأدنى الذكي
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -909,6 +909,179 @@ class DatabaseHelper {
             name: 'DatabaseHelper');
       } catch (e) {
         developer.log('❌ خطأ في إضافة جدول الإشعارات: $e',
+            name: 'DatabaseHelper');
+      }
+    }
+
+    // 🏪 إضافة نظام مشتريات المذاخر في النسخة 13
+    if (oldVersion < 13) {
+      try {
+        // 1. إضافة payment_type لجدول suppliers
+        await db.execute('''
+          ALTER TABLE suppliers ADD COLUMN payment_type TEXT DEFAULT 'cash'
+        ''');
+
+        // 2. إضافة حقول جديدة لـ purchase_orders
+        await db.execute('''
+          ALTER TABLE purchase_orders ADD COLUMN posted_at TEXT
+        ''');
+
+        // 3. إضافة حقول لـ purchase_items
+        await db.execute('''
+          ALTER TABLE purchase_items ADD COLUMN bonus REAL DEFAULT 0
+        ''');
+        await db.execute('''
+          ALTER TABLE purchase_items ADD COLUMN expiry_date TEXT
+        ''');
+
+        // 4. جدول حركات المخزون ⭐
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS stock_movements (
+            id TEXT PRIMARY KEY,
+            product_id TEXT NOT NULL,
+            reference_id TEXT NOT NULL,
+            reference_type TEXT NOT NULL,
+            quantity REAL NOT NULL,
+            cost_per_unit REAL,
+            notes TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (product_id) REFERENCES products (id)
+          )
+        ''');
+
+        // 5. جدول مرتجعات الموردين
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS supplier_returns (
+            id TEXT PRIMARY KEY,
+            supplier_id TEXT NOT NULL,
+            invoice_id TEXT,
+            product_id TEXT NOT NULL,
+            quantity REAL NOT NULL,
+            amount REAL NOT NULL,
+            status TEXT DEFAULT 'prepared',
+            delivered_date TEXT,
+            notes TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (supplier_id) REFERENCES suppliers (id),
+            FOREIGN KEY (product_id) REFERENCES products (id)
+          )
+        ''');
+
+        // 6. جدول دفعات الموردين
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS supplier_payments (
+            id TEXT PRIMARY KEY,
+            supplier_id TEXT NOT NULL,
+            amount REAL NOT NULL,
+            payment_method TEXT DEFAULT 'cash',
+            notes TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (supplier_id) REFERENCES suppliers (id)
+          )
+        ''');
+
+        // 7. دفتر أستاذ الموردين (Ledger) ⭐
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS supplier_ledger (
+            id TEXT PRIMARY KEY,
+            supplier_id TEXT NOT NULL,
+            reference_id TEXT NOT NULL,
+            reference_type TEXT NOT NULL,
+            amount REAL NOT NULL,
+            balance_after REAL NOT NULL,
+            description TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (supplier_id) REFERENCES suppliers (id)
+          )
+        ''');
+
+        // إضافة الفهارس
+        await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_stock_movements_product ON stock_movements (product_id)');
+        await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_stock_movements_ref ON stock_movements (reference_type, reference_id)');
+        await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_supplier_returns_supplier ON supplier_returns (supplier_id)');
+        await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_supplier_returns_status ON supplier_returns (status)');
+        await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_supplier_payments_supplier ON supplier_payments (supplier_id)');
+        await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_supplier_ledger_supplier ON supplier_ledger (supplier_id)');
+        await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_supplier_ledger_ref ON supplier_ledger (reference_type)');
+
+        developer.log('✅ تم إضافة نظام مشتريات المذاخر بنجاح (النسخة 13)',
+            name: 'DatabaseHelper');
+      } catch (e) {
+        developer.log('❌ خطأ في إضافة نظام المشتريات: $e',
+            name: 'DatabaseHelper');
+      }
+    }
+
+    // 🤖 إضافة نظام الحد الأدنى الذكي في النسخة 14
+    if (oldVersion < 14) {
+      try {
+        // 1. إضافة حقول تتبع الاستهلاك للمنتجات
+        await db.execute('''
+          ALTER TABLE products ADD COLUMN avg_daily_sales REAL DEFAULT 0
+        ''');
+        await db.execute('''
+          ALTER TABLE products ADD COLUMN sales_velocity TEXT DEFAULT 'normal'
+        ''');
+        await db.execute('''
+          ALTER TABLE products ADD COLUMN last_sale_date TEXT
+        ''');
+        await db.execute('''
+          ALTER TABLE products ADD COLUMN stockout_count INTEGER DEFAULT 0
+        ''');
+
+        // 2. تحديث الحد الأدنى الافتراضي من 0 إلى 5 للمنتجات الجديدة
+        await db.execute('''
+          UPDATE products SET min_stock_level = 5
+          WHERE min_stock_level = 0 OR min_stock_level IS NULL
+        ''');
+
+        // 3. جدول تاريخ مبيعات المنتجات (لتحليل الاتجاهات)
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS product_sales_history (
+            id TEXT PRIMARY KEY,
+            product_id TEXT NOT NULL,
+            date TEXT NOT NULL,
+            quantity_sold REAL NOT NULL,
+            day_of_week INTEGER NOT NULL,
+            is_weekend INTEGER DEFAULT 0,
+            FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE
+          )
+        ''');
+
+        // 4. جدول إعدادات الحد الأدنى الذكي
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS smart_stock_settings (
+            product_id TEXT PRIMARY KEY,
+            base_min_stock REAL DEFAULT 5,
+            velocity_multiplier REAL DEFAULT 1.0,
+            seasonal_factor REAL DEFAULT 1.0,
+            last_calculated_at TEXT,
+            calculated_min_stock REAL DEFAULT 5,
+            FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE
+          )
+        ''');
+
+        // إضافة الفهارس
+        await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_product_sales_history_product ON product_sales_history (product_id)');
+        await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_product_sales_history_date ON product_sales_history (date)');
+        await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_products_velocity ON products (sales_velocity)');
+        await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_products_avg_sales ON products (avg_daily_sales)');
+
+        developer.log('✅ تم إضافة نظام الحد الأدنى الذكي بنجاح (النسخة 14)',
+            name: 'DatabaseHelper');
+      } catch (e) {
+        developer.log('❌ خطأ في إضافة نظام الحد الأدنى الذكي: $e',
             name: 'DatabaseHelper');
       }
     }

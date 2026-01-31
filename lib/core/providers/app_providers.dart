@@ -1,7 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../core/config/pharmacy_info.dart';
-import '../services/user_service.dart'; // ✅ User model موجود هنا
-import '../database/database_helper.dart';
+import '../config/pharmacy_info.dart';
+import '../../features/auth/data/repositories/user_service.dart';
+import '../../features/auth/domain/models/user.dart';
+import '../../database/database_helper.dart';
 
 // ======================================================================
 // Pharmacy & User Providers

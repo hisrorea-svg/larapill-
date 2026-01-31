@@ -1,4 +1,4 @@
-import 'package:shared_preferences/shared_preferences.dart';
+import '../storage/hive_storage.dart';
 
 /// ⚙️ إعدادات الطباعة
 class PrintSettings {
@@ -8,21 +8,18 @@ class PrintSettings {
   static const String _keyDefaultPrinter = 'default_printer_name';
 
   /// هل الطباعة التلقائية مفعلة؟
-  static Future<bool> isAutoPrintEnabled() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_keyAutoPrint) ?? false;
+  static bool isAutoPrintEnabled() {
+    return HiveStorage.getBool(_keyAutoPrint, defaultValue: false);
   }
 
   /// تفعيل/تعطيل الطباعة التلقائية
   static Future<void> setAutoPrint(bool enabled) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_keyAutoPrint, enabled);
+    await HiveStorage.setBool(_keyAutoPrint, enabled);
   }
 
   /// الحصول على حجم الورق
-  static Future<PaperSize> getPaperSize() async {
-    final prefs = await SharedPreferences.getInstance();
-    final sizeStr = prefs.getString(_keyPaperSize) ?? 'roll80';
+  static PaperSize getPaperSize() {
+    final sizeStr = HiveStorage.getString(_keyPaperSize) ?? 'roll80';
     return PaperSize.values.firstWhere(
       (e) => e.name == sizeStr,
       orElse: () => PaperSize.roll80,
@@ -31,45 +28,39 @@ class PrintSettings {
 
   /// تعيين حجم الورق
   static Future<void> setPaperSize(PaperSize size) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyPaperSize, size.name);
+    await HiveStorage.setString(_keyPaperSize, size.name);
   }
 
   /// هل يتم عرض المعاينة قبل الطباعة؟
-  static Future<bool> shouldShowPreview() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_keyShowPreview) ?? true;
+  static bool shouldShowPreview() {
+    return HiveStorage.getBool(_keyShowPreview, defaultValue: true);
   }
 
   /// تفعيل/تعطيل المعاينة
   static Future<void> setShowPreview(bool show) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_keyShowPreview, show);
+    await HiveStorage.setBool(_keyShowPreview, show);
   }
 
   /// الحصول على اسم الطابعة الافتراضية
-  static Future<String?> getDefaultPrinter() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_keyDefaultPrinter);
+  static String? getDefaultPrinter() {
+    return HiveStorage.getString(_keyDefaultPrinter);
   }
 
   /// تعيين الطابعة الافتراضية
   static Future<void> setDefaultPrinter(String? printerName) async {
-    final prefs = await SharedPreferences.getInstance();
     if (printerName != null) {
-      await prefs.setString(_keyDefaultPrinter, printerName);
+      await HiveStorage.setString(_keyDefaultPrinter, printerName);
     } else {
-      await prefs.remove(_keyDefaultPrinter);
+      await HiveStorage.remove(_keyDefaultPrinter);
     }
   }
 
   /// إعادة تعيين جميع الإعدادات للقيم الافتراضية
   static Future<void> resetToDefaults() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_keyAutoPrint);
-    await prefs.remove(_keyPaperSize);
-    await prefs.remove(_keyShowPreview);
-    await prefs.remove(_keyDefaultPrinter);
+    await HiveStorage.remove(_keyAutoPrint);
+    await HiveStorage.remove(_keyPaperSize);
+    await HiveStorage.remove(_keyShowPreview);
+    await HiveStorage.remove(_keyDefaultPrinter);
   }
 }
 

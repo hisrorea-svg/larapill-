@@ -1,4 +1,4 @@
-import '../entities/user_entity.dart';
+import '../../../auth/domain/models/user.dart';
 import '../repositories/users_repository.dart';
 import '../repositories/settings_repository.dart'; // For Either
 import '../failures/settings_failure.dart';
@@ -31,8 +31,7 @@ class UpdateUserUseCase {
   const UpdateUserUseCase(this._repository);
 
   /// تنفيذ Use Case
-  Future<Either<SettingsFailure, UserEntity>> call(
-      UpdateUserParams params) async {
+  Future<Either<SettingsFailure, User>> call(UpdateUserParams params) async {
     // جلب المستخدم الحالي
     final currentUserResult = await _repository.getUserById(params.userId);
 
@@ -43,7 +42,7 @@ class UpdateUserUseCase {
           return const Either.left(UserNotFoundFailure());
         }
 
-        // إنشاء نسخة محدثة
+        // إنشاء User محدث
         final updatedUser = currentUser.copyWith(
           fullName: params.fullName,
           email: params.email,

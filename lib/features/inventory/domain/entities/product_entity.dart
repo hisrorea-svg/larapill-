@@ -3,6 +3,11 @@ import 'package:equatable/equatable.dart';
 /// Immutable product entity for the domain layer
 /// Uses Equatable for proper value equality in state management
 class ProductEntity extends Equatable {
+  // ═══ ثوابت العتبات ═══
+  static const int expiryWarningDays = 90;
+  static const int lowStockThreshold = 20;
+  static const int criticalStockThreshold = 10;
+
   final int id;
   final String name;
   final String company;
@@ -86,19 +91,19 @@ class ProductEntity extends Equatable {
     return expiryDate!.isBefore(DateTime.now());
   }
 
-  /// Check if product is expiring soon (within 90 days)
+  /// Check if product is expiring soon (within expiryWarningDays)
   bool get isExpiringSoon {
     if (expiryDate == null) return false;
     final now = DateTime.now();
-    final threeMonthsLater = now.add(const Duration(days: 90));
-    return expiryDate!.isAfter(now) && expiryDate!.isBefore(threeMonthsLater);
+    final warningDate = now.add(const Duration(days: expiryWarningDays));
+    return expiryDate!.isAfter(now) && expiryDate!.isBefore(warningDate);
   }
 
-  /// Check if stock is low (< 20)
-  bool get isLowStock => quantity > 0 && quantity < 20;
+  /// Check if stock is low (< lowStockThreshold)
+  bool get isLowStock => quantity > 0 && quantity < lowStockThreshold;
 
-  /// Check if stock is critical (< 10)
-  bool get isCriticalStock => quantity > 0 && quantity < 10;
+  /// Check if stock is critical (< criticalStockThreshold)
+  bool get isCriticalStock => quantity > 0 && quantity < criticalStockThreshold;
 
   /// Check if out of stock
   bool get isOutOfStock => quantity <= 0;

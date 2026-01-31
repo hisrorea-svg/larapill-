@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:developer' as developer;
+import '../storage/hive_storage.dart';
 
 /// 🔒 نظام حماية متقدم من Brute Force Attacks
 /// يتميز بـ:
@@ -16,8 +16,7 @@ class AdvancedRateLimiter {
 
   /// فحص إمكانية محاولة تسجيل الدخول
   static Future<Map<String, dynamic>> checkAttempt(String identifier) async {
-    final prefs = await SharedPreferences.getInstance();
-    final attemptsData = prefs.getString(_storageKey);
+    final attemptsData = HiveStorage.getSecure<String>(_storageKey);
 
     if (attemptsData == null) {
       return {'canAttempt': true, 'remaining': null, 'level': 0};
@@ -53,7 +52,7 @@ class AdvancedRateLimiter {
       };
     }
 
-    await prefs.setString(_storageKey, jsonEncode(attempts));
+    await HiveStorage.setSecure(_storageKey, jsonEncode(attempts));
 
     // فحص الحد الأقصى
     if (attemptsList.length >= maxAttempts) {
@@ -65,7 +64,7 @@ class AdvancedRateLimiter {
       if (remaining.isNegative) {
         // انتهت فترة المنع
         attempts.remove(identifier);
-        await prefs.setString(_storageKey, jsonEncode(attempts));
+        await HiveStorage.setSecure(_storageKey, jsonEncode(attempts));
         return {'canAttempt': true, 'remaining': null, 'level': 0};
       } else {
         return {
@@ -89,8 +88,7 @@ class AdvancedRateLimiter {
   /// تسجيل محاولة فاشلة
   static Future<Map<String, dynamic>> recordFailedAttempt(
       String identifier) async {
-    final prefs = await SharedPreferences.getInstance();
-    final attemptsData = prefs.getString(_storageKey);
+    final attemptsData = HiveStorage.getSecure<String>(_storageKey);
     final attempts = attemptsData != null
         ? Map<String, dynamic>.from(jsonDecode(attemptsData))
         : <String, dynamic>{};
@@ -128,7 +126,7 @@ class AdvancedRateLimiter {
       'lastAttempt': now.toIso8601String(),
     };
 
-    await prefs.setString(_storageKey, jsonEncode(attempts));
+    await HiveStorage.setSecure(_storageKey, jsonEncode(attempts));
 
     return {
       'level': userAttempts['consecutiveFailures'],
@@ -140,8 +138,7 @@ class AdvancedRateLimiter {
 
   /// مسح المحاولات بعد تسجيل دخول ناجح
   static Future<void> clearAttempts(String identifier) async {
-    final prefs = await SharedPreferences.getInstance();
-    final attemptsData = prefs.getString(_storageKey);
+    final attemptsData = HiveStorage.getSecure<String>(_storageKey);
 
     if (attemptsData != null) {
       final attempts = Map<String, dynamic>.from(jsonDecode(attemptsData));
@@ -156,7 +153,7 @@ class AdvancedRateLimiter {
       }
 
       attempts.remove(identifier);
-      await prefs.setString(_storageKey, jsonEncode(attempts));
+      await HiveStorage.setSecure(_storageKey, jsonEncode(attempts));
     }
   }
 
@@ -168,7 +165,7 @@ class AdvancedRateLimiter {
       case 1:
         return const Duration(minutes: 5); // 5 دقائق
       case 2:
-        return extendedLockoutDuration; // 15 ساعة
+        return extendedLockoutDuration; // 15 دقيقة
       case 3:
         return const Duration(minutes: 30); // 30 دقيقة
       default:
@@ -202,10 +199,9 @@ class AdvancedRateLimiter {
   }
 
   /// الحصول على إحصائيات مفصلة للمراجعة الأمنية
-  static Future<Map<String, dynamic>> getSecurityStatistics() async {
-    final prefs = await SharedPreferences.getInstance();
-    final attemptsData = prefs.getString(_storageKey);
-    final securityLogs = prefs.getString('security_logs');
+  static Map<String, dynamic> getSecurityStatistics() {
+    final attemptsData = HiveStorage.getSecure<String>(_storageKey);
+    final securityLogs = HiveStorage.getSecure<String>('security_logs');
 
     if (attemptsData == null) {
       return {'totalBlocked': 0, 'details': {}, 'logs': []};
@@ -215,9 +211,9 @@ class AdvancedRateLimiter {
     final logs = securityLogs != null ? jsonDecode(securityLogs) : [];
 
     // إحصائيات مفصلة
-    final statistics = {
+    final statistics = <String, dynamic>{
       'totalBlocked': attempts.length,
-      'details': {},
+      'details': <String, dynamic>{},
       'logs': logs,
       'summary': {
         'level_0': 0, // منع أساسي
@@ -229,7 +225,7 @@ class AdvancedRateLimiter {
 
     attempts.forEach((identifier, data) {
       final level = data['consecutiveFailures'] ?? 0;
-      statistics['details'][identifier] = {
+      (statistics['details'] as Map<String, dynamic>)[identifier] = {
         'attempts_count': data['attempts'].length,
         'consecutive_failures': level,
         'first_attempt': data['firstAttempt'],
@@ -239,14 +235,15 @@ class AdvancedRateLimiter {
       };
 
       // تحديث الملخص
+      final summary = statistics['summary'] as Map<String, dynamic>;
       if (level == 0) {
-        statistics['summary']['level_0']++;
+        summary['level_0'] = (summary['level_0'] as int) + 1;
       } else if (level == 1) {
-        statistics['summary']['level_1']++;
+        summary['level_1'] = (summary['level_1'] as int) + 1;
       } else if (level == 2) {
-        statistics['summary']['level_2']++;
+        summary['level_2'] = (summary['level_2'] as int) + 1;
       } else {
-        statistics['summary']['level_3_plus']++;
+        summary['level_3_plus'] = (summary['level_3_plus'] as int) + 1;
       }
     });
 
@@ -270,8 +267,7 @@ class AdvancedRateLimiter {
   /// تسجيل النشاط المشبوه
   static Future<void> _logSuspiciousActivity(
       String identifier, Map<String, dynamic> details) async {
-    final prefs = await SharedPreferences.getInstance();
-    final securityLogs = prefs.getString('security_logs');
+    final securityLogs = HiveStorage.getSecure<String>('security_logs');
     final logs =
         securityLogs != null ? List.from(jsonDecode(securityLogs)) : [];
 
@@ -288,7 +284,7 @@ class AdvancedRateLimiter {
       logs.removeRange(0, logs.length - 100);
     }
 
-    await prefs.setString('security_logs', jsonEncode(logs));
+    await HiveStorage.setSecure('security_logs', jsonEncode(logs));
 
     // طباعة في وضع التطوير للمراقبة
     developer.log('🔒 SECURITY LOG: ${details['type']} for $identifier',
@@ -298,14 +294,13 @@ class AdvancedRateLimiter {
 
   /// مسح جميع السجلات (للصيانة)
   static Future<void> clearAllLogs() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_storageKey);
-    await prefs.remove('security_logs');
+    await HiveStorage.removeSecure(_storageKey);
+    await HiveStorage.removeSecure('security_logs');
   }
 
   /// تصدير السجلات الأمنية
-  static Future<String> exportSecurityLogs() async {
-    final statistics = await getSecurityStatistics();
+  static String exportSecurityLogs() {
+    final statistics = getSecurityStatistics();
     return '''
 🔒 تقرير الأمان - LaRaPill
 تاريخ التقرير: ${DateTime.now()}

@@ -1,4 +1,4 @@
-import '../entities/user_entity.dart';
+import '../../../auth/domain/models/user.dart';
 import '../failures/settings_failure.dart';
 import 'settings_repository.dart'; // For Either and Unit
 
@@ -8,34 +8,33 @@ import 'settings_repository.dart'; // For Either and Unit
 /// يجب أن يتم تنفيذه في data layer
 abstract class UsersRepository {
   /// جلب جميع المستخدمين النشطين
-  Future<Either<SettingsFailure, List<UserEntity>>> getActiveUsers();
+  Future<Either<SettingsFailure, List<User>>> getActiveUsers();
 
   /// جلب مستخدم بواسطة ID
-  Future<Either<SettingsFailure, UserEntity?>> getUserById(String userId);
+  Future<Either<SettingsFailure, User?>> getUserById(String userId);
 
   /// جلب مستخدم بواسطة اسم المستخدم
-  Future<Either<SettingsFailure, UserEntity?>> getUserByUsername(
-      String username);
+  Future<Either<SettingsFailure, User?>> getUserByUsername(String username);
 
   /// إنشاء مستخدم جديد
-  Future<Either<SettingsFailure, UserEntity>> createUser(UserEntity user,
+  Future<Either<SettingsFailure, User>> createUser(User user,
       {String? createdBy});
 
   /// تحديث مستخدم موجود
-  Future<Either<SettingsFailure, UserEntity>> updateUser(UserEntity user);
+  Future<Either<SettingsFailure, User>> updateUser(User user);
 
   /// حذف مستخدم
   Future<Either<SettingsFailure, Unit>> deleteUser(String userId);
 
   /// تحديث كلمة مرور المستخدم
-  Future<Either<SettingsFailure, UserEntity>> updatePassword(
+  Future<Either<SettingsFailure, User>> updatePassword(
     String userId,
     String newPasswordHash, {
     bool forceChange = false,
   });
 
   /// تحديث صلاحيات المستخدم
-  Future<Either<SettingsFailure, UserEntity>> updatePermissions(
+  Future<Either<SettingsFailure, User>> updatePermissions(
     String userId,
     List<String> permissions,
   );

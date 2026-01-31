@@ -167,7 +167,8 @@ class _SessionWarningDialogState extends State<SessionWarningDialog>
                         children: [
                           Text(
                             'تحذير انتهاء الجلسة',
-                            style: GoogleFonts.tajawal(
+                            style: TextStyle(
+                              fontFamily: 'Tajawal',
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                               color: _getWarningColor(),
@@ -176,7 +177,8 @@ class _SessionWarningDialogState extends State<SessionWarningDialog>
                           const SizedBox(height: 4),
                           Text(
                             _getWarningMessage(),
-                            style: GoogleFonts.tajawal(
+                            style: const TextStyle(
+                              fontFamily: 'Tajawal',
                               fontSize: 14,
                               color: AppColors.textSecondary,
                             ),
@@ -207,9 +209,10 @@ class _SessionWarningDialogState extends State<SessionWarningDialog>
                     ),
                     child: Column(
                       children: [
-                        Text(
+                        const Text(
                           'الوقت المتبقي',
-                          style: GoogleFonts.tajawal(
+                          style: TextStyle(
+                            fontFamily: 'Tajawal',
                             fontSize: 14,
                             color: AppColors.textSecondary,
                           ),
@@ -254,7 +257,8 @@ class _SessionWarningDialogState extends State<SessionWarningDialog>
                         Expanded(
                           child: Text(
                             'يمكنك تمديد الجلسة أو تسجيل الخروج الآن لحفظ عملك',
-                            style: GoogleFonts.tajawal(
+                            style: TextStyle(
+                              fontFamily: 'Tajawal',
                               fontSize: 12,
                               color: Colors.blue[700],
                             ),
@@ -273,9 +277,11 @@ class _SessionWarningDialogState extends State<SessionWarningDialog>
                     widget.onLogout();
                   },
                   icon: const Icon(Icons.logout, size: 18),
-                  label: Text(
+                  label: const Text(
                     'تسجيل الخروج',
-                    style: GoogleFonts.tajawal(),
+                    style: TextStyle(
+                      fontFamily: 'Tajawal',
+                    ),
                   ),
                   style: TextButton.styleFrom(
                     foregroundColor: Colors.grey[600],
@@ -289,9 +295,10 @@ class _SessionWarningDialogState extends State<SessionWarningDialog>
                     widget.onExtendSession();
                   },
                   icon: const Icon(Icons.access_time, size: 18),
-                  label: Text(
+                  label: const Text(
                     'تمديد الجلسة',
-                    style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                        fontFamily: 'Tajawal', fontWeight: FontWeight.bold),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _getWarningColor(),
@@ -350,7 +357,7 @@ class SessionWarningHelper {
             Expanded(
               child: Text(
                 'ستنتهي جلستك خلال ${remainingTime.inMinutes} دقيقة',
-                style: GoogleFonts.tajawal(color: Colors.white),
+                style: const TextStyle(fontFamily: 'Tajawal', color: Colors.white),
               ),
             ),
           ],

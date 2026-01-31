@@ -56,24 +56,16 @@ export 'presentation/states/inventory_state.dart';
 export 'presentation/controllers/inventory_controller.dart';
 
 // Providers
-export 'providers/inventory_providers.dart';
-
-// ============ UI Layer (Legacy - to be refactored to presentation/) ============
+export 'presentation/providers/inventory_providers.dart';
 
 // Screens
-export 'screens/inventory_screen.dart' hide DecorativeCurvesPainter;
+export 'presentation/screens/inventory_screen.dart'
+    hide DecorativeCurvesPainter;
 
-// Widgets (active)
-export 'widgets/add_product_dialog.dart';
-export 'widgets/professional_edit_product_dialog.dart';
-export 'widgets/inventory_filters.dart';
-export 'widgets/inventory_stats_widget.dart';
-export 'widgets/barcode_preview_widget.dart';
-
-// Widgets (new presentation structure)
+// Widgets
+export 'presentation/widgets/add_product_dialog.dart';
+export 'presentation/widgets/professional_edit_product_dialog.dart';
+export 'presentation/widgets/inventory_filters.dart';
+export 'presentation/widgets/inventory_stats_widget.dart';
+export 'presentation/widgets/barcode_preview_widget.dart';
 export 'presentation/widgets/decorative_curves_painter.dart';
-
-// ⚠️ NOT EXPORTED (deprecated/placeholder):
-// - widgets/inventory_stats.dart (hardcoded values, use inventory_stats_widget.dart)
-// - presentation/widgets/print_barcode_dialog.dart (placeholder, use _PrintBarcodeDialog in screen)
-// - presentation/providers/inventory_module_providers.dart (placeholder, use providers/inventory_providers.dart)

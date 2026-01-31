@@ -1,7 +1,7 @@
 import 'dart:developer' as developer;
 import 'package:uuid/uuid.dart';
-import '../../features/debts/domain/entities/customer_debt.dart';
-import '../database_helper.dart';
+import '../../../domain/entities/customer_debt.dart';
+import '../../../../../database/database_helper.dart';
 
 /// 💰 DAO لإدارة ديون العملاء
 class CustomerDebtDAO {

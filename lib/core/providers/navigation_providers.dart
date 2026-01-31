@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../features/dashboard/screens/dashboard_screen.dart';
-import '../features/pos/screens/pos_screen.dart';
-import '../features/inventory/screens/inventory_screen.dart';
-import '../features/purchases/screens/purchases_screen.dart';
-import '../features/returns/screens/returns_screen.dart';
-import '../features/settings/screens/settings_screen.dart';
+import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
+import '../../features/pos/presentation/screens/pos_screen.dart';
+import '../../features/inventory/presentation/screens/inventory_screen.dart';
+import '../../features/purchases/presentation/screens/purchases_screen.dart';
+import '../../features/returns/presentation/screens/returns_screen.dart';
+import '../../features/settings/presentation/screens/settings_screen.dart';
 
 // مزود لتتبع الصفحة المحددة
 final selectedIndexProvider = StateProvider<int>((ref) => 0);

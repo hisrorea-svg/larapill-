@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'remote_database_service.dart';
 import 'offline_queue_service.dart';
-import '../../services/sales_service.dart';
+import '../../features/pos/data/repositories/sales_service.dart';
 import '../../features/pos/domain/entities/sale.dart';
 import '../../features/network/presentation/providers/lan_providers.dart';
 
@@ -139,7 +139,7 @@ class SyncAwareSalesService {
   Future<int> processOfflineQueue() async {
     if (!_isConnected) return 0;
 
-    await _offlineQueue.loadQueue();
+    _offlineQueue.loadQueue();
 
     return await _offlineQueue.processQueue((operation) async {
       try {

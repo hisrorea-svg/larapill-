@@ -8,8 +8,8 @@ class GetNetworkSettingsUseCase {
 
   const GetNetworkSettingsUseCase(this._repository);
 
-  /// تنفيذ UseCase
-  Future<NetworkSettingsEntity> call() async {
-    return await _repository.getSettings();
+  /// تنفيذ UseCase (synchronous بفضل HiveStorage)
+  NetworkSettingsEntity call() {
+    return _repository.getSettings();
   }
 }

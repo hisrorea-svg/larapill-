@@ -1,10 +1,8 @@
 import '../../../../database/database_helper.dart';
-import '../../domain/entities/user_entity.dart';
+import '../../../auth/domain/models/user.dart';
 import '../../domain/repositories/users_repository.dart';
 import '../../domain/repositories/settings_repository.dart'; // For Either, Unit
 import '../../domain/failures/settings_failure.dart';
-import '../../../../services/user_service.dart' as service;
-import '../mappers/user_mapper.dart';
 
 /// Users Repository implementation with Either type
 ///
@@ -13,28 +11,16 @@ class UsersRepositoryImpl implements UsersRepository {
   final dbHelper = DatabaseHelper();
 
   @override
-  Future<Either<SettingsFailure, UserEntity>> createUser(
-    UserEntity user, {
+  Future<Either<SettingsFailure, User>> createUser(
+    User user, {
     String? createdBy,
   }) async {
     try {
       final db = await dbHelper.database;
-      final map = {
-        'id': user.id,
-        'username': user.username,
-        'full_name': user.fullName,
-        'email': user.email,
-        'phone': user.phone,
-        'password_hash': user.passwordHash,
-        'role': user.role.name,
-        'permissions': user.permissions.join(','),
-        'is_active': user.isActive ? 1 : 0,
-        'force_password_change': user.forcePasswordChange ? 1 : 0,
-        'last_login': user.lastLogin?.toIso8601String(),
-        'created_at': user.createdAt.toIso8601String(),
-        'updated_at': user.updatedAt.toIso8601String(),
-        'created_by': user.createdBy,
-      };
+      final map = user.toMap();
+      if (createdBy != null) {
+        map['created_by'] = createdBy;
+      }
       await db.insert('users', map);
       return Either.right(user);
     } catch (e) {
@@ -55,13 +41,11 @@ class UsersRepositoryImpl implements UsersRepository {
   }
 
   @override
-  Future<Either<SettingsFailure, List<UserEntity>>> getActiveUsers() async {
+  Future<Either<SettingsFailure, List<User>>> getActiveUsers() async {
     try {
       final db = await dbHelper.database;
       final maps = await db.query('users', where: 'is_active = 1');
-      final users = maps
-          .map((map) => UserMapper.toEntity(service.User.fromMap(map)))
-          .toList();
+      final users = maps.map((map) => User.fromMap(map)).toList();
       return Either.right(users);
     } catch (e) {
       return Either.left(DatabaseSettingsFailure('فشل في جلب المستخدمين: $e'));
@@ -69,37 +53,34 @@ class UsersRepositoryImpl implements UsersRepository {
   }
 
   @override
-  Future<Either<SettingsFailure, UserEntity?>> getUserById(
-      String userId) async {
+  Future<Either<SettingsFailure, User?>> getUserById(String userId) async {
     try {
       final db = await dbHelper.database;
       final maps =
           await db.query('users', where: 'id = ?', whereArgs: [userId]);
       if (maps.isEmpty) return const Either.right(null);
-      return Either.right(
-          UserMapper.toEntity(service.User.fromMap(maps.first)));
+      return Either.right(User.fromMap(maps.first));
     } catch (e) {
       return Either.left(DatabaseSettingsFailure('فشل في جلب المستخدم: $e'));
     }
   }
 
   @override
-  Future<Either<SettingsFailure, UserEntity?>> getUserByUsername(
+  Future<Either<SettingsFailure, User?>> getUserByUsername(
       String username) async {
     try {
       final db = await dbHelper.database;
       final maps =
           await db.query('users', where: 'username = ?', whereArgs: [username]);
       if (maps.isEmpty) return const Either.right(null);
-      return Either.right(
-          UserMapper.toEntity(service.User.fromMap(maps.first)));
+      return Either.right(User.fromMap(maps.first));
     } catch (e) {
       return Either.left(DatabaseSettingsFailure('فشل في جلب المستخدم: $e'));
     }
   }
 
   @override
-  Future<Either<SettingsFailure, UserEntity>> updatePassword(
+  Future<Either<SettingsFailure, User>> updatePassword(
     String userId,
     String newPasswordHash, {
     bool forceChange = false,
@@ -133,7 +114,7 @@ class UsersRepositoryImpl implements UsersRepository {
   }
 
   @override
-  Future<Either<SettingsFailure, UserEntity>> updatePermissions(
+  Future<Either<SettingsFailure, User>> updatePermissions(
     String userId,
     List<String> permissions,
   ) async {
@@ -162,19 +143,10 @@ class UsersRepositoryImpl implements UsersRepository {
   }
 
   @override
-  Future<Either<SettingsFailure, UserEntity>> updateUser(
-      UserEntity user) async {
+  Future<Either<SettingsFailure, User>> updateUser(User user) async {
     try {
       final db = await dbHelper.database;
-      final map = {
-        'username': user.username,
-        'full_name': user.fullName,
-        'email': user.email,
-        'phone': user.phone,
-        'role': user.role.name,
-        'permissions': user.permissions.join(','),
-        'is_active': user.isActive ? 1 : 0,
-      };
+      final map = user.toMap();
       await db.update('users', map, where: 'id = ?', whereArgs: [user.id]);
       return Either.right(user);
     } catch (e) {

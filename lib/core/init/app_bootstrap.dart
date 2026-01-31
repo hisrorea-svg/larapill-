@@ -4,12 +4,16 @@ import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 import '../../database/database_helper.dart';
 import '../../core/config/pharmacy_info.dart';
-import '../../services/user_service.dart';
-import '../../services/meds_data_service.dart';
+import '../../features/auth/data/repositories/user_service.dart';
+import '../services/meds_data_service.dart';
+import '../storage/hive_storage.dart';
+import '../../features/auth/domain/models/user.dart';
 // Note: SmartNotificationService removed - using Clean Architecture notifications
 
 /// كلاس مسؤول عن تهيئة التطبيق وكل ما يلزم قبل تشغيل الواجهة
@@ -20,16 +24,23 @@ class AppBootstrap {
       // 1. تهيئة Flutter Bindings
       WidgetsFlutterBinding.ensureInitialized();
 
-      // 2. إعداد معالجة الأخطاء
+      // ✅ استخدام الخطوط المحلية فقط (بدون تحميل من الإنترنت)
+      GoogleFonts.config.allowRuntimeFetching = false;
+
+      // 2. تهيئة بيانات التاريخ والوقت (intl)
+      await initializeDateFormatting('ar', null);
+      await initializeDateFormatting('en', null);
+
+      // 3. إعداد معالجة الأخطاء
       _setupErrorHandling();
 
-      // 3. تهيئة FFI للويندوز/لينكس
+      // 4. تهيئة FFI للويندوز/لينكس
       _setupDesktopSupport();
 
-      // 4. إعدادات النظام (System UI)
+      // 5. إعدادات النظام (System UI)
       await _setupSystemUI();
 
-      // 5. تهيئة قاعدة البيانات والخدمات
+      // 6. تهيئة قاعدة البيانات والخدمات
       await _initServices();
     } catch (e, stack) {
       developer.log('❌ خطأ كارثي أثناء تهيئة التطبيق',
@@ -75,6 +86,9 @@ class AppBootstrap {
   static Future<void> _initServices() async {
     developer.log('🚀 بدء تهيئة الخدمات...', name: 'AppBootstrap');
 
+    // 🗄️ تهيئة Hive Storage أولاً (قبل كل شيء)
+    await HiveStorage.init();
+
     final dbHelper = DatabaseHelper();
     await dbHelper.initializeDatabase();
 
@@ -95,8 +109,9 @@ class AppBootstrap {
     // تحميل بيانات الأدوية
     await MedsDataService.loadMeds();
 
-    // TODO: Initialize notification monitoring via Clean Architecture when needed
-    developer.log('🔔 نظام الإشعارات يستخدم Clean Architecture',
+    // ✅ نظام الإشعارات يعمل عبر Clean Architecture
+    // يتم تفعيل startupNotificationCheckProvider تلقائياً عند تحميل الـ ProviderScope
+    developer.log('🔔 نظام الإشعارات جاهز (Clean Architecture)',
         name: 'AppBootstrap');
   }
 

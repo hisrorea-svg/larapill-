@@ -1,4 +1,4 @@
-import '../entities/user_entity.dart';
+import '../../../auth/domain/models/user.dart';
 import '../repositories/users_repository.dart';
 import '../repositories/settings_repository.dart'; // For Either
 import '../failures/settings_failure.dart';
@@ -10,7 +10,7 @@ class GetUserByIdUseCase {
   const GetUserByIdUseCase(this._repository);
 
   /// تنفيذ Use Case
-  Future<Either<SettingsFailure, UserEntity?>> call(String userId) async {
+  Future<Either<SettingsFailure, User?>> call(String userId) async {
     if (userId.isEmpty) {
       return const Either.left(
           ValidationSettingsFailure('معرف المستخدم مطلوب'));

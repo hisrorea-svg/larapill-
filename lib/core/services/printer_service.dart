@@ -1,8 +1,8 @@
 import 'dart:typed_data';
-import '../models/sale.dart';
-import '../features/purchases/models/daily_purchase_request.dart';
-import '../core/models/barcode_type.dart';
-import '../core/models/barcode_label_size.dart';
+import '../../features/pos/domain/entities/sale.dart';
+import '../../features/purchases/data/models/daily_purchase_request.dart';
+import '../models/barcode_type.dart';
+import '../models/barcode_label_size.dart';
 import 'printers/receipt_printer.dart';
 import 'printers/barcode_printer.dart';
 import 'printers/report_printer.dart';

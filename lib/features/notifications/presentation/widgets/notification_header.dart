@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/responsive_spacing.dart';
 import '../providers/notification_providers.dart';
@@ -50,7 +49,8 @@ class NotificationHeader extends ConsumerWidget {
               children: [
                 Text(
                   'الإشعارات',
-                  style: GoogleFonts.tajawal(
+                  style: TextStyle(
+                    fontFamily: 'Tajawal',
                     fontSize: context.fontSize24,
                     fontWeight: FontWeight.bold,
                     color: AppColors.textPrimary,
@@ -61,7 +61,8 @@ class NotificationHeader extends ConsumerWidget {
                   unreadCount > 0
                       ? '$unreadCount إشعار غير مقروء'
                       : 'جميع الإشعارات مقروءة',
-                  style: GoogleFonts.tajawal(
+                  style: TextStyle(
+                    fontFamily: 'Tajawal',
                     fontSize: context.fontSize14,
                     color: AppColors.textSecondary,
                   ),
@@ -81,7 +82,8 @@ class NotificationHeader extends ConsumerWidget {
               icon: Icon(Icons.done_all, size: context.iconSize18),
               label: Text(
                 'تعليم الكل كمقروء',
-                style: GoogleFonts.tajawal(fontSize: context.fontSize13),
+                style: TextStyle(
+                    fontFamily: 'Tajawal', fontSize: context.fontSize13),
               ),
             ),
             SizedBox(width: context.spacing8),
@@ -96,7 +98,8 @@ class NotificationHeader extends ConsumerWidget {
             icon: Icon(Icons.delete_sweep, size: context.iconSize18),
             label: Text(
               'حذف المقروءة',
-              style: GoogleFonts.tajawal(fontSize: context.fontSize13),
+              style: TextStyle(
+                  fontFamily: 'Tajawal', fontSize: context.fontSize13),
             ),
           ),
         ],

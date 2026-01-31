@@ -1,6 +1,6 @@
 import 'dart:async';
-import '../database_helper.dart';
-import '../../features/purchases/models/daily_purchase_request.dart';
+import '../../../../../database/database_helper.dart';
+import '../../models/daily_purchase_request.dart';
 
 /// DAO للتعامل مع طلبيات الشراء اليومية
 class DailyPurchaseRequestDao {

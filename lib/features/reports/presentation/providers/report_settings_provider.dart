@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../core/models/report_settings.dart';
+import '../../../../core/storage/hive_storage.dart';
+import '../../../../core/models/report_settings.dart';
 import 'dart:convert';
 
 class ReportSettingsNotifier extends StateNotifier<ReportSettings> {
@@ -8,9 +8,8 @@ class ReportSettingsNotifier extends StateNotifier<ReportSettings> {
     _loadSettings();
   }
 
-  Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    final settingsJson = prefs.getString('report_settings');
+  void _loadSettings() {
+    final settingsJson = HiveStorage.getString('report_settings');
     if (settingsJson != null) {
       try {
         final map = json.decode(settingsJson) as Map<String, dynamic>;
@@ -23,8 +22,8 @@ class ReportSettingsNotifier extends StateNotifier<ReportSettings> {
 
   Future<void> updateSettings(ReportSettings newSettings) async {
     state = newSettings;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('report_settings', json.encode(newSettings.toJson()));
+    await HiveStorage.setString(
+        'report_settings', json.encode(newSettings.toJson()));
   }
 
   void toggleLogo() {

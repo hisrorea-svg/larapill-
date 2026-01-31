@@ -2,8 +2,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/network/presentation/providers/lan_providers.dart';
-import '../../features/pos/providers/pos_providers.dart';
-import '../../features/purchases/providers/daily_purchase_provider.dart';
+import '../../features/pos/presentation/providers/pos_providers.dart';
+import '../../features/purchases/presentation/providers/daily_purchase_provider.dart';
 
 /// خدمة التحديث التلقائي الذكي (Smart Polling)
 /// تعمل كبديل للـ Realtime Websockets عندما لا يتوفر دعم من السيرفر
@@ -11,12 +11,15 @@ class RealtimeSyncService {
   final Ref ref;
   Timer? _timer;
   bool _isSyncing = false;
+  bool _isDisposed = false;
   DateTime _lastCheck = DateTime.now().subtract(const Duration(minutes: 1));
 
   RealtimeSyncService(this.ref);
 
   /// بدء الخدمة
   void start() {
+    if (_isDisposed) return; // لا تعمل إذا تم dispose
+
     stop(); // إيقاف أي مؤقت سابق
 
     // أفضل ممارسة: استخدام فاصل زمني 5 ثواني
@@ -32,8 +35,17 @@ class RealtimeSyncService {
     _timer = null;
   }
 
+  /// تنظيف الموارد عند الـ dispose
+  void dispose() {
+    _isDisposed = true;
+    stop();
+  }
+
   /// التحقق من وجود تحديثات
   Future<void> _checkUpdates() async {
+    // تحقق من أنه لم يتم dispose
+    if (_isDisposed) return;
+
     // 1. التحقق من تفعيل الوضع البعيد
     final useRemote = ref.read(shouldUseRemoteDatabaseProvider);
     if (!useRemote) return;
@@ -132,5 +144,12 @@ class RealtimeSyncService {
 }
 
 final realtimeSyncServiceProvider = Provider<RealtimeSyncService>((ref) {
-  return RealtimeSyncService(ref);
+  final service = RealtimeSyncService(ref);
+
+  // تنظيف تلقائي عند dispose
+  ref.onDispose(() {
+    service.dispose();
+  });
+
+  return service;
 });

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
 
 /// Toast صغير وأنيق للاستخدام في كل التطبيق
@@ -157,7 +156,8 @@ class _ToastWidgetState extends State<_ToastWidget>
                     Flexible(
                       child: Text(
                         widget.message,
-                        style: GoogleFonts.tajawal(
+                        style: const TextStyle(
+                          fontFamily: 'Tajawal',
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
                           color: Colors.white,

@@ -3,7 +3,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:intl/intl.dart';
 import '../../../features/pos/domain/entities/sale.dart';
-import '../../../services/pharmacy_settings_service.dart';
+import '../pharmacy_settings_service.dart';
 
 class ReceiptPrinter {
   // طباعة فاتورة البيع

@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:developer' as developer;
-import 'package:shared_preferences/shared_preferences.dart';
+import '../storage/hive_storage.dart';
 
 /// 🕐 خدمة إدارة انتهاء الجلسات المحسنة
 /// تتميز بـ:
@@ -243,7 +243,7 @@ class SessionTimeoutService {
 
   /// الحصول على إحصائيات الجلسات
   static Future<Map<String, dynamic>> getSessionStatistics() async {
-    await _loadStatistics();
+    _loadStatistics();
 
     return {
       'totalSessions': _totalSessions,
@@ -294,8 +294,7 @@ class SessionTimeoutService {
     Function(Duration remaining)? onWarning,
   }) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final sessionData = prefs.getString('active_session');
+      final sessionData = HiveStorage.getSecure<String>('active_session');
 
       if (sessionData == null) return false;
 
@@ -344,7 +343,6 @@ class SessionTimeoutService {
     if (!isSessionActive()) return;
 
     try {
-      final prefs = await SharedPreferences.getInstance();
       final sessionData = {
         'userId': _currentUserId ?? '',
         'startTime': _sessionStartTime?.toIso8601String() ?? '',
@@ -353,7 +351,7 @@ class SessionTimeoutService {
       };
 
       final queryString = Uri(queryParameters: sessionData).query;
-      await prefs.setString('active_session', queryString);
+      await HiveStorage.setSecure('active_session', queryString);
     } catch (e) {
       developer.log('❌ فشل في حفظ بيانات الجلسة: $e', name: 'SessionTimeout');
     }
@@ -362,8 +360,7 @@ class SessionTimeoutService {
   /// مسح بيانات الجلسة
   static Future<void> _clearSessionData() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('active_session');
+      await HiveStorage.removeSecure('active_session');
     } catch (e) {
       developer.log('❌ فشل في مسح بيانات الجلسة: $e', name: 'SessionTimeout');
     }
@@ -372,9 +369,9 @@ class SessionTimeoutService {
   /// حفظ الإحصائيات
   static Future<void> _saveStatistics() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt('total_sessions', _totalSessions);
-      await prefs.setInt('total_active_time', _totalActiveTime.inMinutes);
+      await HiveStorage.setSecure('total_sessions', _totalSessions);
+      await HiveStorage.setSecure(
+          'total_active_time', _totalActiveTime.inMinutes);
 
       final historyJson = _sessionHistory
           .map((session) => Uri(
@@ -382,23 +379,23 @@ class SessionTimeoutService {
                   session.map((k, v) => MapEntry(k, v.toString()))).query)
           .toList();
 
-      await prefs.setStringList('session_history', historyJson);
+      await HiveStorage.setSecure('session_history', historyJson);
     } catch (e) {
       developer.log('❌ فشل في حفظ الإحصائيات: $e', name: 'SessionTimeout');
     }
   }
 
   /// تحميل الإحصائيات
-  static Future<void> _loadStatistics() async {
+  static void _loadStatistics() {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      _totalSessions = prefs.getInt('total_sessions') ?? 0;
-      _totalActiveTime =
-          Duration(minutes: prefs.getInt('total_active_time') ?? 0);
+      _totalSessions = HiveStorage.getSecure<int>('total_sessions') ?? 0;
+      final activeTimeMinutes =
+          HiveStorage.getSecure<int>('total_active_time') ?? 0;
+      _totalActiveTime = Duration(minutes: activeTimeMinutes);
 
-      final historyList = prefs.getStringList('session_history') ?? [];
+      final historyList = HiveStorage.getSecure<List>('session_history') ?? [];
       _sessionHistory = historyList.map((sessionStr) {
-        final params = Uri.splitQueryString(sessionStr);
+        final params = Uri.splitQueryString(sessionStr.toString());
         return {
           'userId': params['userId'] ?? '',
           'startTime': params['startTime'] ?? '',

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/exceptions/app_exceptions.dart';
 import '../../../../core/theme/app_colors.dart';
 
@@ -36,7 +35,7 @@ class SettingsErrorHandler {
             Expanded(
               child: Text(
                 message,
-                style: GoogleFonts.tajawal(color: Colors.white),
+                style: const TextStyle(fontFamily: 'Tajawal', color: Colors.white),
               ),
             ),
             if (onRetry != null)
@@ -45,9 +44,10 @@ class SettingsErrorHandler {
                   ScaffoldMessenger.of(context).hideCurrentSnackBar();
                   onRetry();
                 },
-                child: Text(
+                child: const Text(
                   'إعادة المحاولة',
-                  style: GoogleFonts.tajawal(
+                  style: TextStyle(
+                    fontFamily: 'Tajawal',
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                   ),

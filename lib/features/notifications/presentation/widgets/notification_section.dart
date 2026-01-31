@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/responsive_spacing.dart';
 import '../../domain/entities/notification_entity.dart';
@@ -30,7 +29,8 @@ class NotificationSection extends StatelessWidget {
           padding: EdgeInsets.only(bottom: context.spacing12),
           child: Text(
             title,
-            style: GoogleFonts.tajawal(
+            style: TextStyle(
+              fontFamily: 'Tajawal',
               fontSize: context.fontSize16,
               fontWeight: FontWeight.bold,
               color: AppColors.textSecondary,

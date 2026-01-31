@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../core/storage/hive_storage.dart';
 import '../../../../database/database_helper.dart';
 import '../datasources/local/notification_settings_local_datasource.dart';
 import '../datasources/local/pharmacy_settings_local_datasource.dart';
@@ -15,11 +16,17 @@ import '../../domain/repositories/settings_repository.dart';
 /// - Swap implementations
 /// - Manage lifecycles
 class SettingsDependencies {
-  /// Create NotificationSettingsLocalDataSource instance.
+  /// Create NotificationSettingsLocalDataSource instance (SharedPreferences).
   static NotificationSettingsLocalDataSource createNotificationDataSource(
     SharedPreferences prefs,
   ) {
     return NotificationSettingsLocalDataSourceImpl(prefs);
+  }
+
+  /// Create NotificationSettingsLocalDataSource using HiveStorage.
+  static NotificationSettingsLocalDataSource
+      createNotificationDataSourceFromHive() {
+    return NotificationSettingsHiveDataSourceImpl(HiveStorage);
   }
 
   /// Create PharmacySettingsLocalDataSource instance.
@@ -36,22 +43,27 @@ class SettingsDependencies {
     return SystemSettingsLocalDataSourceImpl(databaseHelper);
   }
 
-  /// Create SettingsRepository instance.
-  ///
-  /// Usage:
-  /// ```dart
-  /// final prefs = await SharedPreferences.getInstance();
-  /// final databaseHelper = DatabaseHelper();
-  /// final repository = SettingsDependencies.createRepository(
-  ///   prefs,
-  ///   databaseHelper,
-  /// );
-  /// ```
+  /// Create SettingsRepository instance (SharedPreferences).
   static SettingsRepository createRepository(
     SharedPreferences prefs,
     DatabaseHelper databaseHelper,
   ) {
     final notificationLocal = createNotificationDataSource(prefs);
+    final pharmacyLocal = createPharmacyDataSource(databaseHelper);
+    final systemLocal = createSystemDataSource(databaseHelper);
+
+    return SettingsRepositoryImpl(
+      notificationLocal,
+      pharmacyLocal,
+      systemLocal,
+    );
+  }
+
+  /// Create SettingsRepository using HiveStorage.
+  static SettingsRepository createRepositoryFromHive(
+    DatabaseHelper databaseHelper,
+  ) {
+    final notificationLocal = createNotificationDataSourceFromHive();
     final pharmacyLocal = createPharmacyDataSource(databaseHelper);
     final systemLocal = createSystemDataSource(databaseHelper);
 

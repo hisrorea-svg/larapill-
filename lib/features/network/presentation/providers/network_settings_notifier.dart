@@ -1,6 +1,5 @@
 // lib/features/network/presentation/providers/network_settings_notifier.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../domain/entities/network_settings_entity.dart';
 import '../../domain/usecases/get_network_settings_usecase.dart';
 import '../../domain/usecases/save_network_settings_usecase.dart';
@@ -21,8 +20,8 @@ class NetworkSettingsNotifier extends StateNotifier<NetworkSettingsEntity> {
   }
 
   /// تحميل الإعدادات من التخزين
-  Future<void> _loadSettings() async {
-    state = await _getUseCase();
+  void _loadSettings() {
+    state = _getUseCase();
   }
 
   /// تغيير وضع الجهاز
@@ -70,8 +69,8 @@ class NetworkSettingsNotifier extends StateNotifier<NetworkSettingsEntity> {
   }
 
   /// هل أول إطلاق؟
-  Future<bool> isFirstLaunch() async {
-    return await _repository.isFirstLaunch();
+  bool isFirstLaunch() {
+    return _repository.isFirstLaunch();
   }
 
   /// تحديد أنه تم الإطلاق
@@ -94,20 +93,10 @@ class NetworkSettingsNotifier extends StateNotifier<NetworkSettingsEntity> {
 
 // =========== Providers ===========
 
-/// Provider للـ SharedPreferences
-final sharedPreferencesProvider =
-    FutureProvider<SharedPreferences>((ref) async {
-  return await SharedPreferences.getInstance();
-});
-
-/// Provider للـ Repository
+/// Provider للـ Repository (HiveStorage-based)
 final networkSettingsRepositoryProvider =
     Provider<NetworkSettingsRepository>((ref) {
-  final prefs = ref.watch(sharedPreferencesProvider).value;
-  if (prefs == null) {
-    throw Exception('SharedPreferences not initialized');
-  }
-  return NetworkSettingsRepositoryImpl(prefs);
+  return const NetworkSettingsRepositoryImpl();
 });
 
 /// Provider للـ Notifier
@@ -121,8 +110,7 @@ final networkSettingsNotifierProvider =
 });
 
 /// Provider لفحص أول إطلاق
-final isFirstLaunchProvider = FutureProvider<bool>((ref) async {
-  final prefs = await ref.watch(sharedPreferencesProvider.future);
-  final repository = NetworkSettingsRepositoryImpl(prefs);
-  return await repository.isFirstLaunch();
+final isFirstLaunchProvider = Provider<bool>((ref) {
+  final repository = ref.watch(networkSettingsRepositoryProvider);
+  return repository.isFirstLaunch();
 });

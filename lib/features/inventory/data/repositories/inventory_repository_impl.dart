@@ -1,10 +1,6 @@
 import 'dart:async';
 import 'dart:developer' as developer;
-import 'package:uuid/uuid.dart';
 
-import '../datasources/local/product_dao.dart';
-import '../../../../models/product.dart';
-import '../../../../models/medicine_unit.dart';
 import '../../domain/entities/add_product_params.dart';
 import '../../domain/entities/product_entity.dart';
 import '../../domain/entities/inventory_stats.dart';
@@ -21,13 +17,15 @@ import '../mappers/inventory_stats_mapper.dart';
 /// 3. Queue operations for remote sync
 /// 4. Sync to remote in background when connected
 ///
-/// TODO: Unit Tests - إضافة اختبارات وحدة للـ Repository و UseCases
+/// ✅ Unit Tests - تم إضافة اختبارات وحدة شاملة في:
+///   test/features/inventory/data/repositories/inventory_repository_impl_test.dart
+///   test/features/inventory/domain/usecases/
+///
 /// TODO: Remote DataSource - تنفيذ InventoryRemoteDataSourceImpl عند توفر API
 /// TODO: Sync Indicator - إضافة مؤشر مزامنة في واجهة المستخدم
 class InventoryRepositoryImpl implements InventoryRepository {
   final InventoryLocalDataSource _localDataSource;
   final InventoryRemoteDataSource? _remoteDataSource;
-  final ProductDAO _productDao = ProductDAO();
 
   InventoryRepositoryImpl(
     this._localDataSource, [
@@ -40,52 +38,14 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<Either<InventoryFailure, ProductEntity>> addProduct(
       AddProductParams params) async {
     try {
-      // Generate UUID for the product
-      final productId = const Uuid().v4();
+      // تحويل الـ params إلى model باستخدام الـ Mapper
+      final model = ProductMapper.toModelFromParams(params);
 
-      final product = Product(
-        id: productId,
-        name: params.name,
-        company: params.company,
-        barcode: params.barcode,
-        baseUnit: MedicineUnit.strip,
-        unitInfo: {
-          MedicineUnit.strip: UnitInfo(
-            sellingPrice: params.price,
-            costPrice: params.cost,
-            conversionToBase: 1,
-            description: 'وحدة',
-          ),
-          MedicineUnit.box: UnitInfo(
-            sellingPrice: params.boxPrice,
-            costPrice: params.boxCost,
-            conversionToBase: params.unitsPerBox.toDouble(),
-            description: 'علبة',
-          ),
-        },
-        currentStock: params.quantity.toDouble(),
-        minStockLevel: 10.0,
-        expiryDate: params.expiryDate,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
+      // إدخال المنتج عبر الـ LocalDataSource
+      final savedModel = await _localDataSource.insertProduct(model);
 
-      await _productDao.insert(product);
-
-      final savedEntity = ProductEntity(
-        id: 0,
-        name: params.name,
-        company: params.company,
-        category: 'medicalSupplies',
-        barcode: params.barcode,
-        quantity: params.quantity,
-        price: params.price,
-        costPrice: params.cost,
-        expiryDate: params.expiryDate,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-        isSynced: false,
-      );
+      // تحويل النتيجة إلى Entity
+      final savedEntity = ProductMapper.toEntity(savedModel);
 
       if (_remoteDataSource != null) {
         _triggerBackgroundSync();
@@ -94,9 +54,12 @@ class InventoryRepositoryImpl implements InventoryRepository {
       developer.log('✅ Added product: ${savedEntity.name}',
           name: 'InventoryRepository');
       return Either.right(savedEntity);
-    } on Exception catch (e) {
+    } on CacheException catch (e) {
       developer.log('❌ Error adding product: $e', name: 'InventoryRepository');
-      return Either.left(DatabaseFailure(e.toString()));
+      return Either.left(DatabaseFailure(e.message));
+    } catch (e) {
+      developer.log('❌ Error adding product: $e', name: 'InventoryRepository');
+      return Either.left(DatabaseFailure('فشل إضافة المنتج: $e'));
     }
   }
 
@@ -369,9 +332,15 @@ class InventoryRepositoryImpl implements InventoryRepository {
   // ============ Background Sync ============
 
   void _triggerBackgroundSync() {
-    // Fire-and-forget background sync
+    // Fire-and-forget background sync مع معالجة الأخطاء
     Future.delayed(const Duration(seconds: 5), () {
-      syncPendingChanges();
+      syncPendingChanges().then((_) {
+        // تمت المزامنة بنجاح
+      }).catchError((e) {
+        developer.log('❌ فشل المزامنة في الخلفية: $e',
+            name: 'InventoryRepository');
+        // لا نظهر error للمستخدم لأنها background operation
+      });
     });
   }
 }

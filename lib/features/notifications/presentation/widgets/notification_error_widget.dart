@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/responsive_spacing.dart';
 
@@ -26,7 +25,8 @@ class NotificationErrorWidget extends StatelessWidget {
           SizedBox(height: context.spacing24),
           Text(
             'خطأ في تحميل الإشعارات',
-            style: GoogleFonts.tajawal(
+            style: TextStyle(
+              fontFamily: 'Tajawal',
               fontSize: context.fontSize18,
               fontWeight: FontWeight.bold,
               color: AppColors.error,
@@ -37,7 +37,8 @@ class NotificationErrorWidget extends StatelessWidget {
             padding: EdgeInsets.symmetric(horizontal: context.spacing32),
             child: Text(
               error,
-              style: GoogleFonts.tajawal(
+              style: TextStyle(
+                fontFamily: 'Tajawal',
                 fontSize: context.fontSize14,
                 color: AppColors.textSecondary,
               ),

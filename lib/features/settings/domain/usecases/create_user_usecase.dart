@@ -1,4 +1,4 @@
-import '../entities/user_entity.dart';
+import '../../../auth/domain/models/user.dart';
 import '../repositories/users_repository.dart';
 import '../repositories/settings_repository.dart'; // For Either
 import '../failures/settings_failure.dart';
@@ -35,8 +35,7 @@ class CreateUserUseCase {
   const CreateUserUseCase(this._repository);
 
   /// تنفيذ Use Case
-  Future<Either<SettingsFailure, UserEntity>> call(
-      CreateUserParams params) async {
+  Future<Either<SettingsFailure, User>> call(CreateUserParams params) async {
     // التحقق من صحة البيانات
     if (params.username.isEmpty) {
       return const Either.left(ValidationSettingsFailure('اسم المستخدم مطلوب'));
@@ -58,9 +57,9 @@ class CreateUserUseCase {
           return const Either.left(UsernameExistsFailure());
         }
 
-        // إنشاء UserEntity
+        // إنشاء User
         final now = DateTime.now();
-        final user = UserEntity(
+        final user = User(
           id: _generateUserId(),
           username: params.username,
           fullName: params.fullName,

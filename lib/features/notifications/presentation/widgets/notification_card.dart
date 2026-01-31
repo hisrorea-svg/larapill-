@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/responsive_spacing.dart';
 import '../../../../core/navigation/notification_router.dart';
@@ -77,7 +76,8 @@ class NotificationCard extends ConsumerWidget {
                         Expanded(
                           child: Text(
                             notification.title,
-                            style: GoogleFonts.tajawal(
+                            style: TextStyle(
+                              fontFamily: 'Tajawal',
                               fontSize: context.fontSize15,
                               fontWeight: notification.isRead
                                   ? FontWeight.w500
@@ -102,7 +102,8 @@ class NotificationCard extends ConsumerWidget {
                     // الوصف
                     Text(
                       notification.body,
-                      style: GoogleFonts.tajawal(
+                      style: TextStyle(
+                        fontFamily: 'Tajawal',
                         fontSize: context.fontSize13,
                         color: AppColors.textSecondary,
                       ),
@@ -122,7 +123,8 @@ class NotificationCard extends ConsumerWidget {
                         SizedBox(width: context.spacing4),
                         Text(
                           _formatTime(notification.createdAt),
-                          style: GoogleFonts.tajawal(
+                          style: TextStyle(
+                            fontFamily: 'Tajawal',
                             fontSize: context.fontSize12,
                             color:
                                 AppColors.textSecondary.withValues(alpha: 0.7),
@@ -143,7 +145,8 @@ class NotificationCard extends ConsumerWidget {
                           ),
                           child: Text(
                             _getTypeLabel(notification.type),
-                            style: GoogleFonts.tajawal(
+                            style: TextStyle(
+                              fontFamily: 'Tajawal',
                               fontSize: context.fontSize11,
                               color: AppColors.primary,
                               fontWeight: FontWeight.w500,

@@ -1,4 +1,4 @@
-import '../entities/user_entity.dart';
+import '../../../auth/domain/models/user.dart';
 import '../repositories/users_repository.dart';
 import '../repositories/settings_repository.dart'; // For Either
 import '../failures/settings_failure.dart';
@@ -23,8 +23,7 @@ class ResetPasswordUseCase {
   const ResetPasswordUseCase(this._repository);
 
   /// تنفيذ Use Case
-  Future<Either<SettingsFailure, UserEntity>> call(
-      ResetPasswordParams params) async {
+  Future<Either<SettingsFailure, User>> call(ResetPasswordParams params) async {
     // التحقق من أن كلمة المرور ليست فارغة
     if (params.newPasswordHash.isEmpty) {
       return const Either.left(

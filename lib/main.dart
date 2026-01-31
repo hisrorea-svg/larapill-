@@ -2,18 +2,17 @@ import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'core/init/app_bootstrap.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/app_colors.dart';
 import 'core/navigation/app_navigator.dart';
-import 'features/menu/screens/menu_screen.dart';
-import 'features/auth/screens/login_screen.dart';
-import 'features/auth/screens/force_password_change_screen.dart';
+import 'features/menu/presentation/screens/menu_screen.dart';
+import 'features/auth/presentation/screens/login_screen.dart';
+import 'features/auth/presentation/screens/force_password_change_screen.dart';
 import 'features/sync/presentation/screens/sync_setup_screen.dart';
-import 'features/splash/screens/splash_screen.dart';
-import 'services/user_service.dart';
+import 'features/splash/presentation/screens/splash_screen.dart';
+import 'features/auth/data/repositories/user_service.dart';
 
 void main() async {
   // ✅ كل شيء داخل نفس الـ zone
@@ -139,9 +138,11 @@ class NotFoundScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('صفحة غير موجودة', style: GoogleFonts.tajawal()),
+        title: const Text('صفحة غير موجودة'),
       ),
       body: Center(
         child: Column(
@@ -155,17 +156,14 @@ class NotFoundScreen extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               '404',
-              style: GoogleFonts.tajawal(
-                fontSize: 48,
-                fontWeight: FontWeight.bold,
+              style: textTheme.displayMedium?.copyWith(
                 color: AppColors.textSecondary,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'الصفحة المطلوبة غير موجودة',
-              style: GoogleFonts.tajawal(
-                fontSize: 16,
+              style: textTheme.bodyLarge?.copyWith(
                 color: AppColors.textSecondary,
               ),
             ),
@@ -173,7 +171,7 @@ class NotFoundScreen extends StatelessWidget {
             ElevatedButton.icon(
               onPressed: () => Navigator.pushReplacementNamed(context, '/main'),
               icon: const Icon(Icons.home),
-              label: Text('العودة للرئيسية', style: GoogleFonts.tajawal()),
+              label: const Text('العودة للرئيسية'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,

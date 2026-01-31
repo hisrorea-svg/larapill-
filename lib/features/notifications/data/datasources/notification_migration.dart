@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../database/database_helper.dart';
 import '../datasources/notification_local_datasource.dart';
@@ -60,10 +61,10 @@ class NotificationMigration {
       // تعليم Migration كمكتمل
       await prefs.setBool(_migrationKey, true);
 
-      print(
+      debugPrint(
           '✅ Notification Migration Complete: $successCount migrated, $failCount failed');
     } catch (e) {
-      print('❌ Notification Migration Error: $e');
+      debugPrint('❌ Notification Migration Error: $e');
       // لا نعلم Migration كمكتمل في حالة الخطأ
     }
   }
