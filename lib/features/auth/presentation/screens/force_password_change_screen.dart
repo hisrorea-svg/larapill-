@@ -561,8 +561,8 @@ class _ForcePasswordChangeScreenState
                 Expanded(
                   child: Text(
                     '❌ خطأ في تغيير كلمة المرور: $e',
-                    style:
-                        const TextStyle(fontFamily: 'Tajawal', color: Colors.white),
+                    style: const TextStyle(
+                        fontFamily: 'Tajawal', color: Colors.white),
                   ),
                 ),
               ],

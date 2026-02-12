@@ -3,13 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/network_settings_entity.dart';
 import '../../domain/usecases/get_network_settings_usecase.dart';
 import '../../domain/usecases/save_network_settings_usecase.dart';
+import '../../domain/repositories/network_settings_repository_interface.dart';
 import '../../data/repositories/network_settings_repository.dart';
 
 /// Notifier لإدارة إعدادات الشبكة
 class NetworkSettingsNotifier extends StateNotifier<NetworkSettingsEntity> {
   final GetNetworkSettingsUseCase _getUseCase;
   final SaveNetworkSettingsUseCase _saveUseCase;
-  final NetworkSettingsRepository _repository;
+  final NetworkSettingsRepositoryInterface _repository;
 
   NetworkSettingsNotifier(
     this._getUseCase,
@@ -95,8 +96,8 @@ class NetworkSettingsNotifier extends StateNotifier<NetworkSettingsEntity> {
 
 /// Provider للـ Repository (HiveStorage-based)
 final networkSettingsRepositoryProvider =
-    Provider<NetworkSettingsRepository>((ref) {
-  return const NetworkSettingsRepositoryImpl();
+    Provider<NetworkSettingsRepositoryInterface>((ref) {
+  return NetworkSettingsRepositoryImpl();
 });
 
 /// Provider للـ Notifier

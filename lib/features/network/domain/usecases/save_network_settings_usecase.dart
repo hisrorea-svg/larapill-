@@ -1,10 +1,10 @@
 // lib/features/network/domain/usecases/save_network_settings_usecase.dart
 import '../entities/network_settings_entity.dart';
-import '../../data/repositories/network_settings_repository.dart';
+import '../repositories/network_settings_repository_interface.dart';
 
 /// UseCase لحفظ إعدادات الشبكة
 class SaveNetworkSettingsUseCase {
-  final NetworkSettingsRepository _repository;
+  final NetworkSettingsRepositoryInterface _repository;
 
   const SaveNetworkSettingsUseCase(this._repository);
 

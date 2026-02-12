@@ -26,8 +26,10 @@ class BarcodePrinter {
       final pdf = pw.Document();
 
       // تحميل الخط العربي
-      final arabicFont = await PdfGoogleFonts.tajawalRegular();
-      final arabicBoldFont = await PdfGoogleFonts.tajawalBold();
+      final arabicFont =
+          await fontFromAssetBundle('assets/fonts/Tajawal-Regular.ttf');
+      final arabicBoldFont =
+          await fontFromAssetBundle('assets/fonts/Tajawal-Bold.ttf');
 
       // تحديد حجم الملصق
       final format = labelSize.toPdfPageFormat(

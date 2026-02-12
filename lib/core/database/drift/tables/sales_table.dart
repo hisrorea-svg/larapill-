@@ -52,11 +52,26 @@ class Sales extends Table {
   /// حالة البيع (completed, cancelled, refunded)
   TextColumn get status => text().withDefault(const Constant('completed'))();
 
-  /// ملاحظات
-  TextColumn get notes => text().nullable()();
+  /// معرفات المرتجعات (مخزنة كنص مفصول بفاصلة)
+  TextColumn get returnIds => text().nullable()();
+
+  /// 🗑️ Soft Delete - هل البيع محذوف
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+
+  /// 🗑️ تاريخ الحذف
+  DateTimeColumn get deletedAt => dateTime().nullable()();
 
   /// تاريخ الإنشاء
   DateTimeColumn get createdAt => dateTime()();
+
+  /// تاريخ التحديث
+  DateTimeColumn get updatedAt => dateTime().nullable()();
+
+  /// 👤 من أنشأ السجل
+  TextColumn get createdBy => text().nullable()();
+
+  /// 👤 من عدّل السجل آخر مرة
+  TextColumn get updatedBy => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};

@@ -1,24 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../dashboard/data/repositories/dashboard_service.dart';
 
-class InventoryStatsWidget extends StatelessWidget {
+// ✅ Provider للإحصائيات - يتفاعل مع invalidate
+final inventoryStatsProvider =
+    FutureProvider<Map<String, dynamic>>((ref) async {
+  final dashboardService = ref.watch(dashboardServiceProvider);
+  return dashboardService.getDashboardStats();
+});
+
+class InventoryStatsWidget extends ConsumerWidget {
   const InventoryStatsWidget({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<Map<String, dynamic>>(
-      future: DashboardService().getDashboardStats(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
+  Widget build(BuildContext context, WidgetRef ref) {
+    // ✅ استخدام Provider بدلاً من FutureBuilder
+    final statsAsync = ref.watch(inventoryStatsProvider);
 
-        final stats = snapshot.data ?? {};
+    return statsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(
+        child: Text('خطأ: $e',
+            style: const TextStyle(fontFamily: 'Tajawal', color: Colors.red)),
+      ),
+      data: (stats) {
         final inventoryValue = (stats['inventory_value'] as double?) ?? 0.0;
         final totalCost = (stats['total_cost'] as double?) ?? 0.0;
         final expectedProfit = (stats['expected_profit'] as double?) ?? 0.0;
         final lowStockCount = (stats['low_stock_count'] as int?) ?? 0;
+        final totalProducts = (stats['total_products'] as int?) ?? 0;
 
         return Row(
           children: [
@@ -27,8 +38,9 @@ class InventoryStatsWidget extends StatelessWidget {
               child: _buildSmallStatCard(
                 icon: Icons.inventory_2,
                 title: 'إجمالي المنتجات',
-                value: '6',
+                value: totalProducts.toString(),
                 color: AppColors.primary,
+                valueColor: AppColors.textPrimary, // نص عادي
               ),
             ),
             const SizedBox(width: 12),
@@ -40,6 +52,7 @@ class InventoryStatsWidget extends StatelessWidget {
                 title: 'منتجات قليلة',
                 value: lowStockCount.toString(),
                 color: AppColors.warning,
+                valueColor: AppColors.textPrimary, // نص عادي
               ),
             ),
             const SizedBox(width: 12),
@@ -51,6 +64,7 @@ class InventoryStatsWidget extends StatelessWidget {
                 title: 'قيمة المخزون',
                 value: _formatCurrency(inventoryValue),
                 color: AppColors.success,
+                valueColor: AppColors.textPrimary, // نص عادي
               ),
             ),
             const SizedBox(width: 12),
@@ -62,17 +76,23 @@ class InventoryStatsWidget extends StatelessWidget {
                 title: 'إجمالي التكلفة',
                 value: _formatCurrency(totalCost),
                 color: AppColors.error,
+                valueColor: AppColors.textPrimary, // نص عادي (مش أحمر!)
               ),
             ),
             const SizedBox(width: 12),
 
-            // 5. الربح المتوقع
+            // 5. الربح المتوقع (أحمر إذا سالب)
             Expanded(
               child: _buildSmallStatCard(
                 icon: Icons.trending_up,
                 title: 'الربح المتوقع',
                 value: _formatCurrency(expectedProfit),
-                color: const Color(0xFF4CAF50),
+                color: expectedProfit < 0
+                    ? AppColors.error
+                    : const Color(0xFF4CAF50),
+                valueColor: expectedProfit < 0
+                    ? AppColors.error
+                    : const Color(0xFF4CAF50), // الوحيد اللي يتلون!
               ),
             ),
           ],
@@ -96,9 +116,9 @@ class InventoryStatsWidget extends StatelessWidget {
     required String title,
     required String value,
     required Color color,
+    Color? valueColor, // اختياري - لون النص
   }) {
     return Container(
-      // ✅ بدون height محدد - يأخذ ارتفاع الـ parent (140)
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -114,7 +134,7 @@ class InventoryStatsWidget extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween, // ✅ توزيع متساوي
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           // الأيقونة
           Container(
@@ -141,17 +161,19 @@ class InventoryStatsWidget extends StatelessWidget {
             ),
           ),
 
-          // القيمة
+          // القيمة (لون ديناميكي يطابق لون الكارت)
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerRight,
             child: Text(
               value,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'Tajawal',
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
+                color: valueColor ??
+                    AppColors
+                        .textPrimary, // استخدام valueColor أو اللون الافتراضي
               ),
               maxLines: 1,
             ),

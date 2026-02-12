@@ -123,8 +123,10 @@ class ReportPrinter {
     final pdf = pw.Document();
 
     // تحميل خط عربي
-    final arabicFont = await PdfGoogleFonts.tajawalRegular();
-    final arabicBoldFont = await PdfGoogleFonts.tajawalBold();
+    final arabicFont =
+        await fontFromAssetBundle('assets/fonts/Tajawal-Regular.ttf');
+    final arabicBoldFont =
+        await fontFromAssetBundle('assets/fonts/Tajawal-Bold.ttf');
 
     final now = DateTime.now();
     final totalQuantity = requests.fold<double>(

@@ -44,7 +44,7 @@ class DuplicateBarcodeFailure extends InventoryFailure {
 
 /// Product not found failure
 class ProductNotFoundFailure extends InventoryFailure {
-  final int productId;
+  final String productId; // ✅ Changed from int to String for UUID
 
   const ProductNotFoundFailure(this.productId) : super('المنتج غير موجود');
 }

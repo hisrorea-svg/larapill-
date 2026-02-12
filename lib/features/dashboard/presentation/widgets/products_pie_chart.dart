@@ -1,14 +1,16 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../data/repositories/dashboard_service.dart';
 
-class ProductsPieChart extends StatelessWidget {
+class ProductsPieChart extends ConsumerWidget {
   const ProductsPieChart({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dashboardService = ref.watch(dashboardServiceProvider);
+
     return Container(
       height: 300,
       padding: const EdgeInsets.all(16),
@@ -38,7 +40,7 @@ class ProductsPieChart extends StatelessWidget {
           const SizedBox(height: 16),
           Expanded(
             child: FutureBuilder<Map<String, double>>(
-              future: DashboardService().getTopSellingProducts(limit: 10),
+              future: dashboardService.getTopSellingProducts(limit: 10),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -47,11 +49,12 @@ class ProductsPieChart extends StatelessWidget {
                 if (snapshot.hasError ||
                     !snapshot.hasData ||
                     snapshot.data!.isEmpty) {
-                  return Center(
+                  return const Center(
                     child: Text(
                       'لا توجد بيانات لعرضها',
-                      style:
-                          GoogleFonts.tajawal(color: AppColors.textSecondary),
+                      style: TextStyle(
+                          fontFamily: 'Tajawal',
+                          color: AppColors.textSecondary),
                     ),
                   );
                 }

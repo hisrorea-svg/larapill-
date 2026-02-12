@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../features/inventory/data/datasources/local/product_dao.dart';
 import '../../../../core/models/shared/product.dart';
 import '../../../../core/models/shared/medicine_unit.dart';
 import '../../domain/entities/sale.dart';
-import '../../../../core/network/sync_aware_dao.dart';
-import '../../../../core/network/sync_aware_sales_service.dart';
+import '../../../../features/pos/data/repositories/sales_repository.dart';
 import '../../../../features/purchases/presentation/providers/daily_purchase_provider.dart';
 import '../../../../features/notifications/presentation/providers/notification_providers.dart';
+import '../../../../features/inventory/data/repositories/product_repository.dart';
 
 // ============================================================================
 // 📦 POS PROVIDERS - مزودات نقطة البيع
@@ -35,14 +34,19 @@ class POSController extends AutoDisposeAsyncNotifier<List<Product>> {
   @override
   Future<List<Product>> build() async {
     try {
-      // ✨ محاولة استخدام Sync-Aware DAO
-      final syncDao = ref.watch(syncAwareProductDaoProvider);
-      return await syncDao.findAll(activeOnly: true);
-    } catch (e) {
-      // ⚠️ Fallback: استخدام DAO المحلي مباشرة
-      debugPrint('⚠️ SyncAwareDAO failed, using local: $e');
-      final localDao = ProductDAO();
-      return await localDao.findAll(activeOnly: true);
+      // ✨ استخدام ProductRepository
+      final repo = ref.read(productRepositoryProvider);
+      // 🛠️ Fix: Ensure stocked products are active
+      await repo.restoreStockedProducts();
+
+      final products = await repo.getAllProducts(activeOnly: true);
+      debugPrint('✅ POSController: تم جلب ${products.length} منتج/منتجات');
+      return products;
+    } catch (e, stackTrace) {
+      // ⚠️ Log error with stack trace for debugging
+      debugPrint('❌ POSController: فشل في جلب المنتجات: $e');
+      debugPrint('StackTrace: $stackTrace');
+      rethrow;
     }
   }
 
@@ -102,16 +106,10 @@ class CartProvider extends ChangeNotifier {
   double get total => subtotal;
   int get itemCount => _items.length;
 
-  // ✨ Helper: جلب المنتج مع Fallback
+  // ✨ Helper: جلب المنتج
   Future<Product?> _getProduct(String productId) async {
-    try {
-      final syncDao = ref.read(syncAwareProductDaoProvider);
-      return await syncDao.findById(productId);
-    } catch (e) {
-      // Fallback to local DAO
-      final localDao = ProductDAO();
-      return await localDao.findById(productId);
-    }
+    final productsRepo = ref.read(productRepositoryProvider);
+    return await productsRepo.getProductById(productId);
   }
 
   // ✅ إضافة منتج مع Stock Validation
@@ -242,9 +240,8 @@ class CartProvider extends ChangeNotifier {
       throw Exception('السلة فارغة');
     }
 
-    // 🆕 توليد رقم فاتورة احترافي (عبر Sync-Aware DAO)
-    final syncSaleDao = ref.read(syncAwareSaleDaoProvider);
-    final saleId = await syncSaleDao.generateSaleId();
+    // 🆕 توليد رقم فاتورة
+    final saleId = 'SALE-${DateTime.now().millisecondsSinceEpoch}';
 
     final totalAmount = subtotal - discount;
     final actualPaidAmount = paidAmount ?? totalAmount;
@@ -280,10 +277,9 @@ class CartProvider extends ChangeNotifier {
       createdAt: DateTime.now(),
     );
 
-    // ✅ حفظ البيع (يدعم المزامنة التلقائية والـ Offline Queue)
-    final syncSalesService = ref.read(syncAwareSalesServiceProvider);
-    await syncSalesService.saveSale(sale,
-        userId: cashierId, userName: cashierName);
+    // ✅ حفظ البيع (محلي، سيتم المزامنة لاحقاً)
+    final salesRepo = ref.read(salesRepositoryProvider);
+    await salesRepo.saveSale(sale, userId: cashierId, userName: cashierName);
 
     // ✅ تنظيف السلة
     clearCart();

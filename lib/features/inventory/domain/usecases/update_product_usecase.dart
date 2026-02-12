@@ -5,7 +5,7 @@ import '../validators/product_validator.dart';
 
 /// Parameters for updating a product
 class UpdateProductParams {
-  final int id;
+  final String id; // ✅ Changed from int to String for UUID
   final String name;
   final String company;
   final String category;

@@ -1,5 +1,5 @@
 import 'dart:convert';
-import '../../domain/models/user.dart';
+import '../../domain/entities/user.dart';
 
 /// Data Transfer Object for User
 /// Handles all database/JSON serialization

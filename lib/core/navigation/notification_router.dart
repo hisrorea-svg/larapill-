@@ -2,98 +2,43 @@
 // 🔔 نظام التوجيه الذكي للإشعارات
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/notifications/domain/entities/notification_entity.dart';
 import '../../features/notifications/domain/entities/notification_type.dart';
 import '../../features/notifications/domain/entities/notification_priority.dart';
+import '../providers/navigation_providers.dart';
 
 /// يوجه المستخدم للصفحة المناسبة حسب نوع الإشعار
+/// ✅ نسخة محدثة: تستخدم selectedIndexProvider للتنقل داخل MainLayout
 class NotificationRouter {
-  /// التوجيه حسب نوع الإشعار
-  static void navigate(BuildContext context, NotificationEntity notification) {
-    final actionData = notification.actionData;
+  /// التوجيه حسب نوع الإشعار - يغير الـ selectedIndex في MainLayout
+  static void navigate(
+      BuildContext context, WidgetRef ref, NotificationEntity notification) {
+    final int targetIndex = _getIndexForType(notification.type);
 
-    switch (notification.type) {
+    // تغيير الصفحة المختارة في MainLayout
+    ref.read(selectedIndexProvider.notifier).state = targetIndex;
+
+    // إغلاق أي dialog أو menu مفتوح
+    Navigator.of(context).popUntil((route) => route.isFirst || !route.isActive);
+  }
+
+  /// الحصول على index الصفحة حسب نوع الإشعار
+  static int _getIndexForType(NotificationType type) {
+    switch (type) {
       case NotificationType.inventory:
-        _navigateToInventory(context, actionData);
-        break;
-
+        return 2; // InventoryScreen
       case NotificationType.sales:
-        _navigateToSales(context, actionData);
-        break;
-
+        return 1; // PosScreen
       case NotificationType.purchases:
-        _navigateToPurchases(context, actionData);
-        break;
-
+        return 3; // PurchasesDashboardScreen
       case NotificationType.user:
-        _navigateToUsers(context, actionData);
-        break;
-
+        return 7; // SettingsScreen
       case NotificationType.reminder:
-        _navigateToReminder(context, actionData);
-        break;
-
+        return 0; // DashboardScreen
       case NotificationType.system:
-        _navigateToSystem(context, actionData);
-        break;
+        return 7; // SettingsScreen
     }
-  }
-
-  /// التوجيه لصفحة المخزون
-  static void _navigateToInventory(
-      BuildContext context, Map<String, dynamic>? data) {
-    if (data != null && data.containsKey('productId')) {
-      // فتح تفاصيل المنتج
-      Navigator.pushNamed(
-        context,
-        '/inventory/product',
-        arguments: {'productId': data['productId']},
-      );
-    } else {
-      // فتح صفحة المخزون العامة
-      Navigator.pushNamed(context, '/inventory');
-    }
-  }
-
-  /// التوجيه لصفحة المبيعات
-  static void _navigateToSales(
-      BuildContext context, Map<String, dynamic>? data) {
-    if (data != null && data.containsKey('invoiceId')) {
-      // فتح تفاصيل الفاتورة
-      Navigator.pushNamed(
-        context,
-        '/pos/invoice',
-        arguments: {'invoiceId': data['invoiceId']},
-      );
-    } else {
-      // فتح نقطة البيع
-      Navigator.pushNamed(context, '/pos');
-    }
-  }
-
-  /// التوجيه لصفحة المشتريات
-  static void _navigateToPurchases(
-      BuildContext context, Map<String, dynamic>? data) {
-    Navigator.pushNamed(context, '/purchases');
-  }
-
-  /// التوجيه لصفحة المستخدمين
-  static void _navigateToUsers(
-      BuildContext context, Map<String, dynamic>? data) {
-    Navigator.pushNamed(context, '/users');
-  }
-
-  /// التوجيه للتذكيرات
-  static void _navigateToReminder(
-      BuildContext context, Map<String, dynamic>? data) {
-    // يمكن فتح صفحة التذكيرات أو الإعدادات
-    Navigator.pushNamed(context, '/settings');
-  }
-
-  /// التوجيه لإعدادات النظام
-  static void _navigateToSystem(
-      BuildContext context, Map<String, dynamic>? data) {
-    Navigator.pushNamed(context, '/settings');
   }
 
   /// الحصول على أيقونة حسب النوع

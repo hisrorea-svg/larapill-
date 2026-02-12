@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../../core/services/printer_service.dart';
-import '../../data/datasources/local/suppliers_dao.dart';
+import '../providers/purchases_drift_providers.dart';
 import '../providers/purchases_dashboard_provider.dart';
 import '../providers/daily_purchase_provider.dart';
 import '../widgets/add_product_dialog_purchase.dart';
@@ -834,7 +834,7 @@ class _PurchasesDashboardScreenState
 
   /// محتوى المستحقات مضمّن
   Widget _buildEmbeddedDebts() {
-    final suppliersAsync = ref.watch(suppliersProvider);
+    final suppliersAsync = ref.watch(activeSuppliersProvider);
 
     return suppliersAsync.when(
       data: (suppliers) {
@@ -1177,8 +1177,12 @@ class _SidebarCardState extends State<_SidebarCard> {
     final isActive = widget.isSelected || isHovered;
 
     return MouseRegion(
-      onEnter: (_) => setState(() => isHovered = true),
-      onExit: (_) => setState(() => isHovered = false),
+      onEnter: (_) {
+        if (mounted) setState(() => isHovered = true);
+      },
+      onExit: (_) {
+        if (mounted) setState(() => isHovered = false);
+      },
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(

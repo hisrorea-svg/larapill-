@@ -1,35 +1,32 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/pharmacy_info.dart';
 import '../../features/auth/data/repositories/user_service.dart';
-import '../../features/auth/domain/models/user.dart';
-import '../../database/database_helper.dart';
+import '../../features/auth/domain/entities/user.dart';
+import '../database/drift/daos/daos.dart';
 
 // ======================================================================
 // Pharmacy & User Providers
 // ======================================================================
 
-// ✅ معلومات الصيدلية - من قاعدة البيانات
+// ✅ معلومات الصيدلية - من قاعدة البيانات عبر Drift
 final pharmacyInfoProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   try {
-    final dbHelper = DatabaseHelper();
-    final db = await dbHelper.database;
+    final settingsDao = ref.watch(settingsDriftDaoProvider);
+    final entry = await settingsDao.getPharmacySettings();
 
-    final result = await db.query('pharmacy_settings', limit: 1);
-
-    if (result.isNotEmpty) {
-      final data = result.first;
+    if (entry != null) {
       return {
-        'name': data['name_ar'] ?? 'صيدلية فارماكليك',
-        'english_name': data['name_en'] ?? 'LaRaPill Pharmacy',
-        'phone': data['phone'] ?? '',
-        'mobile': data['mobile'] ?? '',
-        'address': data['address'] ?? '',
-        'city': data['city'] ?? '',
-        'email': data['email'] ?? '',
-        'website': data['website'] ?? '',
-        'license_number': data['license_number'] ?? '',
-        'tax_number': data['tax_number'] ?? '',
-        'commercial_registration': data['commercial_registration'] ?? '',
+        'name': entry.nameAr,
+        'english_name': entry.nameEn,
+        'phone': entry.phone,
+        'mobile': entry.mobile,
+        'address': entry.address,
+        'city': entry.city,
+        'email': entry.email,
+        'website': entry.website,
+        'license_number': entry.licenseNumber,
+        'tax_number': entry.taxNumber,
+        'commercial_registration': entry.commercialRegistration,
       };
     }
   } catch (e) {

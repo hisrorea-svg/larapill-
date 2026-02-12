@@ -1,5 +1,5 @@
 import 'dart:developer' as developer;
-import '../../database/database_helper.dart';
+import '../../core/database/drift/app_database.dart';
 
 class PharmacyInfo {
   static String name = 'صيدلية LaRaPill';
@@ -9,6 +9,14 @@ class PharmacyInfo {
   static String email = '';
   static String license = '';
   static String owner = '';
+
+  // ✅ Reference to the global database used in loadFromDatabase
+  static AppDatabase? _db;
+
+  /// Set the database reference (called during app initialization)
+  static void setDatabase(AppDatabase db) {
+    _db = db;
+  }
 
   // ✅ دالة تحديث المعلومات
   static void updateInfo({
@@ -30,23 +38,31 @@ class PharmacyInfo {
   }
 
   // ✅ تحميل المعلومات من قاعدة البيانات عند بدء التطبيق
-  static Future<void> loadFromDatabase() async {
+  /// Load pharmacy info from the Drift database
+  /// Requires setDatabase() to be called first, or pass db directly
+  static Future<void> loadFromDatabase([AppDatabase? db]) async {
     try {
-      final dbHelper = DatabaseHelper();
-      final db = await dbHelper.database;
+      // Use provided db or the static _db reference
+      final database = db ?? _db;
+      if (database == null) {
+        developer.log('⚠️ لم يتم تهيئة قاعدة البيانات بعد',
+            name: 'PharmacyInfo');
+        return;
+      }
 
-      // قراءة من جدول pharmacy_settings
-      final result = await db.query('pharmacy_settings', limit: 1);
+      // Use Drift query
+      final result = await (database.select(database.pharmacySettings)
+            ..limit(1))
+          .getSingleOrNull();
 
-      if (result.isNotEmpty) {
-        final data = result.first;
-        name = (data['name_ar'] as String?) ?? name;
-        englishName = (data['name_en'] as String?) ?? englishName;
-        address = (data['address'] as String?) ?? address;
-        phone = (data['phone'] as String?) ?? phone;
-        email = (data['email'] as String?) ?? email;
-        license = (data['license_number'] as String?) ?? license;
-        owner = (data['commercial_registration'] as String?) ?? owner;
+      if (result != null) {
+        name = result.nameAr;
+        englishName = result.nameEn ?? englishName;
+        address = result.address ?? address;
+        phone = result.phone ?? phone;
+        email = result.email ?? email;
+        license = result.licenseNumber ?? license;
+        owner = result.commercialRegistration ?? owner;
 
         developer.log('✅ تم تحميل معلومات الصيدلية: $name',
             name: 'PharmacyInfo');

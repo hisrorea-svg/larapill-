@@ -173,7 +173,7 @@ class NotificationCard extends ConsumerWidget {
           .markAsRead(notification.id);
     }
     // التنقل للصفحة المناسبة
-    NotificationRouter.navigate(context, notification);
+    NotificationRouter.navigate(context, ref, notification);
   }
 
   String _formatTime(DateTime dateTime) {

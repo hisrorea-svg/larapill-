@@ -1,16 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../data/repositories/return_service.dart';
+import '../../data/repositories/returns_repository.dart';
 import '../../domain/entities/return_entity.dart';
-
-// ===== الخدمة =====
-final returnServiceProvider = Provider<ReturnService>((ref) {
-  return ReturnService();
-});
 
 // ===== المرتجعات الأساسية =====
 final returnsProvider = FutureProvider<List<Return>>((ref) async {
-  final service = ref.read(returnServiceProvider);
-  return await service.getAllReturns();
+  final repository = ref.read(returnsRepositoryProvider);
+  return await repository.getAllReturns();
 });
 
 // ===== البحث =====
@@ -21,11 +16,11 @@ final returnStatusFilterProvider = StateProvider<ReturnStatus?>((ref) => null);
 
 // ===== المرتجعات المفلترة =====
 final filteredReturnsProvider = FutureProvider<List<Return>>((ref) async {
-  final service = ref.read(returnServiceProvider);
+  final repository = ref.read(returnsRepositoryProvider);
   final searchQuery = ref.watch(returnSearchQueryProvider);
   final statusFilter = ref.watch(returnStatusFilterProvider);
 
-  List<Return> returns = await service.getAllReturns();
+  List<Return> returns = await repository.getAllReturns();
 
   // البحث
   if (searchQuery.trim().isNotEmpty) {

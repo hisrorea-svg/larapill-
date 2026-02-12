@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../features/debts/data/repositories/debts_repository_impl.dart';
 import '../../domain/entities/customer_debt.dart';
-import '../../data/datasources/local/customer_debt_dao.dart';
-import '../../data/datasources/local/debt_payment_dao.dart';
 import '../../../auth/data/repositories/user_service.dart';
 
-class DebtPaymentDialog extends StatefulWidget {
+class DebtPaymentDialog extends ConsumerStatefulWidget {
   final CustomerDebt debt;
   final VoidCallback onPaymentComplete;
 
@@ -17,10 +17,10 @@ class DebtPaymentDialog extends StatefulWidget {
   });
 
   @override
-  State<DebtPaymentDialog> createState() => _DebtPaymentDialogState();
+  ConsumerState<DebtPaymentDialog> createState() => _DebtPaymentDialogState();
 }
 
-class _DebtPaymentDialogState extends State<DebtPaymentDialog> {
+class _DebtPaymentDialogState extends ConsumerState<DebtPaymentDialog> {
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
   final _notesController = TextEditingController();
@@ -570,11 +570,10 @@ class _DebtPaymentDialogState extends State<DebtPaymentDialog> {
         throw Exception('لم يتم العثور على معلومات المستخدم');
       }
 
-      final debtPaymentDao = DebtPaymentDAO();
-      final customerDebtDao = CustomerDebtDAO();
+      final repository = ref.read(debtsRepositoryProvider);
 
-      // تسجيل الدفعة
-      await debtPaymentDao.createPayment(
+      // تسجيل الدفعة عبر المستودع
+      final success = await repository.recordPayment(
         customerDebtId: widget.debt.id,
         amount: amount,
         paymentMethod: _selectedPaymentMethod,
@@ -583,11 +582,9 @@ class _DebtPaymentDialogState extends State<DebtPaymentDialog> {
         notes: _notesController.text.isNotEmpty ? _notesController.text : null,
       );
 
-      // تحديث الدين
-      await customerDebtDao.recordPayment(
-        customerDebtId: widget.debt.id,
-        amount: amount,
-      );
+      if (!success) {
+        throw Exception('فشل تسجيل الدفعة');
+      }
 
       if (!mounted) return;
 

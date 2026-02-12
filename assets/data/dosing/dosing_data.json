@@ -1,0 +1,1927 @@
+[
+  {
+    "name": "ACICLOVIR",
+    "category": "Antiviral",
+    "indication": "Herpes simplex infections of the mouth and lips; Herpes simplex",
+    "standard_dose": "250 mg/m²/dose, 8 hourly for 7 days",
+    "route": "Oral",
+    "weight_bands": [
+      {
+        "min_kg": 3.5,
+        "max_kg": 5.0,
+        "dose_mg": 50,
+        "formulations": [
+          { "type": "Suspension", "strength": "200 mg/5ml", "amount": "1.25 mL" }
+        ]
+      },
+      {
+        "min_kg": 5.0,
+        "max_kg": 7.0,
+        "dose_mg": 80,
+        "formulations": [
+          { "type": "Suspension", "strength": "200 mg/5ml", "amount": "2 mL" }
+        ]
+      },
+      {
+        "min_kg": 7.0,
+        "max_kg": 11.0,
+        "dose_mg": 100,
+        "formulations": [
+          { "type": "Suspension", "strength": "200 mg/5ml", "amount": "2.5 mL" },
+          { "type": "Tablet", "strength": "200 mg", "amount": "0.5 tablet" }
+        ]
+      },
+      {
+        "min_kg": 11.0,
+        "max_kg": 14.0,
+        "dose_mg": 120,
+        "formulations": [
+          { "type": "Suspension", "strength": "200 mg/5ml", "amount": "3 mL" }
+        ]
+      },
+      {
+        "min_kg": 14.0,
+        "max_kg": 25.0,
+        "dose_mg": 160,
+        "formulations": [
+          { "type": "Suspension", "strength": "200 mg/5ml", "amount": "4 mL" }
+        ]
+      },
+      {
+        "min_kg": 25.0,
+        "max_kg": 35.0,
+        "dose_mg": 200,
+        "formulations": [
+          { "type": "Suspension", "strength": "200 mg/5ml", "amount": "5 mL" },
+          { "type": "Tablet", "strength": "200 mg", "amount": "1 tablet" },
+          { "type": "Tablet", "strength": "400 mg", "amount": "0.5 tablet" }
+        ]
+      },
+      {
+        "min_kg": 35.0,
+        "max_kg": 55.0,
+        "dose_mg": 300,
+        "formulations": [
+          { "type": "Suspension", "strength": "200 mg/5ml", "amount": "7.5 mL" },
+          { "type": "Tablet", "strength": "200 mg", "amount": "1.5 tablets" }
+        ]
+      },
+      {
+        "min_kg": 55.0,
+        "max_kg": 100.0,
+        "dose_mg": 400,
+        "formulations": [
+          { "type": "Tablet", "strength": "400 mg", "amount": "1 tablet" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "AMOXICILLIN",
+    "category": "Antibiotic",
+    "indication": "Complicated SAM, Measles with pneumonia, Pneumonia, Otitis media",
+    "standard_dose": "45 mg/kg/dose, 12 hourly for 5 days",
+    "route": "Oral",
+    "weight_bands": [
+      {
+        "min_kg": 3.5,
+        "max_kg": 5.0,
+        "dose_mg": 175,
+        "formulations": [
+          { "type": "Syrup", "strength": "125 mg/5ml", "amount": "7 mL" },
+          { "type": "Syrup", "strength": "250 mg/5ml", "amount": "3.5 mL" }
+        ]
+      },
+      {
+        "min_kg": 5.0,
+        "max_kg": 7.0,
+        "dose_mg": 250,
+        "formulations": [
+          { "type": "Syrup", "strength": "125 mg/5ml", "amount": "10 mL" },
+          { "type": "Syrup", "strength": "250 mg/5ml", "amount": "5 mL" }
+        ]
+      },
+      {
+        "min_kg": 7.0,
+        "max_kg": 11.0,
+        "dose_mg": 375,
+        "formulations": [
+          { "type": "Syrup", "strength": "125 mg/5ml", "amount": "15 mL" },
+          { "type": "Syrup", "strength": "250 mg/5ml", "amount": "7.5 mL" }
+        ]
+      },
+      {
+        "min_kg": 11.0,
+        "max_kg": 14.0,
+        "dose_mg": 500,
+        "formulations": [
+          { "type": "Syrup", "strength": "250 mg/5ml", "amount": "10 mL" },
+          { "type": "Capsule", "strength": "250 mg", "amount": "2" },
+          { "type": "Capsule", "strength": "500 mg", "amount": "1" }
+        ]
+      },
+      {
+        "min_kg": 14.0,
+        "max_kg": 17.5,
+        "dose_mg": 750,
+        "formulations": [
+          { "type": "Syrup", "strength": "250 mg/5ml", "amount": "15 mL" },
+          { "type": "Capsule", "strength": "250 mg", "amount": "3" }
+        ]
+      },
+      {
+        "min_kg": 17.5,
+        "max_kg": 25.0,
+        "dose_mg": 1000,
+        "formulations": [
+          { "type": "Syrup", "strength": "250 mg/5ml", "amount": "20 mL" },
+          { "type": "Capsule", "strength": "250 mg", "amount": "4" },
+          { "type": "Capsule", "strength": "500 mg", "amount": "2" }
+        ]
+      },
+      {
+        "min_kg": 25.0,
+        "max_kg": 30.0,
+        "dose_mg": 1250,
+        "formulations": [
+          { "type": "Syrup", "strength": "250 mg/5ml", "amount": "25 mL" },
+          { "type": "Capsule", "strength": "250 mg", "amount": "5" }
+        ]
+      },
+      {
+        "min_kg": 30.0,
+        "max_kg": 100.0,
+        "dose_mg": 1500,
+        "formulations": [
+          { "type": "Capsule", "strength": "250 mg", "amount": "6" },
+          { "type": "Capsule", "strength": "500 mg", "amount": "3" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "AZITHROMYCIN",
+    "category": "Antibiotic",
+    "indication": "Dental abscess, Rheumatic fever, Impetigo, Cellulitis, Pneumonia, Otitis media",
+    "standard_dose": "10 mg/kg/dose, daily for 3 days",
+    "route": "Oral",
+    "weight_bands": [
+      {
+        "min_kg": 3.5,
+        "max_kg": 5.0,
+        "dose_mg": 40,
+        "formulations": [
+          { "type": "Suspension", "strength": "200 mg/5ml", "amount": "1 mL" }
+        ]
+      },
+      {
+        "min_kg": 5.0,
+        "max_kg": 7.0,
+        "dose_mg": 60,
+        "formulations": [
+          { "type": "Suspension", "strength": "200 mg/5ml", "amount": "1.5 mL" }
+        ]
+      },
+      {
+        "min_kg": 7.0,
+        "max_kg": 9.0,
+        "dose_mg": 80,
+        "formulations": [
+          { "type": "Suspension", "strength": "200 mg/5ml", "amount": "2 mL" }
+        ]
+      },
+      {
+        "min_kg": 9.0,
+        "max_kg": 11.0,
+        "dose_mg": 100,
+        "formulations": [
+          { "type": "Suspension", "strength": "200 mg/5ml", "amount": "2.5 mL" }
+        ]
+      },
+      {
+        "min_kg": 11.0,
+        "max_kg": 14.0,
+        "dose_mg": 120,
+        "formulations": [
+          { "type": "Suspension", "strength": "200 mg/5ml", "amount": "3 mL" }
+        ]
+      },
+      {
+        "min_kg": 14.0,
+        "max_kg": 18.0,
+        "dose_mg": 160,
+        "formulations": [
+          { "type": "Suspension", "strength": "200 mg/5ml", "amount": "4 mL" }
+        ]
+      },
+      {
+        "min_kg": 18.0,
+        "max_kg": 25.0,
+        "dose_mg": 200,
+        "formulations": [
+          { "type": "Suspension", "strength": "200 mg/5ml", "amount": "5 mL" }
+        ]
+      },
+      {
+        "min_kg": 25.0,
+        "max_kg": 35.0,
+        "dose_mg": 250,
+        "formulations": [
+          { "type": "Tablet", "strength": "250 mg", "amount": "1 tablet" }
+        ]
+      },
+      {
+        "min_kg": 35.0,
+        "max_kg": 100.0,
+        "dose_mg": 500,
+        "formulations": [
+          { "type": "Tablet", "strength": "500 mg", "amount": "1 tablet" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "ATROPINE",
+    "category": "Anticholinergic",
+    "indication": "Bradycardia, Exposure to poisonous substances",
+    "standard_dose": "0.05 mg/kg/dose",
+    "route": "IV",
+    "weight_bands": [
+      {
+        "min_kg": 3.5,
+        "max_kg": 5.0,
+        "dose_mg": 0.2,
+        "formulations": [
+          { "type": "Injection", "strength": "0.5 mg/ml", "amount": "0.4 mL" },
+          { "type": "Injection", "strength": "1 mg/ml", "amount": "0.2 mL" }
+        ]
+      },
+      {
+        "min_kg": 5.0,
+        "max_kg": 7.0,
+        "dose_mg": 0.3,
+        "formulations": [
+          { "type": "Injection", "strength": "0.5 mg/ml", "amount": "0.6 mL" },
+          { "type": "Injection", "strength": "1 mg/ml", "amount": "0.3 mL" }
+        ]
+      },
+      {
+        "min_kg": 7.0,
+        "max_kg": 9.0,
+        "dose_mg": 0.4,
+        "formulations": [
+          { "type": "Injection", "strength": "0.5 mg/ml", "amount": "0.8 mL" },
+          { "type": "Injection", "strength": "1 mg/ml", "amount": "0.4 mL" }
+        ]
+      },
+      {
+        "min_kg": 9.0,
+        "max_kg": 11.0,
+        "dose_mg": 0.5,
+        "formulations": [
+          { "type": "Injection", "strength": "0.5 mg/ml", "amount": "1 mL" },
+          { "type": "Injection", "strength": "1 mg/ml", "amount": "0.5 mL" }
+        ]
+      },
+      {
+        "min_kg": 11.0,
+        "max_kg": 14.0,
+        "dose_mg": 0.6,
+        "formulations": [
+          { "type": "Injection", "strength": "0.5 mg/ml", "amount": "1.2 mL" },
+          { "type": "Injection", "strength": "1 mg/ml", "amount": "0.6 mL" }
+        ]
+      },
+      {
+        "min_kg": 14.0,
+        "max_kg": 17.5,
+        "dose_mg": 0.8,
+        "formulations": [
+          { "type": "Injection", "strength": "0.5 mg/ml", "amount": "1.6 mL" },
+          { "type": "Injection", "strength": "1 mg/ml", "amount": "0.8 mL" }
+        ]
+      },
+      {
+        "min_kg": 17.5,
+        "max_kg": 100.0,
+        "dose_mg": 1,
+        "formulations": [
+          { "type": "Injection", "strength": "0.5 mg/ml", "amount": "2 mL" },
+          { "type": "Injection", "strength": "1 mg/ml", "amount": "1 mL" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "CEFTRIAXONE (80 mg/kg)",
+    "category": "Antibiotic",
+    "indication": "Complicated SAM, UTI, Fever, VHF, Septic arthritis, Pneumonia, Shock",
+    "standard_dose": "80 mg/kg/dose immediately as a single dose",
+    "route": "IM",
+    "weight_bands": [
+      {
+        "min_kg": 2.0,
+        "max_kg": 2.5,
+        "dose_mg": 190,
+        "formulations": [
+          { "type": "Injection", "strength": "250 mg/2ml", "amount": "1.5 mL" },
+          { "type": "Injection", "strength": "500 mg/2ml", "amount": "0.75 mL" }
+        ]
+      },
+      {
+        "min_kg": 2.5,
+        "max_kg": 3.5,
+        "dose_mg": 225,
+        "formulations": [
+          { "type": "Injection", "strength": "250 mg/2ml", "amount": "1.8 mL" },
+          { "type": "Injection", "strength": "500 mg/2ml", "amount": "0.9 mL" }
+        ]
+      },
+      {
+        "min_kg": 3.5,
+        "max_kg": 5.5,
+        "dose_mg": 310,
+        "formulations": [
+          { "type": "Injection", "strength": "500 mg/2ml", "amount": "1.25 mL" }
+        ]
+      },
+      {
+        "min_kg": 5.5,
+        "max_kg": 7.0,
+        "dose_mg": 440,
+        "formulations": [
+          { "type": "Injection", "strength": "500 mg/2ml", "amount": "1.75 mL" }
+        ]
+      },
+      {
+        "min_kg": 7.0,
+        "max_kg": 9.0,
+        "dose_mg": 625,
+        "formulations": [
+          { "type": "Injection", "strength": "500 mg/2ml", "amount": "2.5 mL" }
+        ]
+      },
+      {
+        "min_kg": 9.0,
+        "max_kg": 11.0,
+        "dose_mg": 750,
+        "formulations": [
+          { "type": "Injection", "strength": "500 mg/2ml", "amount": "3 mL" }
+        ]
+      },
+      {
+        "min_kg": 11.0,
+        "max_kg": 14.0,
+        "dose_mg": 810,
+        "formulations": [
+          { "type": "Injection", "strength": "500 mg/2ml", "amount": "3.25 mL" }
+        ]
+      },
+      {
+        "min_kg": 14.0,
+        "max_kg": 17.5,
+        "dose_mg": 1000,
+        "formulations": [
+          { "type": "Injection", "strength": "500 mg/2ml", "amount": "4 mL" },
+          { "type": "Injection", "strength": "1000 mg/3.5ml", "amount": "3.5 mL" }
+        ]
+      },
+      {
+        "min_kg": 17.5,
+        "max_kg": 100.0,
+        "dose_mg": 1500,
+        "formulations": [
+          { "type": "Injection", "strength": "1000 mg/3.5ml", "amount": "5.5 mL" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "CEFTRIAXONE (100 mg/kg)",
+    "category": "Antibiotic",
+    "indication": "Diarrhoea acute, Dysentery bacillary, Meningitis acute",
+    "standard_dose": "100 mg/kg/dose (Single dose)",
+    "route": "IM/IV",
+    "weight_bands": [
+      {
+        "min_kg": 2.0,
+        "max_kg": 2.5,
+        "dose_mg": 238,
+        "formulations": [
+          { "type": "Injection", "strength": "250 mg/2ml", "amount": "1.9 mL" },
+          { "type": "Injection", "strength": "500 mg/2ml", "amount": "0.9 mL" }
+        ]
+      },
+      {
+        "min_kg": 2.5,
+        "max_kg": 3.5,
+        "dose_mg": 280,
+        "formulations": [
+          { "type": "Injection", "strength": "500 mg/2ml", "amount": "1.1 mL" }
+        ]
+      },
+      {
+        "min_kg": 3.5,
+        "max_kg": 5.5,
+        "dose_mg": 388,
+        "formulations": [
+          { "type": "Injection", "strength": "500 mg/2ml", "amount": "1.6 mL" }
+        ]
+      },
+      {
+        "min_kg": 5.5,
+        "max_kg": 7.0,
+        "dose_mg": 550,
+        "formulations": [
+          { "type": "Injection", "strength": "500 mg/2ml", "amount": "2.2 mL" }
+        ]
+      },
+      {
+        "min_kg": 7.0,
+        "max_kg": 9.0,
+        "dose_mg": 782,
+        "formulations": [
+          { "type": "Injection", "strength": "500 mg/2ml", "amount": "3.1 mL" }
+        ]
+      },
+      {
+        "min_kg": 9.0,
+        "max_kg": 11.0,
+        "dose_mg": 938,
+        "formulations": [
+          { "type": "Injection", "strength": "500 mg/2ml", "amount": "3.75 mL" }
+        ]
+      },
+      {
+        "min_kg": 11.0,
+        "max_kg": 14.0,
+        "dose_mg": 1013,
+        "formulations": [
+          { "type": "Injection", "strength": "500 mg/2ml", "amount": "4.0 mL" },
+          { "type": "Injection", "strength": "1000 mg/3.5ml", "amount": "3.5 mL" }
+        ]
+      },
+      {
+        "min_kg": 14.0,
+        "max_kg": 17.5,
+        "dose_mg": 1250,
+        "formulations": [
+          { "type": "Injection", "strength": "1000 mg/3.5ml", "amount": "4.6 mL" }
+        ]
+      },
+      {
+        "min_kg": 17.5,
+        "max_kg": 100.0,
+        "dose_mg": 1875,
+        "formulations": [
+          { "type": "Injection", "strength": "1000 mg/3.5ml", "amount": "6.9 mL" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "CEPHALEXIN",
+    "category": "Antibiotic",
+    "indication": "Boil/Abscess, Impetigo, Cellulitis, Eczema, Otitis externa",
+    "standard_dose": "25 mg/kg/dose 12 hourly for 5 days",
+    "route": "Oral",
+    "weight_bands": [
+      {
+        "min_kg": 2.5,
+        "max_kg": 3.4,
+        "dose_mg": 75,
+        "formulations": [
+          { "type": "Syrup", "strength": "125 mg/5ml", "amount": "3 mL" },
+          { "type": "Syrup", "strength": "250 mg/5ml", "amount": "1.5 mL" }
+        ]
+      },
+      {
+        "min_kg": 3.5,
+        "max_kg": 5.0,
+        "dose_mg": 100,
+        "formulations": [
+          { "type": "Syrup", "strength": "125 mg/5ml", "amount": "4 mL" },
+          { "type": "Syrup", "strength": "250 mg/5ml", "amount": "2 mL" }
+        ]
+      },
+      {
+        "min_kg": 5.1,
+        "max_kg": 7.4,
+        "dose_mg": 150,
+        "formulations": [
+          { "type": "Syrup", "strength": "125 mg/5ml", "amount": "6 mL" },
+          { "type": "Syrup", "strength": "250 mg/5ml", "amount": "3 mL" }
+        ]
+      },
+      {
+        "min_kg": 7.5,
+        "max_kg": 10.0,
+        "dose_mg": 200,
+        "formulations": [
+          { "type": "Syrup", "strength": "125 mg/5ml", "amount": "8 mL" },
+          { "type": "Syrup", "strength": "250 mg/5ml", "amount": "4 mL" }
+        ]
+      },
+      {
+        "min_kg": 10.1,
+        "max_kg": 14.0,
+        "dose_mg": 250,
+        "formulations": [
+          { "type": "Syrup", "strength": "125 mg/5ml", "amount": "10 mL" },
+          { "type": "Syrup", "strength": "250 mg/5ml", "amount": "5 mL" },
+          { "type": "Capsule", "strength": "250 mg", "amount": "1" }
+        ]
+      },
+      {
+        "min_kg": 14.1,
+        "max_kg": 18.0,
+        "dose_mg": 350,
+        "formulations": [
+          { "type": "Syrup", "strength": "250 mg/5ml", "amount": "7 mL" }
+        ]
+      },
+      {
+        "min_kg": 18.1,
+        "max_kg": 25.0,
+        "dose_mg": 500,
+        "formulations": [
+          { "type": "Syrup", "strength": "250 mg/5ml", "amount": "10 mL" },
+          { "type": "Capsule", "strength": "250 mg", "amount": "2" },
+          { "type": "Capsule", "strength": "500 mg", "amount": "1" }
+        ]
+      },
+      {
+        "min_kg": 25.0,
+        "max_kg": 100.0,
+        "dose_mg": 625,
+        "formulations": [
+          { "type": "Syrup", "strength": "250 mg/5ml", "amount": "12.5 mL" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "CETIRIZINE",
+    "category": "Antihistamine",
+    "indication": "Itching, Eczema, Urticaria, Conjunctivitis, Allergic rhinitis",
+    "standard_dose": "5 mg once daily",
+    "route": "Oral",
+    "weight_bands": [
+      {
+        "min_kg": 12.0,
+        "max_kg": 21.0,
+        "dose_mg": 5,
+        "formulations": [
+          { "type": "Syrup", "strength": "1 mg/ml", "amount": "5 mL" }
+        ]
+      },
+      {
+        "min_kg": 21.0,
+        "max_kg": 100.0,
+        "dose_mg": 10,
+        "formulations": [
+          { "type": "Syrup", "strength": "1 mg/ml", "amount": "10 mL" },
+          { "type": "Tablet", "strength": "10 mg", "amount": "1 tablet" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "CHLORPHENAMINE",
+    "category": "Antihistamine",
+    "indication": "Itching, Eczema, Urticaria, Chicken pox, Conjunctivitis, Allergic rhinitis, Insect stings",
+    "standard_dose": "0.1 mg/kg/dose 6–8 hourly",
+    "route": "Oral",
+    "weight_bands": [
+      {
+        "min_kg": 12.0,
+        "max_kg": 14.0,
+        "dose_mg": 1.2,
+        "formulations": [
+          { "type": "Syrup", "strength": "2 mg/5ml", "amount": "3 mL" }
+        ]
+      },
+      {
+        "min_kg": 14.0,
+        "max_kg": 17.5,
+        "dose_mg": 1.6,
+        "formulations": [
+          { "type": "Syrup", "strength": "2 mg/5ml", "amount": "4 mL" }
+        ]
+      },
+      {
+        "min_kg": 17.5,
+        "max_kg": 25.0,
+        "dose_mg": 2.0,
+        "formulations": [
+          { "type": "Syrup", "strength": "2 mg/5ml", "amount": "5 mL" }
+        ]
+      },
+      {
+        "min_kg": 25.0,
+        "max_kg": 35.0,
+        "dose_mg": 3.0,
+        "formulations": [
+          { "type": "Syrup", "strength": "2 mg/5ml", "amount": "7.5 mL" }
+        ]
+      },
+      {
+        "min_kg": 35.0,
+        "max_kg": 100.0,
+        "dose_mg": 4.0,
+        "formulations": [
+          { "type": "Tablet", "strength": "4 mg", "amount": "1 tablet" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "CIPROFLOXACIN",
+    "category": "Antibiotic",
+    "indication": "Dysentery bacillary",
+    "standard_dose": "15 mg/kg/dose 12 hourly for 3 days",
+    "route": "Oral",
+    "weight_bands": [
+      {
+        "min_kg": 9.0,
+        "max_kg": 11.0,
+        "dose_mg": 150,
+        "formulations": [
+          { "type": "Suspension", "strength": "250 mg/5ml", "amount": "3 mL" }
+        ]
+      },
+      {
+        "min_kg": 11.0,
+        "max_kg": 14.0,
+        "dose_mg": 200,
+        "formulations": [
+          { "type": "Suspension", "strength": "250 mg/5ml", "amount": "4 mL" }
+        ]
+      },
+      {
+        "min_kg": 14.0,
+        "max_kg": 17.5,
+        "dose_mg": 250,
+        "formulations": [
+          { "type": "Suspension", "strength": "250 mg/5ml", "amount": "5 mL" },
+          { "type": "Tablet", "strength": "250 mg", "amount": "1 tablet" }
+        ]
+      },
+      {
+        "min_kg": 17.5,
+        "max_kg": 25.0,
+        "dose_mg": 300,
+        "formulations": [
+          { "type": "Suspension", "strength": "250 mg/5ml", "amount": "6 mL" }
+        ]
+      },
+      {
+        "min_kg": 25.0,
+        "max_kg": 100.0,
+        "dose_mg": 500,
+        "formulations": [
+          { "type": "Suspension", "strength": "250 mg/5ml", "amount": "10 mL" },
+          { "type": "Tablet", "strength": "250 mg", "amount": "2 tablets" },
+          { "type": "Tablet", "strength": "500 mg", "amount": "1 tablet" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "CLARITHROMYCIN",
+    "category": "Antibiotic",
+    "indication": "Dental abscess, Rheumatic fever, Impetigo, Cellulitis, Pneumonia, Otitis media",
+    "standard_dose": "7.5 mg/kg/dose 12 hourly for 5 days",
+    "route": "Oral",
+    "weight_bands": [
+      {
+        "min_kg": 3.5,
+        "max_kg": 5.0,
+        "dose_mg": 30,
+        "formulations": [
+          { "type": "Suspension", "strength": "125 mg/5ml", "amount": "1.25 mL" }
+        ]
+      },
+      {
+        "min_kg": 5.0,
+        "max_kg": 11.0,
+        "dose_mg": 62.5,
+        "formulations": [
+          { "type": "Suspension", "strength": "125 mg/5ml", "amount": "2.5 mL" }
+        ]
+      },
+      {
+        "min_kg": 11.0,
+        "max_kg": 17.5,
+        "dose_mg": 125,
+        "formulations": [
+          { "type": "Suspension", "strength": "125 mg/5ml", "amount": "5 mL" },
+          { "type": "Tablet", "strength": "250 mg", "amount": "0.5 tablet" }
+        ]
+      },
+      {
+        "min_kg": 17.5,
+        "max_kg": 35.0,
+        "dose_mg": 250,
+        "formulations": [
+          { "type": "Suspension", "strength": "125 mg/5ml", "amount": "10 mL" },
+          { "type": "Tablet", "strength": "250 mg", "amount": "1 tablet" }
+        ]
+      },
+      {
+        "min_kg": 35.0,
+        "max_kg": 55.0,
+        "dose_mg": 375,
+        "formulations": [
+          { "type": "Suspension", "strength": "125 mg/5ml", "amount": "15 mL" },
+          { "type": "Tablet", "strength": "250 mg", "amount": "1.5 tablets" }
+        ]
+      },
+      {
+        "min_kg": 55.0,
+        "max_kg": 100.0,
+        "dose_mg": 500,
+        "formulations": [
+          { "type": "Tablet", "strength": "250 mg", "amount": "2 tablets" },
+          { "type": "Tablet", "strength": "500 mg", "amount": "1 tablet" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "COTRIMOXAZOLE (PROPHYLAXIS)",
+    "category": "Antibiotic",
+    "indication": "HIV-exposed infant, HIV infected children, Opportunistic infections prophylaxis",
+    "standard_dose": "Once daily",
+    "route": "Oral",
+    "weight_bands": [
+      {
+        "min_kg": 3.0,
+        "max_kg": 5.9,
+        "dose_mg": "100/20",
+        "formulations": [
+          { "type": "Suspension", "strength": "200/40 mg/5ml", "amount": "2.5 mL" },
+          { "type": "Tablet", "strength": "400/80 mg", "amount": "0.25 tablet" }
+        ]
+      },
+      {
+        "min_kg": 6.0,
+        "max_kg": 13.9,
+        "dose_mg": "200/40",
+        "formulations": [
+          { "type": "Suspension", "strength": "200/40 mg/5ml", "amount": "5 mL" },
+          { "type": "Tablet", "strength": "400/80 mg", "amount": "0.5 tablet" }
+        ]
+      },
+      {
+        "min_kg": 14.0,
+        "max_kg": 24.9,
+        "dose_mg": "400/80",
+        "formulations": [
+          { "type": "Suspension", "strength": "200/40 mg/5ml", "amount": "10 mL" },
+          { "type": "Tablet", "strength": "400/80 mg", "amount": "1 tablet" },
+          { "type": "Tablet", "strength": "800/160 mg", "amount": "0.5 tablet" }
+        ]
+      },
+      {
+        "min_kg": 25.0,
+        "max_kg": 100.0,
+        "dose_mg": "800/160",
+        "formulations": [
+          { "type": "Tablet", "strength": "400/80 mg", "amount": "2 tablets" },
+          { "type": "Tablet", "strength": "800/160 mg", "amount": "1 tablet" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "DIAZEPAM",
+    "category": "Anticonvulsant",
+    "indication": "Febrile convulsions, Seizures and status epilepticus",
+    "standard_dose": "0.5 mg/kg/dose for convulsions as a single dose",
+    "route": "Rectal",
+    "weight_bands": [
+      {
+        "min_kg": 3.0,
+        "max_kg": 6.0,
+        "dose_mg": 2,
+        "formulations": [
+          { "type": "Injection", "strength": "10 mg/2ml", "amount": "0.4 mL" }
+        ]
+      },
+      {
+        "min_kg": 6.0,
+        "max_kg": 10.0,
+        "dose_mg": 2.5,
+        "formulations": [
+          { "type": "Injection", "strength": "10 mg/2ml", "amount": "0.5 mL" }
+        ]
+      },
+      {
+        "min_kg": 10.0,
+        "max_kg": 18.0,
+        "dose_mg": 5,
+        "formulations": [
+          { "type": "Injection", "strength": "10 mg/2ml", "amount": "1 mL" }
+        ]
+      },
+      {
+        "min_kg": 18.0,
+        "max_kg": 25.0,
+        "dose_mg": 7.5,
+        "formulations": [
+          { "type": "Injection", "strength": "10 mg/2ml", "amount": "1.5 mL" }
+        ]
+      },
+      {
+        "min_kg": 25.0,
+        "max_kg": 40.0,
+        "dose_mg": 10,
+        "formulations": [
+          { "type": "Injection", "strength": "10 mg/2ml", "amount": "2 mL" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "EPINEPHRINE (ADRENALINE)",
+    "category": "Adrenergic",
+    "indication": "Angioedema, Anaphylaxis",
+    "standard_dose": "1:1000, IM, 0.01 mL/kg as a single dose",
+    "route": "IM",
+    "weight_bands": [
+      {
+        "min_kg": 9.0,
+        "max_kg": 12.0,
+        "dose_mg": 0.1,
+        "formulations": [
+          { "type": "Injection", "strength": "1 mg/ml (1:1000)", "amount": "0.1 mL" }
+        ]
+      },
+      {
+        "min_kg": 12.0,
+        "max_kg": 17.5,
+        "dose_mg": 0.2,
+        "formulations": [
+          { "type": "Injection", "strength": "1 mg/ml (1:1000)", "amount": "0.2 mL" }
+        ]
+      },
+      {
+        "min_kg": 17.5,
+        "max_kg": 40.0,
+        "dose_mg": 0.3,
+        "formulations": [
+          { "type": "Injection", "strength": "1 mg/ml (1:1000)", "amount": "0.3 mL" }
+        ]
+      },
+      {
+        "min_kg": 40.0,
+        "max_kg": 100.0,
+        "dose_mg": 0.5,
+        "formulations": [
+          { "type": "Injection", "strength": "1 mg/ml (1:1000)", "amount": "0.5 mL" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "FLUCLOXACILLIN",
+    "category": "Antibiotic",
+    "indication": "Boil/Abscess, Impetigo, Cellulitis, Eczema, Otitis externa",
+    "standard_dose": "12–25 mg/kg/dose 6 hourly for 5 days",
+    "route": "Oral",
+    "weight_bands": [
+      {
+        "min_kg": 2.5,
+        "max_kg": 5.0,
+        "dose_mg": 62.5,
+        "formulations": [
+          { "type": "Syrup", "strength": "125 mg/5ml", "amount": "2.5 mL" }
+        ]
+      },
+      {
+        "min_kg": 5.0,
+        "max_kg": 11.0,
+        "dose_mg": 125,
+        "formulations": [
+          { "type": "Syrup", "strength": "125 mg/5ml", "amount": "5 mL" }
+        ]
+      },
+      {
+        "min_kg": 11.0,
+        "max_kg": 25.0,
+        "dose_mg": 250,
+        "formulations": [
+          { "type": "Syrup", "strength": "125 mg/5ml", "amount": "10 mL" },
+          { "type": "Capsule", "strength": "250 mg", "amount": "1" }
+        ]
+      },
+      {
+        "min_kg": 25.0,
+        "max_kg": 100.0,
+        "dose_mg": 500,
+        "formulations": [
+          { "type": "Capsule", "strength": "250 mg", "amount": "2" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "FLUCONAZOLE",
+    "category": "Antifungal",
+    "indication": "Scalp infections (tinea capitis), Candidiasis (oesophageal)",
+    "standard_dose": "6 mg/kg once daily",
+    "route": "Oral",
+    "weight_bands": [
+      {
+        "min_kg": 3.5,
+        "max_kg": 5.0,
+        "dose_mg": 25,
+        "formulations": [
+          { "type": "Suspension", "strength": "50 mg/5ml", "amount": "2.5 mL" }
+        ]
+      },
+      {
+        "min_kg": 5.0,
+        "max_kg": 7.0,
+        "dose_mg": 30,
+        "formulations": [
+          { "type": "Suspension", "strength": "50 mg/5ml", "amount": "3 mL" }
+        ]
+      },
+      {
+        "min_kg": 7.0,
+        "max_kg": 9.0,
+        "dose_mg": 50,
+        "formulations": [
+          { "type": "Suspension", "strength": "50 mg/5ml", "amount": "5 mL" },
+          { "type": "Capsule", "strength": "50 mg", "amount": "1" }
+        ]
+      },
+      {
+        "min_kg": 9.0,
+        "max_kg": 11.0,
+        "dose_mg": 60,
+        "formulations": [
+          { "type": "Suspension", "strength": "50 mg/5ml", "amount": "6 mL" }
+        ]
+      },
+      {
+        "min_kg": 11.0,
+        "max_kg": 14.0,
+        "dose_mg": 70,
+        "formulations": [
+          { "type": "Suspension", "strength": "50 mg/5ml", "amount": "7 mL" }
+        ]
+      },
+      {
+        "min_kg": 14.0,
+        "max_kg": 17.5,
+        "dose_mg": 100,
+        "formulations": [
+          { "type": "Suspension", "strength": "50 mg/5ml", "amount": "10 mL" },
+          { "type": "Capsule", "strength": "50 mg", "amount": "2" }
+        ]
+      },
+      {
+        "min_kg": 17.5,
+        "max_kg": 25.0,
+        "dose_mg": 125,
+        "formulations": [
+          { "type": "Suspension", "strength": "50 mg/5ml", "amount": "12.5 mL" }
+        ]
+      },
+      {
+        "min_kg": 25.0,
+        "max_kg": 35.0,
+        "dose_mg": 150,
+        "formulations": [
+          { "type": "Suspension", "strength": "50 mg/5ml", "amount": "15 mL" },
+          { "type": "Capsule", "strength": "50 mg", "amount": "3" }
+        ]
+      },
+      {
+        "min_kg": 35.0,
+        "max_kg": 100.0,
+        "dose_mg": 200,
+        "formulations": [
+          { "type": "Capsule", "strength": "200 mg", "amount": "1" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "FUROSEMIDE (FRUSEMIDE)",
+    "category": "Diuretic",
+    "indication": "Complicated SAM, Nephrotic syndrome, Cardiac failure",
+    "standard_dose": "1–2 mg/kg/dose",
+    "route": "Oral",
+    "weight_bands": [
+      {
+        "min_kg": 3.5,
+        "max_kg": 5.0,
+        "dose_mg": 5,
+        "formulations": [
+          { "type": "Syrup", "strength": "10 mg/ml", "amount": "0.5 mL" }
+        ]
+      },
+      {
+        "min_kg": 5.0,
+        "max_kg": 10.0,
+        "dose_mg": 10,
+        "formulations": [
+          { "type": "Syrup", "strength": "10 mg/ml", "amount": "1 mL" },
+          { "type": "Tablet", "strength": "40 mg", "amount": "0.25 tablet" }
+        ]
+      },
+      {
+        "min_kg": 10.0,
+        "max_kg": 18.0,
+        "dose_mg": 20,
+        "formulations": [
+          { "type": "Syrup", "strength": "10 mg/ml", "amount": "2 mL" },
+          { "type": "Tablet", "strength": "40 mg", "amount": "0.5 tablet" }
+        ]
+      },
+      {
+        "min_kg": 18.0,
+        "max_kg": 35.0,
+        "dose_mg": 40,
+        "formulations": [
+          { "type": "Tablet", "strength": "40 mg", "amount": "1 tablet" }
+        ]
+      },
+      {
+        "min_kg": 35.0,
+        "max_kg": 100.0,
+        "dose_mg": 80,
+        "formulations": [
+          { "type": "Tablet", "strength": "40 mg", "amount": "2 tablets" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "GABAPENTIN",
+    "category": "Anticonvulsant",
+    "indication": "Pain management (chronic)",
+    "standard_dose": "10 mg/kg at night",
+    "route": "Oral",
+    "weight_bands": [
+      {
+        "min_kg": 11.0,
+        "max_kg": 17.5,
+        "dose_mg": 150,
+        "formulations": [
+          { "type": "Capsule", "strength": "300 mg", "amount": "0.5 capsule" }
+        ]
+      },
+      {
+        "min_kg": 17.5,
+        "max_kg": 25.0,
+        "dose_mg": 200,
+        "formulations": []
+      },
+      {
+        "min_kg": 25.0,
+        "max_kg": 35.0,
+        "dose_mg": 300,
+        "formulations": [
+          { "type": "Capsule", "strength": "300 mg", "amount": "1 capsule" }
+        ]
+      },
+      {
+        "min_kg": 35.0,
+        "max_kg": 100.0,
+        "dose_mg": 400,
+        "formulations": [
+          { "type": "Capsule", "strength": "400 mg", "amount": "1 capsule" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "HYDROCORTISONE",
+    "category": "Corticosteroid",
+    "indication": "Angioedema, Anaphylaxis, Asthma acute severe",
+    "standard_dose": "4–5 mg/kg/dose",
+    "route": "IM/IV",
+    "weight_bands": [
+      {
+        "min_kg": 2.0,
+        "max_kg": 3.5,
+        "dose_mg": 10,
+        "formulations": [
+          { "type": "Injection", "strength": "100 mg/2ml", "amount": "0.2 mL" }
+        ]
+      },
+      {
+        "min_kg": 3.5,
+        "max_kg": 5.0,
+        "dose_mg": 25,
+        "formulations": [
+          { "type": "Injection", "strength": "100 mg/2ml", "amount": "0.5 mL" }
+        ]
+      },
+      {
+        "min_kg": 5.0,
+        "max_kg": 7.0,
+        "dose_mg": 30,
+        "formulations": [
+          { "type": "Injection", "strength": "100 mg/2ml", "amount": "0.6 mL" }
+        ]
+      },
+      {
+        "min_kg": 7.0,
+        "max_kg": 11.0,
+        "dose_mg": 50,
+        "formulations": [
+          { "type": "Injection", "strength": "100 mg/2ml", "amount": "1 mL" }
+        ]
+      },
+      {
+        "min_kg": 11.0,
+        "max_kg": 14.0,
+        "dose_mg": 60,
+        "formulations": [
+          { "type": "Injection", "strength": "100 mg/2ml", "amount": "1.2 mL" }
+        ]
+      },
+      {
+        "min_kg": 14.0,
+        "max_kg": 17.5,
+        "dose_mg": 75,
+        "formulations": [
+          { "type": "Injection", "strength": "100 mg/2ml", "amount": "1.5 mL" }
+        ]
+      },
+      {
+        "min_kg": 17.5,
+        "max_kg": 100.0,
+        "dose_mg": 100,
+        "formulations": [
+          { "type": "Injection", "strength": "100 mg/2ml", "amount": "2 mL" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "IBUPROFEN",
+    "category": "Analgesic/NSAID",
+    "indication": "Rheumatic fever acute, Pain, Fever",
+    "standard_dose": "10 mg/kg/dose 6–8 hourly",
+    "route": "Oral",
+    "weight_bands": [
+      {
+        "min_kg": 7.5,
+        "max_kg": 10.0,
+        "dose_mg": 100,
+        "formulations": [
+          { "type": "Syrup", "strength": "100 mg/5ml", "amount": "5 mL" }
+        ]
+      },
+      {
+        "min_kg": 10.0,
+        "max_kg": 15.0,
+        "dose_mg": 150,
+        "formulations": [
+          { "type": "Syrup", "strength": "100 mg/5ml", "amount": "7.5 mL" }
+        ]
+      },
+      {
+        "min_kg": 15.0,
+        "max_kg": 20.0,
+        "dose_mg": 200,
+        "formulations": [
+          { "type": "Syrup", "strength": "100 mg/5ml", "amount": "10 mL" },
+          { "type": "Tablet", "strength": "200 mg", "amount": "1 tablet" }
+        ]
+      },
+      {
+        "min_kg": 20.0,
+        "max_kg": 30.0,
+        "dose_mg": 300,
+        "formulations": [
+          { "type": "Syrup", "strength": "100 mg/5ml", "amount": "15 mL" },
+          { "type": "Tablet", "strength": "200 mg", "amount": "1.5 tablets" }
+        ]
+      },
+      {
+        "min_kg": 30.0,
+        "max_kg": 100.0,
+        "dose_mg": 400,
+        "formulations": [
+          { "type": "Syrup", "strength": "100 mg/5ml", "amount": "20 mL" },
+          { "type": "Tablet", "strength": "200 mg", "amount": "2 tablets" },
+          { "type": "Tablet", "strength": "400 mg", "amount": "1 tablet" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "LACTULOSE",
+    "category": "Laxative",
+    "indication": "Constipation",
+    "standard_dose": "As per weight table",
+    "route": "Oral",
+    "weight_bands": [
+      {
+        "min_kg": 3.5,
+        "max_kg": 5.0,
+        "dose_mg": null,
+        "formulations": [
+          { "type": "Syrup", "strength": "3.3 g/5ml", "amount": "2.5 mL" }
+        ]
+      },
+      {
+        "min_kg": 5.0,
+        "max_kg": 11.0,
+        "dose_mg": null,
+        "formulations": [
+          { "type": "Syrup", "strength": "3.3 g/5ml", "amount": "5 mL" }
+        ]
+      },
+      {
+        "min_kg": 11.0,
+        "max_kg": 25.0,
+        "dose_mg": null,
+        "formulations": [
+          { "type": "Syrup", "strength": "3.3 g/5ml", "amount": "10 mL" }
+        ]
+      },
+      {
+        "min_kg": 25.0,
+        "max_kg": 100.0,
+        "dose_mg": null,
+        "formulations": [
+          { "type": "Syrup", "strength": "3.3 g/5ml", "amount": "15 mL" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "MORPHINE (ORAL)",
+    "category": "Analgesic/Opioid",
+    "indication": "Pain management (severe)",
+    "standard_dose": "0.2 mg/kg/dose 4 hourly",
+    "route": "Oral",
+    "weight_bands": [
+      {
+        "min_kg": 3.5,
+        "max_kg": 5.0,
+        "dose_mg": 0.8,
+        "formulations": []
+      },
+      {
+        "min_kg": 5.0,
+        "max_kg": 7.0,
+        "dose_mg": 1.2,
+        "formulations": []
+      },
+      {
+        "min_kg": 7.0,
+        "max_kg": 9.0,
+        "dose_mg": 1.6,
+        "formulations": []
+      },
+      {
+        "min_kg": 9.0,
+        "max_kg": 11.0,
+        "dose_mg": 2.0,
+        "formulations": []
+      },
+      {
+        "min_kg": 11.0,
+        "max_kg": 14.0,
+        "dose_mg": 2.4,
+        "formulations": []
+      },
+      {
+        "min_kg": 14.0,
+        "max_kg": 17.5,
+        "dose_mg": 3.0,
+        "formulations": []
+      },
+      {
+        "min_kg": 17.5,
+        "max_kg": 100.0,
+        "dose_mg": 4.0,
+        "formulations": []
+      }
+    ]
+  },
+  {
+    "name": "MORPHINE (SC/IM/IV)",
+    "category": "Analgesic/Opioid",
+    "indication": "Pain management (severe)",
+    "standard_dose": "0.1 mg/kg/dose 4 hourly",
+    "route": "IM/IV",
+    "weight_bands": [
+      {
+        "min_kg": 3.5,
+        "max_kg": 5.0,
+        "dose_mg": 0.4,
+        "formulations": [
+          { "type": "Injection", "strength": "1 mg/ml", "amount": "0.4 mL" }
+        ]
+      },
+      {
+        "min_kg": 5.0,
+        "max_kg": 7.0,
+        "dose_mg": 0.6,
+        "formulations": [
+          { "type": "Injection", "strength": "1 mg/ml", "amount": "0.6 mL" }
+        ]
+      },
+      {
+        "min_kg": 7.0,
+        "max_kg": 9.0,
+        "dose_mg": 0.8,
+        "formulations": [
+          { "type": "Injection", "strength": "1 mg/ml", "amount": "0.8 mL" }
+        ]
+      },
+      {
+        "min_kg": 9.0,
+        "max_kg": 11.0,
+        "dose_mg": 1.0,
+        "formulations": [
+          { "type": "Injection", "strength": "1 mg/ml", "amount": "1 mL" }
+        ]
+      },
+      {
+        "min_kg": 11.0,
+        "max_kg": 14.0,
+        "dose_mg": 1.2,
+        "formulations": [
+          { "type": "Injection", "strength": "1 mg/ml", "amount": "1.2 mL" }
+        ]
+      },
+      {
+        "min_kg": 14.0,
+        "max_kg": 17.5,
+        "dose_mg": 1.5,
+        "formulations": [
+          { "type": "Injection", "strength": "1 mg/ml", "amount": "1.5 mL" }
+        ]
+      },
+      {
+        "min_kg": 17.5,
+        "max_kg": 100.0,
+        "dose_mg": 2.0,
+        "formulations": [
+          { "type": "Injection", "strength": "1 mg/ml", "amount": "2 mL" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "PARACETAMOL",
+    "category": "Analgesic/Antipyretic",
+    "indication": "Measles, Pain, Fever",
+    "standard_dose": "15 mg/kg/dose 4–6 hourly",
+    "route": "Oral",
+    "weight_bands": [
+      {
+        "min_kg": 3.5,
+        "max_kg": 5.0,
+        "dose_mg": 60,
+        "formulations": [
+          { "type": "Syrup", "strength": "120 mg/5ml", "amount": "2.5 mL" }
+        ]
+      },
+      {
+        "min_kg": 5.0,
+        "max_kg": 7.0,
+        "dose_mg": 90,
+        "formulations": [
+          { "type": "Syrup", "strength": "120 mg/5ml", "amount": "3.75 mL" }
+        ]
+      },
+      {
+        "min_kg": 7.0,
+        "max_kg": 9.0,
+        "dose_mg": 120,
+        "formulations": [
+          { "type": "Syrup", "strength": "120 mg/5ml", "amount": "5 mL" },
+          { "type": "Tablet", "strength": "120 mg", "amount": "1 tablet" }
+        ]
+      },
+      {
+        "min_kg": 9.0,
+        "max_kg": 11.0,
+        "dose_mg": 150,
+        "formulations": [
+          { "type": "Syrup", "strength": "120 mg/5ml", "amount": "6.25 mL" }
+        ]
+      },
+      {
+        "min_kg": 11.0,
+        "max_kg": 14.0,
+        "dose_mg": 200,
+        "formulations": [
+          { "type": "Syrup", "strength": "120 mg/5ml", "amount": "8 mL" },
+          { "type": "Tablet", "strength": "500 mg", "amount": "0.4 tablet" }
+        ]
+      },
+      {
+        "min_kg": 14.0,
+        "max_kg": 25.0,
+        "dose_mg": 300,
+        "formulations": [
+          { "type": "Syrup", "strength": "120 mg/5ml", "amount": "12.5 mL" },
+          { "type": "Tablet", "strength": "500 mg", "amount": "0.6 tablet" }
+        ]
+      },
+      {
+        "min_kg": 25.0,
+        "max_kg": 35.0,
+        "dose_mg": 450,
+        "formulations": [
+          { "type": "Syrup", "strength": "120 mg/5ml", "amount": "20 mL" },
+          { "type": "Tablet", "strength": "500 mg", "amount": "0.9 tablet" }
+        ]
+      },
+      {
+        "min_kg": 35.0,
+        "max_kg": 100.0,
+        "dose_mg": 500,
+        "formulations": [
+          { "type": "Tablet", "strength": "500 mg", "amount": "1 tablet" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "PHENOBARBITAL",
+    "category": "Anticonvulsant",
+    "indication": "Status epilepticus, Neonatal seizures (Loading dose)",
+    "standard_dose": "20 mg/kg/dose (Loading dose)",
+    "route": "IM/IV",
+    "weight_bands": [
+      {
+        "min_kg": 2.0,
+        "max_kg": 2.5,
+        "dose_mg": 45,
+        "formulations": [
+          { "type": "Injection", "strength": "200 mg/ml", "amount": "0.22 mL" }
+        ]
+      },
+      {
+        "min_kg": 2.5,
+        "max_kg": 3.5,
+        "dose_mg": 60,
+        "formulations": [
+          { "type": "Injection", "strength": "200 mg/ml", "amount": "0.3 mL" }
+        ]
+      },
+      {
+        "min_kg": 3.5,
+        "max_kg": 5.5,
+        "dose_mg": 90,
+        "formulations": [
+          { "type": "Injection", "strength": "200 mg/ml", "amount": "0.45 mL" }
+        ]
+      },
+      {
+        "min_kg": 5.5,
+        "max_kg": 7.0,
+        "dose_mg": 125,
+        "formulations": [
+          { "type": "Injection", "strength": "200 mg/ml", "amount": "0.6 mL" }
+        ]
+      },
+      {
+        "min_kg": 7.0,
+        "max_kg": 9.0,
+        "dose_mg": 160,
+        "formulations": [
+          { "type": "Injection", "strength": "200 mg/ml", "amount": "0.8 mL" }
+        ]
+      },
+      {
+        "min_kg": 9.0,
+        "max_kg": 11.0,
+        "dose_mg": 200,
+        "formulations": [
+          { "type": "Injection", "strength": "200 mg/ml", "amount": "1 mL" }
+        ]
+      },
+      {
+        "min_kg": 11.0,
+        "max_kg": 14.0,
+        "dose_mg": 250,
+        "formulations": [
+          { "type": "Injection", "strength": "200 mg/ml", "amount": "1.25 mL" }
+        ]
+      },
+      {
+        "min_kg": 14.0,
+        "max_kg": 17.5,
+        "dose_mg": 320,
+        "formulations": [
+          { "type": "Injection", "strength": "200 mg/ml", "amount": "1.6 mL" }
+        ]
+      },
+      {
+        "min_kg": 17.5,
+        "max_kg": 100.0,
+        "dose_mg": 400,
+        "formulations": [
+          { "type": "Injection", "strength": "200 mg/ml", "amount": "2 mL" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "PHENYTOIN",
+    "category": "Anticonvulsant",
+    "indication": "Status epilepticus (Loading dose)",
+    "standard_dose": "15–20 mg/kg/dose (Loading dose)",
+    "route": "IV",
+    "weight_bands": [
+      {
+        "min_kg": 3.5,
+        "max_kg": 5.5,
+        "dose_mg": 90,
+        "formulations": [
+          { "type": "Injection", "strength": "50 mg/ml", "amount": "1.8 mL" }
+        ]
+      },
+      {
+        "min_kg": 5.5,
+        "max_kg": 7.0,
+        "dose_mg": 125,
+        "formulations": [
+          { "type": "Injection", "strength": "50 mg/ml", "amount": "2.5 mL" }
+        ]
+      },
+      {
+        "min_kg": 7.0,
+        "max_kg": 9.0,
+        "dose_mg": 160,
+        "formulations": [
+          { "type": "Injection", "strength": "50 mg/ml", "amount": "3.2 mL" }
+        ]
+      },
+      {
+        "min_kg": 9.0,
+        "max_kg": 11.0,
+        "dose_mg": 200,
+        "formulations": [
+          { "type": "Injection", "strength": "50 mg/ml", "amount": "4 mL" }
+        ]
+      },
+      {
+        "min_kg": 11.0,
+        "max_kg": 14.0,
+        "dose_mg": 250,
+        "formulations": [
+          { "type": "Injection", "strength": "50 mg/ml", "amount": "5 mL" }
+        ]
+      },
+      {
+        "min_kg": 14.0,
+        "max_kg": 17.5,
+        "dose_mg": 320,
+        "formulations": [
+          { "type": "Injection", "strength": "50 mg/ml", "amount": "6.4 mL" }
+        ]
+      },
+      {
+        "min_kg": 17.5,
+        "max_kg": 100.0,
+        "dose_mg": 400,
+        "formulations": [
+          { "type": "Injection", "strength": "50 mg/ml", "amount": "8 mL" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "ACTIVATED CHARCOAL",
+    "category": "Adsorbent",
+    "indication": "Exposure to poisonous substances",
+    "standard_dose": "1 g/kg (within 1 hour of ingestion)",
+    "route": "Oral",
+    "weight_bands": [
+      {
+        "min_kg": 3.5,
+        "max_kg": 5.0,
+        "dose_mg": 5000,
+        "formulations": []
+      },
+      {
+        "min_kg": 5.0,
+        "max_kg": 10.0,
+        "dose_mg": 10000,
+        "formulations": []
+      },
+      {
+        "min_kg": 10.0,
+        "max_kg": 20.0,
+        "dose_mg": 20000,
+        "formulations": []
+      },
+      {
+        "min_kg": 20.0,
+        "max_kg": 40.0,
+        "dose_mg": 40000,
+        "formulations": []
+      },
+      {
+        "min_kg": 40.0,
+        "max_kg": 100.0,
+        "dose_mg": 50000,
+        "formulations": []
+      }
+    ]
+  },
+  {
+    "name": "PRAZIQUANTEL",
+    "category": "Anthelmintic",
+    "indication": "Bilharzia (Schistosomiasis)",
+    "standard_dose": "40 mg/kg as a single dose",
+    "route": "Oral",
+    "weight_bands": [
+      {
+        "min_kg": 12.0,
+        "max_kg": 17.5,
+        "dose_mg": 600,
+        "formulations": [
+          { "type": "Tablet", "strength": "600 mg", "amount": "1 tablet" }
+        ]
+      },
+      {
+        "min_kg": 17.5,
+        "max_kg": 25.0,
+        "dose_mg": 900,
+        "formulations": [
+          { "type": "Tablet", "strength": "600 mg", "amount": "1.5 tablets" }
+        ]
+      },
+      {
+        "min_kg": 25.0,
+        "max_kg": 35.0,
+        "dose_mg": 1200,
+        "formulations": [
+          { "type": "Tablet", "strength": "600 mg", "amount": "2 tablets" }
+        ]
+      },
+      {
+        "min_kg": 35.0,
+        "max_kg": 50.0,
+        "dose_mg": 1800,
+        "formulations": [
+          { "type": "Tablet", "strength": "600 mg", "amount": "3 tablets" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "PROMETHAZINE",
+    "category": "Antihistamine/Sedative",
+    "indication": "Allergic reactions, Nausea and vomiting, Sedation",
+    "standard_dose": "0.25–0.5 mg/kg/dose 8 hourly",
+    "route": "Oral",
+    "weight_bands": [
+      {
+        "min_kg": 12.5,
+        "max_kg": 25.0,
+        "dose_mg": "6.25–12.5",
+        "formulations": [
+          { "type": "Syrup", "strength": "5 mg/5ml", "amount": "6.25–12.5 mL" },
+          { "type": "Tablet", "strength": "10 mg", "amount": "0.5–1 tablet" }
+        ]
+      },
+      {
+        "min_kg": 25.0,
+        "max_kg": 40.0,
+        "dose_mg": "12.5–20",
+        "formulations": [
+          { "type": "Syrup", "strength": "5 mg/5ml", "amount": "12.5–20 mL" },
+          { "type": "Tablet", "strength": "10 mg", "amount": "1–2 tablets" },
+          { "type": "Tablet", "strength": "25 mg", "amount": "0.5–0.75 tablet" }
+        ]
+      },
+      {
+        "min_kg": 40.0,
+        "max_kg": 100.0,
+        "dose_mg": "20–25",
+        "formulations": [
+          { "type": "Syrup", "strength": "5 mg/5ml", "amount": "20–25 mL" },
+          { "type": "Tablet", "strength": "10 mg", "amount": "2–2.5 tablets" },
+          { "type": "Tablet", "strength": "25 mg", "amount": "0.75–1 tablet" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "SALBUTAMOL (NEBULISATION)",
+    "category": "Bronchodilator",
+    "indication": "Asthma (acute severe)",
+    "standard_dose": "2.5–5 mg via nebuliser 20 minutely for 3 doses",
+    "route": "Nebuliser",
+    "weight_bands": [
+      {
+        "min_kg": 12.0,
+        "max_kg": 17.5,
+        "dose_mg": 2.5,
+        "formulations": [
+          { "type": "Solution", "strength": "5 mg/ml", "amount": "1 mL diluted to 4 mL" }
+        ]
+      },
+      {
+        "min_kg": 17.5,
+        "max_kg": 40.0,
+        "dose_mg": 2.5,
+        "formulations": [
+          { "type": "Solution", "strength": "5 mg/ml", "amount": "1 mL diluted to 4 mL" }
+        ]
+      },
+      {
+        "min_kg": 40.0,
+        "max_kg": 100.0,
+        "dose_mg": 5,
+        "formulations": [
+          { "type": "Solution", "strength": "5 mg/ml", "amount": "1 mL undiluted" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "SENNA",
+    "category": "Laxative",
+    "indication": "Constipation",
+    "standard_dose": "Once daily at night",
+    "route": "Oral",
+    "weight_bands": [
+      {
+        "min_kg": 12.0,
+        "max_kg": 17.5,
+        "dose_mg": null,
+        "formulations": [
+          { "type": "Syrup", "strength": "7.5 mg/5ml", "amount": "2.5 mL" }
+        ]
+      },
+      {
+        "min_kg": 17.5,
+        "max_kg": 35.0,
+        "dose_mg": null,
+        "formulations": [
+          { "type": "Syrup", "strength": "7.5 mg/5ml", "amount": "5 mL" }
+        ]
+      },
+      {
+        "min_kg": 35.0,
+        "max_kg": 100.0,
+        "dose_mg": null,
+        "formulations": [
+          { "type": "Syrup", "strength": "7.5 mg/5ml", "amount": "10 mL" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "SODIUM VALPROATE",
+    "category": "Anticonvulsant",
+    "indication": "Epilepsy",
+    "standard_dose": "10–15 mg/kg/dose 12 hourly",
+    "route": "Oral",
+    "weight_bands": [
+      {
+        "min_kg": 5.0,
+        "max_kg": 10.0,
+        "dose_mg": 100,
+        "formulations": [
+          { "type": "Syrup", "strength": "200 mg/5ml", "amount": "2.5 mL" }
+        ]
+      },
+      {
+        "min_kg": 10.0,
+        "max_kg": 20.0,
+        "dose_mg": 200,
+        "formulations": [
+          { "type": "Syrup", "strength": "200 mg/5ml", "amount": "5 mL" },
+          { "type": "Tablet", "strength": "200 mg", "amount": "1 tablet" }
+        ]
+      },
+      {
+        "min_kg": 20.0,
+        "max_kg": 30.0,
+        "dose_mg": 300,
+        "formulations": [
+          { "type": "Syrup", "strength": "200 mg/5ml", "amount": "7.5 mL" }
+        ]
+      },
+      {
+        "min_kg": 30.0,
+        "max_kg": 40.0,
+        "dose_mg": 400,
+        "formulations": [
+          { "type": "Syrup", "strength": "200 mg/5ml", "amount": "10 mL" },
+          { "type": "Tablet", "strength": "200 mg", "amount": "2 tablets" }
+        ]
+      },
+      {
+        "min_kg": 40.0,
+        "max_kg": 100.0,
+        "dose_mg": 500,
+        "formulations": [
+          { "type": "Syrup", "strength": "200 mg/5ml", "amount": "12.5 mL" },
+          { "type": "Tablet", "strength": "500 mg", "amount": "1 tablet" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "VANCOMYCIN",
+    "category": "Antibiotic",
+    "indication": "Meningitis, Septicaemia (resistant organisms)",
+    "standard_dose": "15 mg/kg 6 hourly (slow infusion)",
+    "route": "IV",
+    "weight_bands": [
+      {
+        "min_kg": 3.5,
+        "max_kg": 5.5,
+        "dose_mg": 75,
+        "formulations": [
+          { "type": "Injection", "strength": "500 mg/10ml", "amount": "1.5 mL" }
+        ]
+      },
+      {
+        "min_kg": 5.5,
+        "max_kg": 7.0,
+        "dose_mg": 90,
+        "formulations": [
+          { "type": "Injection", "strength": "500 mg/10ml", "amount": "1.8 mL" }
+        ]
+      },
+      {
+        "min_kg": 7.0,
+        "max_kg": 9.0,
+        "dose_mg": 120,
+        "formulations": [
+          { "type": "Injection", "strength": "500 mg/10ml", "amount": "2.4 mL" }
+        ]
+      },
+      {
+        "min_kg": 9.0,
+        "max_kg": 11.0,
+        "dose_mg": 150,
+        "formulations": [
+          { "type": "Injection", "strength": "500 mg/10ml", "amount": "3 mL" }
+        ]
+      },
+      {
+        "min_kg": 11.0,
+        "max_kg": 14.0,
+        "dose_mg": 200,
+        "formulations": [
+          { "type": "Injection", "strength": "500 mg/10ml", "amount": "4 mL" }
+        ]
+      },
+      {
+        "min_kg": 14.0,
+        "max_kg": 17.5,
+        "dose_mg": 250,
+        "formulations": [
+          { "type": "Injection", "strength": "500 mg/10ml", "amount": "5 mL" }
+        ]
+      },
+      {
+        "min_kg": 17.5,
+        "max_kg": 100.0,
+        "dose_mg": 300,
+        "formulations": [
+          { "type": "Injection", "strength": "500 mg/10ml", "amount": "6 mL" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "ZINC",
+    "category": "Supplements",
+    "indication": "Diarrhoea acute",
+    "standard_dose": "10–20 mg once daily for 14 days",
+    "route": "Oral",
+    "weight_bands": [
+      {
+        "min_kg": 0.0,
+        "max_kg": 6.0,
+        "dose_mg": 10,
+        "formulations": [
+          { "type": "Tablet", "strength": "20 mg (dispersible)", "amount": "0.5 tablet" }
+        ]
+      },
+      {
+        "min_kg": 6.0,
+        "max_kg": 100.0,
+        "dose_mg": 20,
+        "formulations": [
+          { "type": "Tablet", "strength": "20 mg (dispersible)", "amount": "1 tablet" }
+        ]
+      }
+    ]
+  }
+]

@@ -1,37 +1,10 @@
+/// وحدات قياس المنتجات - علبة و وحدة فقط
 enum MedicineUnit {
-  // للأقراص والكبسولات
-  strip('شريط', 'Strip'),
+  /// الوحدة الكبيرة (العلبة)
   box('علبة', 'Box'),
-  carton('كرتون', 'Carton'),
 
-  // للسوائل والشرابات
-  bottle('قنينة', 'Bottle'),
-  vial('قارورة', 'Vial'),
-
-  // للحقن
-  ampoule('أمبولة', 'Ampoule'),
-  injection('حقنة', 'Injection'),
-
-  // للكريمات والمراهم
-  tube('أنبوب', 'Tube'),
-  jar('علبة كريم', 'Jar'),
-
-  // للتحاميل
-  suppository('تحميلة', 'Suppository'),
-
-  // للبودرة والأكياس
-  sachet('كيس', 'Sachet'),
-  packet('ظرف', 'Packet'),
-
-  // للمستلزمات الطبية
-  piece('قطعة', 'Piece'),
-  roll('رول', 'Roll'),
-  pack('حزمة', 'Pack'),
-
-  // للقطرات والبخاخات
-  drops('قطرة', 'Drops'),
-  spray('بخاخ', 'Spray'),
-  inhaler('بخاخ استنشاق', 'Inhaler');
+  /// الوحدة الصغيرة (الوحدة المفردة)
+  piece('وحدة', 'Unit');
 
   const MedicineUnit(this.arabicName, this.englishName);
 

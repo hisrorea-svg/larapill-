@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'dart:developer' as developer;
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/providers/app_providers.dart';
@@ -9,6 +8,7 @@ import '../../../../features/notifications/domain/entities/notification_entity.d
 import '../../../../features/notifications/domain/entities/notification_type.dart';
 import '../../../../features/notifications/domain/entities/notification_priority.dart';
 import '../../../../features/notifications/presentation/providers/notification_providers.dart';
+import '../../../../features/notifications/data/repositories/notification_repository_impl.dart';
 import '../../../auth/data/repositories/user_service.dart';
 import '../../../../core/services/session_timeout_service.dart';
 import '../../../../core/navigation/app_navigator.dart';
@@ -65,34 +65,45 @@ class _GlobalSearchButton extends ConsumerStatefulWidget {
 class _GlobalSearchButtonState extends ConsumerState<_GlobalSearchButton>
     with SingleTickerProviderStateMixin {
   int _currentIndex = 0;
+  int _lastNotificationCount = 0;
   late AnimationController _pulseController;
-  late final StreamSubscription<int> _tickerSubscription;
+  Timer? _rotationTimer;
 
   @override
   void initState() {
     super.initState();
-    // تبديل الإشعار كل 8 ثواني
-    _tickerSubscription = Stream.periodic(
-      const Duration(seconds: 8),
-      (i) => i,
-    ).listen((_) {
-      if (mounted) {
-        setState(() {
-          _currentIndex++;
-        });
-      }
-    });
 
-    // أنيميشن نبض للأيقونة
+    // ✅ أنيميشن نبض للأيقونة (لا يؤثر على الأداء)
     _pulseController = AnimationController(
       duration: const Duration(seconds: 2),
       vsync: this,
     )..repeat(reverse: true);
   }
 
+  /// ✅ بدء دوران الإشعارات فقط عند وجود إشعارات
+  void _startRotationIfNeeded(int notificationCount) {
+    if (notificationCount <= 1) return; // لا حاجة للتدوير إذا كان إشعار واحد
+    if (_rotationTimer != null) return; // لا تعيد البدء إذا كان يعمل
+
+    _rotationTimer = Timer.periodic(
+      const Duration(seconds: 8),
+      (_) {
+        if (mounted) {
+          setState(() => _currentIndex++);
+        }
+      },
+    );
+  }
+
+  /// ✅ إيقاف الدوران عند عدم الحاجة
+  void _stopRotation() {
+    _rotationTimer?.cancel();
+    _rotationTimer = null;
+  }
+
   @override
   void dispose() {
-    _tickerSubscription.cancel(); // ✅ إلغاء الاشتراك
+    _stopRotation();
     _pulseController.dispose();
     super.dispose();
   }
@@ -120,7 +131,10 @@ class _GlobalSearchButtonState extends ConsumerState<_GlobalSearchButton>
             final notifications =
                 allNotifications.where((n) => !n.isRead).toList();
 
+            // ✅ إدارة دوران الإشعارات بذكاء
             if (notifications.isEmpty) {
+              _stopRotation();
+              _currentIndex = 0;
               return Row(
                 children: [
                   Icon(
@@ -139,6 +153,17 @@ class _GlobalSearchButtonState extends ConsumerState<_GlobalSearchButton>
                   ),
                 ],
               );
+            }
+
+            // ✅ بدء/إيقاف الدوران حسب عدد الإشعارات
+            if (notifications.length != _lastNotificationCount) {
+              _lastNotificationCount = notifications.length;
+              if (notifications.length > 1) {
+                _startRotationIfNeeded(notifications.length);
+              } else {
+                _stopRotation();
+                _currentIndex = 0;
+              }
             }
 
             // اختيار الإشعار الحالي بناءً على المؤشر
@@ -298,15 +323,10 @@ class _GlobalSearchButtonState extends ConsumerState<_GlobalSearchButton>
     );
   }
 
-  /// عند النقر على الإشعار
+  /// عند النقر على الإشعار - يفتح قائمة الإشعارات بدلاً من التوجيه المباشر
   void _onNotificationTap(NotificationEntity notification) {
-    // التنقل الذكي بناءً على نوع الإشعار
-    NotificationRouter.navigate(context, notification);
-
-    // تعليم الإشعار كمقروء إذا لم يكن كذلك
-    if (!notification.isRead) {
-      ref.read(markNotificationAsReadUseCaseProvider).call(notification.id);
-    }
+    // فتح قائمة الإشعارات المنسدلة بدلاً من التوجيه المباشر
+    _showNotificationsPanel(context, ref);
   }
 
   /// فتح قائمة الإشعارات المنسدلة
@@ -377,17 +397,19 @@ class _UserInfoWidget extends ConsumerWidget {
           ),
         ),
         const PopupMenuDivider(),
-        PopupMenuItem(
+        const PopupMenuItem(
           value: 'logout',
           child: Row(
             children: [
-              const Icon(Pelaicons.exitLightOutline,
+              Icon(Pelaicons.exitLightOutline,
                   size: 24, color: AppColors.error),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Text(
                 'تسجيل الخروج',
-                style:
-                    GoogleFonts.tajawal(fontSize: 13, color: AppColors.error),
+                style: TextStyle(
+                    fontFamily: 'Tajawal',
+                    fontSize: 13,
+                    color: AppColors.error),
               ),
             ],
           ),
@@ -864,7 +886,7 @@ class NotificationsDropdownContent extends ConsumerWidget {
 
         // الانتقال للوجهة المطلوبة
         if (context.mounted) {
-          NotificationRouter.navigate(context, notification);
+          NotificationRouter.navigate(context, ref, notification);
         }
       },
       borderRadius: BorderRadius.circular(8),
@@ -1133,10 +1155,12 @@ class _NotificationsBottomSheetState
           const SizedBox(width: 8),
           TextButton(
             onPressed: _markAllAsRead,
-            child: Text(
+            child: const Text(
               'تعيين الكل كمقروء',
-              style:
-                  GoogleFonts.tajawal(color: AppColors.primary, fontSize: 12),
+              style: TextStyle(
+                  fontFamily: 'Tajawal',
+                  color: AppColors.primary,
+                  fontSize: 12),
             ),
           ),
           IconButton(
@@ -1295,16 +1319,17 @@ class _NotificationsBottomSheetState
                       style: TextStyle(fontFamily: 'Tajawal', fontSize: 14)),
                 ),
               ),
-            PopupMenuItem(
+            const PopupMenuItem(
               value: 'delete',
               child: ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading:
-                    const Icon(Icons.delete, size: 16, color: AppColors.error),
+                leading: Icon(Icons.delete, size: 16, color: AppColors.error),
                 title: Text(
                   'حذف',
-                  style:
-                      GoogleFonts.tajawal(fontSize: 14, color: AppColors.error),
+                  style: TextStyle(
+                      fontFamily: 'Tajawal',
+                      fontSize: 14,
+                      color: AppColors.error),
                 ),
               ),
             ),

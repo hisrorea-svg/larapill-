@@ -28,6 +28,9 @@ class UserSessions extends Table {
   /// هل الجلسة نشطة
   BoolColumn get isActive => boolean().withDefault(const Constant(true))();
 
+  /// وقت انتهاء الجلسة
+  DateTimeColumn get expiresAt => dateTime().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }

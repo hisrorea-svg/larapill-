@@ -8,7 +8,7 @@ class ProductEntity extends Equatable {
   static const int lowStockThreshold = 20;
   static const int criticalStockThreshold = 10;
 
-  final int id;
+  final String id; // ✅ Changed from int to String for UUID support
   final String name;
   final String company;
   final String category;
@@ -56,7 +56,7 @@ class ProductEntity extends Equatable {
 
   /// Create a copy with modified fields
   ProductEntity copyWith({
-    int? id,
+    String? id,
     String? name,
     String? company,
     String? category,

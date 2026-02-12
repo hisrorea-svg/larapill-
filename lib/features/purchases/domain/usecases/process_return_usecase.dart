@@ -1,6 +1,11 @@
-import '../../data/datasources/local/supplier_returns_dao.dart';
-import '../../data/datasources/local/stock_movements_dao.dart';
-import '../../data/datasources/local/supplier_ledger_dao.dart';
+// lib/features/purchases/domain/usecases/process_return_usecase.dart
+// Direct Drift implementation - No wrappers!
+
+import 'package:drift/drift.dart' show Value;
+import 'package:uuid/uuid.dart';
+import '../../../../core/database/drift/app_database.dart';
+import '../../../../core/database/drift/database_provider.dart';
+import '../../../../core/database/drift/daos/supplier_drift_dao.dart';
 
 /// نتيجة معالجة المرتجع
 class ProcessReturnResult {
@@ -51,15 +56,14 @@ class ProcessReturnResult {
 /// 1. إنشاء سجل المرتجع (prepared)
 /// 2. عند التسليم: خصم من المخزون + تقليل الدين
 class ProcessReturnUseCase {
-  final SupplierReturnsDao _returnsDao;
-  final SupplierLedgerDao _ledgerDao;
+  final AppDatabase _db;
+  final SupplierDriftDao _supplierDao;
 
   ProcessReturnUseCase({
-    SupplierReturnsDao? returnsDao,
-    StockMovementsDao? stockMovementsDao,
-    SupplierLedgerDao? ledgerDao,
-  })  : _returnsDao = returnsDao ?? SupplierReturnsDao(),
-        _ledgerDao = ledgerDao ?? SupplierLedgerDao();
+    AppDatabase? database,
+  })  : _db = database ?? DatabaseProviderHelper.instance,
+        _supplierDao =
+            SupplierDriftDao(database ?? DatabaseProviderHelper.instance);
 
   /// إنشاء مرتجع جديد (حالة prepared)
   Future<String> createReturn({
@@ -71,15 +75,24 @@ class ProcessReturnUseCase {
     required double amount,
     String? notes,
   }) async {
-    return await _returnsDao.createReturn(
-      supplierId: supplierId,
-      invoiceId: invoiceId,
-      productId: productId,
-      productName: productName,
-      quantity: quantity,
-      amount: amount,
-      notes: notes,
-    );
+    final id = const Uuid().v4();
+
+    await _db.into(_db.supplierReturns).insert(
+          SupplierReturnsCompanion.insert(
+            id: id,
+            supplierId: supplierId,
+            invoiceId:
+                invoiceId != null ? Value(invoiceId) : const Value.absent(),
+            productId: productId,
+            quantity: quantity,
+            amount: amount,
+            status: const Value('prepared'),
+            notes: notes != null ? Value(notes) : const Value.absent(),
+            createdAt: DateTime.now(),
+          ),
+        );
+
+    return id;
   }
 
   /// تسليم المرتجع للمورد
@@ -89,23 +102,80 @@ class ProcessReturnUseCase {
   /// - تقليل دين المورد
   Future<ProcessReturnResult> deliverReturn(String returnId) async {
     try {
-      // جلب بيانات المرتجع قبل التسليم
-      final returns = await _returnsDao.getPreparedReturns();
-      final returnData = returns.firstWhere(
-        (r) => r.id == returnId,
-        orElse: () => throw Exception('المرتجع غير موجود أو تم تسليمه'),
-      );
+      // Get return data
+      final returnEntry = await (_db.select(_db.supplierReturns)
+            ..where((t) => t.id.equals(returnId)))
+          .getSingleOrNull();
 
-      // تسليم المرتجع
-      await _returnsDao.deliverReturn(returnId);
+      if (returnEntry == null) {
+        throw Exception('المرتجع غير موجود');
+      }
 
-      // جلب الرصيد الجديد
-      final newBalance =
-          await _ledgerDao.getSupplierBalance(returnData.supplierId);
+      if (returnEntry.status == 'delivered') {
+        throw Exception('المرتجع تم تسليمه مسبقاً');
+      }
+
+      await _db.transaction(() async {
+        // 1. Update return status
+        await (_db.update(_db.supplierReturns)
+              ..where((t) => t.id.equals(returnId)))
+            .write(SupplierReturnsCompanion(
+          status: const Value('delivered'),
+          deliveredDate: Value(DateTime.now()),
+        ));
+
+        // 2. Decrease product stock
+        final product = await (_db.select(_db.products)
+              ..where((p) => p.id.equals(returnEntry.productId)))
+            .getSingleOrNull();
+
+        if (product != null) {
+          final newStock = product.currentStock - returnEntry.quantity;
+          await (_db.update(_db.products)
+                ..where((p) => p.id.equals(returnEntry.productId)))
+              .write(ProductsCompanion(
+            currentStock: Value(newStock > 0 ? newStock : 0),
+            updatedAt: Value(DateTime.now()),
+          ));
+        }
+
+        // 3. Add stock movement
+        await _db.into(_db.stockMovements).insert(
+              StockMovementsCompanion.insert(
+                id: const Uuid().v4(),
+                productId: returnEntry.productId,
+                referenceType: 'supplier_return',
+                referenceId: returnId,
+                quantity: -returnEntry.quantity,
+                notes: const Value('مرتجع للمورد'),
+                createdAt: DateTime.now(),
+              ),
+            );
+
+        // 4. Update supplier ledger
+        final currentBalance =
+            await _supplierDao.getBalance(returnEntry.supplierId);
+        final newBalance = currentBalance - returnEntry.amount;
+
+        await _supplierDao.addLedgerEntry(
+          SupplierLedgerCompanion.insert(
+            id: const Uuid().v4(),
+            supplierId: returnEntry.supplierId,
+            referenceId: returnId,
+            referenceType: 'return',
+            amount: -returnEntry.amount,
+            balanceAfter: newBalance,
+            description: 'مرتجع للمورد',
+            createdAt: DateTime.now(),
+          ),
+        );
+      });
+
+      final newBalance = await _supplierDao.getBalance(returnEntry.supplierId);
 
       return ProcessReturnResult.success(
         returnId: returnId,
-        amount: returnData.amount,
+        amount: returnEntry.amount,
         newBalance: newBalance,
       );
     } catch (e) {
@@ -129,7 +199,19 @@ class ProcessReturnUseCase {
 
   /// إلغاء مرتجع (فقط إذا لم يتم تسليمه)
   Future<void> cancelReturn(String returnId) async {
-    // TODO: إضافة دالة cancelReturn في DAO
-    throw UnimplementedError('إلغاء المرتجع غير منفذ بعد');
+    final returnEntry = await (_db.select(_db.supplierReturns)
+          ..where((t) => t.id.equals(returnId)))
+        .getSingleOrNull();
+
+    if (returnEntry == null) {
+      throw Exception('المرتجع غير موجود');
+    }
+
+    if (returnEntry.status == 'delivered') {
+      throw Exception('لا يمكن إلغاء مرتجع تم تسليمه');
+    }
+
+    await (_db.delete(_db.supplierReturns)..where((t) => t.id.equals(returnId)))
+        .go();
   }
 }

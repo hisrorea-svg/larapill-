@@ -44,11 +44,13 @@ class NetworkSettingsEntity extends Equatable {
   });
 
   /// إعدادات افتراضية للسيرفر (الجهاز الرئيسي)
+  ///
+  /// NOTE: apiKey يجب تهيئته من SecureStorage عند أول تشغيل
   factory NetworkSettingsEntity.serverDefaults() {
     return const NetworkSettingsEntity(
       mode: NetworkMode.server,
       port: 5454,
-      apiKey: 'larapill_2024_secure_key',
+      apiKey: '', // يتم تهيئته لاحقاً من SecureStorage
       isMaster: true,
       autoConnect: true,
       autoReconnect: true,
@@ -56,12 +58,14 @@ class NetworkSettingsEntity extends Equatable {
   }
 
   /// إعدادات افتراضية للكلاينت (الجهاز الثانوي)
+  ///
+  /// NOTE: apiKey يجب تهيئته من SecureStorage عند أول تشغيل
   factory NetworkSettingsEntity.clientDefaults() {
     return const NetworkSettingsEntity(
       mode: NetworkMode.client,
       serverIp: '',
       port: 5454,
-      apiKey: 'larapill_2024_secure_key',
+      apiKey: '', // يتم تهيئته لاحقاً من SecureStorage
       isMaster: false,
       autoConnect: true,
       autoReconnect: true,

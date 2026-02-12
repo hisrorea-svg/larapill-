@@ -1,21 +1,46 @@
+// lib/features/purchases/presentation/screens/supplier_returns_screen.dart
+// Direct Drift implementation - No wrappers!
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:drift/drift.dart' show Value, OrderingTerm;
+import 'package:uuid/uuid.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_toast.dart';
-import '../../data/datasources/local/suppliers_dao.dart';
-import '../../data/datasources/local/supplier_returns_dao.dart';
-import '../../data/datasources/local/product_search_dao.dart';
+import '../../../../core/database/drift/app_database.dart';
+import '../../../../core/database/drift/database_provider.dart';
+import '../providers/purchases_drift_providers.dart';
 import '../../data/models/supplier_return.dart';
 
-/// Provider للمرتجعات
+/// Provider for supplier returns using Drift directly
 final supplierReturnsProvider =
     FutureProvider<List<SupplierReturn>>((ref) async {
-  final dao = SupplierReturnsDao();
-  return dao.getAllReturns();
+  final db = ref.watch(appDatabaseProvider);
+  final entries = await (db.select(db.supplierReturns)
+        ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+      .get();
+
+  return entries.map(_toModel).toList();
 });
 
-/// شاشة إدارة مرتجعات الموردين
+/// Convert Drift entry to model
+SupplierReturn _toModel(SupplierReturnEntry e) {
+  return SupplierReturn(
+    id: e.id,
+    supplierId: e.supplierId,
+    invoiceId: e.invoiceId,
+    productId: e.productId,
+    quantity: e.quantity,
+    amount: e.amount,
+    status: e.status,
+    deliveredDate: e.deliveredDate,
+    notes: e.notes,
+    createdAt: e.createdAt,
+  );
+}
+
+/// Supplier returns management screen
 class SupplierReturnsScreen extends ConsumerStatefulWidget {
   final bool embedded;
 
@@ -30,9 +55,8 @@ class _SupplierReturnsScreenState extends ConsumerState<SupplierReturnsScreen> {
   @override
   Widget build(BuildContext context) {
     final returnsAsync = ref.watch(supplierReturnsProvider);
-    final suppliers = ref.watch(suppliersProvider);
+    final suppliers = ref.watch(activeSuppliersProvider);
 
-    // إذا كان مضمّن، نعرض المحتوى فقط
     if (widget.embedded) {
       return returnsAsync.when(
         data: (returns) => _buildEmbeddedContent(returns, suppliers),
@@ -75,8 +99,8 @@ class _SupplierReturnsScreenState extends ConsumerState<SupplierReturnsScreen> {
     );
   }
 
-  Widget _buildEmbeddedContent(
-      List<SupplierReturn> returns, AsyncValue<List<SupplierItem>> suppliers) {
+  Widget _buildEmbeddedContent(List<SupplierReturn> returns,
+      AsyncValue<List<SupplierDisplayItem>> suppliers) {
     if (returns.isEmpty) {
       return Center(
         child: Column(
@@ -116,7 +140,6 @@ class _SupplierReturnsScreenState extends ConsumerState<SupplierReturnsScreen> {
 
     return Column(
       children: [
-        // زر إضافة
         Container(
           padding: const EdgeInsets.all(12),
           child: Row(
@@ -167,7 +190,6 @@ class _SupplierReturnsScreenState extends ConsumerState<SupplierReturnsScreen> {
             ],
           ),
         ),
-        // القائمة
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.all(12),
@@ -182,8 +204,8 @@ class _SupplierReturnsScreenState extends ConsumerState<SupplierReturnsScreen> {
     );
   }
 
-  Widget _buildContent(
-      List<SupplierReturn> returns, AsyncValue<List<SupplierItem>> suppliers) {
+  Widget _buildContent(List<SupplierReturn> returns,
+      AsyncValue<List<SupplierDisplayItem>> suppliers) {
     if (returns.isEmpty) {
       return Center(
         child: Column(
@@ -208,7 +230,6 @@ class _SupplierReturnsScreenState extends ConsumerState<SupplierReturnsScreen> {
       );
     }
 
-    // تجميع حسب الحالة
     final prepared = returns.where((r) => r.isPrepared).toList();
     final delivered = returns.where((r) => r.isDelivered).toList();
 
@@ -216,7 +237,6 @@ class _SupplierReturnsScreenState extends ConsumerState<SupplierReturnsScreen> {
       length: 2,
       child: Column(
         children: [
-          // التبويبات
           Container(
             color: Colors.white,
             child: TabBar(
@@ -231,8 +251,6 @@ class _SupplierReturnsScreenState extends ConsumerState<SupplierReturnsScreen> {
               ],
             ),
           ),
-
-          // المحتوى
           Expanded(
             child: TabBarView(
               children: [
@@ -286,7 +304,6 @@ class _SupplierReturnsScreenState extends ConsumerState<SupplierReturnsScreen> {
       ),
       child: Row(
         children: [
-          // أيقونة الحالة
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
@@ -299,10 +316,7 @@ class _SupplierReturnsScreenState extends ConsumerState<SupplierReturnsScreen> {
               color: isPrepared ? Colors.orange : Colors.green,
             ),
           ),
-
           const SizedBox(width: 12),
-
-          // التفاصيل
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -334,8 +348,6 @@ class _SupplierReturnsScreenState extends ConsumerState<SupplierReturnsScreen> {
               ],
             ),
           ),
-
-          // زر التسليم
           if (isPrepared)
             ElevatedButton.icon(
               onPressed: () => _deliverReturn(returnItem),
@@ -382,8 +394,8 @@ class _SupplierReturnsScreenState extends ConsumerState<SupplierReturnsScreen> {
     if (confirmed != true) return;
 
     try {
-      final dao = SupplierReturnsDao();
-      await dao.deliverReturn(returnItem.id);
+      final db = ref.read(appDatabaseProvider);
+      await _performDeliverReturn(db, returnItem);
 
       ref.invalidate(supplierReturnsProvider);
 
@@ -397,9 +409,75 @@ class _SupplierReturnsScreenState extends ConsumerState<SupplierReturnsScreen> {
     }
   }
 
-  void _showAddReturnDialog(AsyncValue<List<SupplierItem>> suppliersAsync) {
+  /// Perform the deliver return operation using Drift directly
+  Future<void> _performDeliverReturn(
+      AppDatabase db, SupplierReturn returnItem) async {
+    await db.transaction(() async {
+      // 1. Update return status
+      await (db.update(db.supplierReturns)
+            ..where((t) => t.id.equals(returnItem.id)))
+          .write(SupplierReturnsCompanion(
+        status: const Value('delivered'),
+        deliveredDate: Value(DateTime.now()),
+      ));
+
+      // 2. Decrease product stock
+      final product = await (db.select(db.products)
+            ..where((p) => p.id.equals(returnItem.productId)))
+          .getSingleOrNull();
+
+      if (product != null) {
+        final newStock = product.currentStock - returnItem.quantity;
+        await (db.update(db.products)
+              ..where((p) => p.id.equals(returnItem.productId)))
+            .write(ProductsCompanion(
+          currentStock: Value(newStock > 0 ? newStock : 0),
+          updatedAt: Value(DateTime.now()),
+        ));
+      }
+
+      // 3. Add stock movement
+      await db.into(db.stockMovements).insert(
+            StockMovementsCompanion.insert(
+              id: const Uuid().v4(),
+              productId: returnItem.productId,
+              referenceType: 'supplier_return',
+              referenceId: returnItem.id,
+              quantity: -returnItem.quantity,
+              notes: const Value('مرتجع للمورد'),
+              createdAt: DateTime.now(),
+            ),
+          );
+
+      // 4. Update supplier balance (decrease debt)
+      final lastLedger = await (db.select(db.supplierLedger)
+            ..where((l) => l.supplierId.equals(returnItem.supplierId))
+            ..orderBy([(l) => OrderingTerm.desc(l.createdAt)])
+            ..limit(1))
+          .getSingleOrNull();
+
+      final currentBalance = lastLedger?.balanceAfter ?? 0.0;
+      final newBalance = currentBalance - returnItem.amount;
+
+      await db.into(db.supplierLedger).insert(
+            SupplierLedgerCompanion.insert(
+              id: const Uuid().v4(),
+              supplierId: returnItem.supplierId,
+              referenceId: returnItem.id,
+              referenceType: 'return',
+              amount: -returnItem.amount,
+              balanceAfter: newBalance,
+              description: 'مرتجع للمورد',
+              createdAt: DateTime.now(),
+            ),
+          );
+    });
+  }
+
+  void _showAddReturnDialog(
+      AsyncValue<List<SupplierDisplayItem>> suppliersAsync) {
     String? selectedSupplierId;
-    ProductSearchItem? selectedProduct;
+    ProductSearchDisplayItem? selectedProduct;
     final quantityController = TextEditingController();
     final amountController = TextEditingController();
     final notesController = TextEditingController();
@@ -417,7 +495,7 @@ class _SupplierReturnsScreenState extends ConsumerState<SupplierReturnsScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // اختيار المورد
+                  // Supplier selection
                   suppliersAsync.when(
                     data: (suppliers) => DropdownButtonFormField<String>(
                       initialValue: selectedSupplierId,
@@ -444,7 +522,7 @@ class _SupplierReturnsScreenState extends ConsumerState<SupplierReturnsScreen> {
 
                   const SizedBox(height: 16),
 
-                  // بحث المنتج
+                  // Product search
                   TextField(
                     controller: productController,
                     decoration: InputDecoration(
@@ -457,15 +535,17 @@ class _SupplierReturnsScreenState extends ConsumerState<SupplierReturnsScreen> {
                     style: const TextStyle(fontFamily: 'Tajawal'),
                     onChanged: (value) {
                       if (value.length >= 2) {
-                        ref.read(productSearchProvider.notifier).search(value);
+                        ref
+                            .read(productSearchDriftProvider.notifier)
+                            .search(value);
                       }
                     },
                   ),
 
-                  // نتائج البحث
+                  // Search results
                   Consumer(
                     builder: (context, ref, _) {
-                      final searchState = ref.watch(productSearchProvider);
+                      final searchState = ref.watch(productSearchDriftProvider);
                       if (searchState.results.isEmpty) {
                         return const SizedBox.shrink();
                       }
@@ -493,8 +573,8 @@ class _SupplierReturnsScreenState extends ConsumerState<SupplierReturnsScreen> {
                                   productController.text = product.name;
                                 });
                                 ref
-                                    .read(productSearchProvider.notifier)
-                                    .clearSelection();
+                                    .read(productSearchDriftProvider.notifier)
+                                    .clear();
                               },
                             );
                           },
@@ -505,7 +585,7 @@ class _SupplierReturnsScreenState extends ConsumerState<SupplierReturnsScreen> {
 
                   const SizedBox(height: 16),
 
-                  // الكمية
+                  // Quantity
                   TextField(
                     controller: quantityController,
                     keyboardType: TextInputType.number,
@@ -520,7 +600,7 @@ class _SupplierReturnsScreenState extends ConsumerState<SupplierReturnsScreen> {
 
                   const SizedBox(height: 16),
 
-                  // المبلغ
+                  // Amount
                   TextField(
                     controller: amountController,
                     keyboardType: TextInputType.number,
@@ -535,7 +615,7 @@ class _SupplierReturnsScreenState extends ConsumerState<SupplierReturnsScreen> {
 
                   const SizedBox(height: 16),
 
-                  // ملاحظات
+                  // Notes
                   TextField(
                     controller: notesController,
                     decoration: InputDecoration(
@@ -571,22 +651,25 @@ class _SupplierReturnsScreenState extends ConsumerState<SupplierReturnsScreen> {
                   return;
                 }
 
-                // Capture navigator before async gap
                 final navigator = Navigator.of(context);
                 final dialogContext = context;
 
                 try {
-                  final dao = SupplierReturnsDao();
-                  await dao.createReturn(
-                    supplierId: selectedSupplierId!,
-                    productId: selectedProduct!.id.toString(),
-                    productName: selectedProduct!.name,
-                    quantity: quantity,
-                    amount: amount,
-                    notes: notesController.text.isNotEmpty
-                        ? notesController.text
-                        : null,
-                  );
+                  final db = ref.read(appDatabaseProvider);
+                  await db.into(db.supplierReturns).insert(
+                        SupplierReturnsCompanion.insert(
+                          id: const Uuid().v4(),
+                          supplierId: selectedSupplierId!,
+                          productId: selectedProduct!.id,
+                          quantity: quantity,
+                          amount: amount,
+                          status: const Value('prepared'),
+                          notes: Value(notesController.text.isNotEmpty
+                              ? notesController.text
+                              : null),
+                          createdAt: DateTime.now(),
+                        ),
+                      );
 
                   ref.invalidate(supplierReturnsProvider);
                   if (dialogContext.mounted) {

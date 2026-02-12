@@ -1,9 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../database/database_helper.dart';
-import '../../data/datasources/notification_local_datasource.dart';
 import '../../data/repositories/notification_repository_impl.dart';
 import '../../domain/entities/notification_entity.dart';
-import '../../domain/repositories/notification_repository.dart';
 import '../../domain/usecases/get_notifications_usecase.dart';
 import '../../domain/usecases/mark_notification_as_read_usecase.dart';
 import '../../domain/usecases/mark_all_notifications_as_read_usecase.dart';
@@ -17,28 +14,9 @@ import '../controllers/notification_controller.dart';
 import '../controllers/notification_state.dart';
 
 // ======================================================================
-// Data Layer Providers
+// Data Layer Providers - Using Drift DAO via NotificationRepositoryImpl
 // ======================================================================
-
-/// Database Helper Provider
-final databaseHelperProvider = Provider<DatabaseHelper>((ref) {
-  return DatabaseHelper();
-});
-
-/// Local DataSource Provider
-final notificationLocalDataSourceProvider =
-    Provider<NotificationLocalDataSource>((ref) {
-  return NotificationLocalDataSource(
-    ref.watch(databaseHelperProvider),
-  );
-});
-
-/// Repository Provider
-final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
-  return NotificationRepositoryImpl(
-    ref.watch(notificationLocalDataSourceProvider),
-  );
-});
+// Note: notificationRepositoryProvider is exported from notification_repository_impl.dart
 
 // ======================================================================
 // Domain Layer Providers - UseCases

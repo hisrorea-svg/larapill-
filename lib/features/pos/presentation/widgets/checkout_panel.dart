@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/input_sanitizer.dart';
 import '../../../../core/widgets/app_toast.dart';
@@ -167,7 +166,14 @@ class _CheckoutPanelState extends ConsumerState<CheckoutPanel> {
                   left: method != PaymentMethod.values.first ? 8 : 0,
                 ),
                 child: InkWell(
-                  onTap: () => setState(() => _selectedPaymentMethod = method),
+                  onTap: () => setState(() {
+                    _selectedPaymentMethod = method;
+                    // ✅ FIX: When deferred is selected, enable partial payment mode
+                    if (method == PaymentMethod.deferred) {
+                      _isPartialPayment = true;
+                      _paidAmountController.text = '0';
+                    }
+                  }),
                   borderRadius: BorderRadius.circular(10),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
@@ -325,10 +331,12 @@ class _CheckoutPanelState extends ConsumerState<CheckoutPanel> {
               if (!_isPartialPayment) _paidAmountController.clear();
             });
           },
-          title: Text(
+          title: const Text(
             'دفع جزئي (دين)',
-            style:
-                GoogleFonts.tajawal(fontSize: 13, fontWeight: FontWeight.w600),
+            style: TextStyle(
+                fontFamily: 'Tajawal',
+                fontSize: 13,
+                fontWeight: FontWeight.w600),
           ),
           controlAffinity: ListTileControlAffinity.leading,
           contentPadding: EdgeInsets.zero,
@@ -479,8 +487,10 @@ class _CheckoutPanelState extends ConsumerState<CheckoutPanel> {
       children: [
         Text(
           label,
-          style:
-              GoogleFonts.tajawal(fontSize: 12, color: AppColors.textSecondary),
+          style: const TextStyle(
+              fontFamily: 'Tajawal',
+              fontSize: 12,
+              color: AppColors.textSecondary),
         ),
         Text(
           value,

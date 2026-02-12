@@ -4,16 +4,12 @@ import 'package:uuid/uuid.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../auth/data/repositories/user_service.dart';
-import '../../data/datasources/local/suppliers_dao.dart';
-import '../../data/datasources/local/product_search_dao.dart';
-import '../../data/datasources/local/purchase_orders_dao.dart';
-import '../../data/datasources/local/stock_movements_dao.dart';
-import '../../data/datasources/local/supplier_ledger_dao.dart';
+import '../providers/purchases_drift_providers.dart';
 
 /// بند في فاتورة الشراء
 class InvoiceItemEntry {
   final String id;
-  int? productId;
+  String? productId;
   String productName;
   double quantity;
   double bonus;
@@ -71,7 +67,7 @@ class _TurboEntryScreenState extends ConsumerState<TurboEntryScreen> {
   final List<InvoiceItemEntry> _items = [];
   final _invoiceNumberController = TextEditingController();
   String? _selectedSupplierId;
-  ProductSearchItem? _selectedProduct;
+  ProductSearchDisplayItem? _selectedProduct;
 
   // Focus nodes للتنقل بالكيبورد
   final _productFocus = FocusNode();
@@ -106,7 +102,7 @@ class _TurboEntryScreenState extends ConsumerState<TurboEntryScreen> {
   void _onSearchChanged() {
     final query = _productController.text.trim();
     if (query.length >= 2) {
-      ref.read(productSearchProvider.notifier).search(query);
+      ref.read(productSearchDriftProvider.notifier).search(query);
       _showOverlay();
     } else {
       _hideOverlay();
@@ -130,7 +126,7 @@ class _TurboEntryScreenState extends ConsumerState<TurboEntryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final suppliers = ref.watch(suppliersProvider);
+    final suppliers = ref.watch(activeSuppliersProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -152,7 +148,7 @@ class _TurboEntryScreenState extends ConsumerState<TurboEntryScreen> {
     );
   }
 
-  Widget _buildHeader(AsyncValue<List<SupplierItem>> suppliers) {
+  Widget _buildHeader(AsyncValue<List<SupplierDisplayItem>> suppliers) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -313,14 +309,14 @@ class _TurboEntryScreenState extends ConsumerState<TurboEntryScreen> {
         children: [
           // حقل اسم المنتج مع Autocomplete
           Expanded(
-            flex: 3,
+            flex: 3, // ✅ الأكبر
             child: CompositedTransformTarget(
               link: _layerLink,
               child: TextField(
                 controller: _productController,
                 focusNode: _productFocus,
                 decoration: InputDecoration(
-                  hintText: '🔍 اسم المنتج أو الباركود...',
+                  hintText: 'اسم المنتج أو الباركود...',
                   hintStyle: const TextStyle(fontFamily: 'Tajawal'),
                   filled: true,
                   fillColor: _selectedProduct != null
@@ -332,7 +328,6 @@ class _TurboEntryScreenState extends ConsumerState<TurboEntryScreen> {
                         ? const BorderSide(color: Colors.green)
                         : BorderSide.none,
                   ),
-                  prefixIcon: const Icon(Icons.search),
                   suffixIcon: _selectedProduct != null
                       ? IconButton(
                           icon: const Icon(Icons.clear, color: Colors.grey),
@@ -352,8 +347,8 @@ class _TurboEntryScreenState extends ConsumerState<TurboEntryScreen> {
           const SizedBox(width: 12),
 
           // الكمية
-          SizedBox(
-            width: 100,
+          Expanded(
+            flex: 2,
             child: TextField(
               controller: _quantityController,
               focusNode: _quantityFocus,
@@ -376,8 +371,8 @@ class _TurboEntryScreenState extends ConsumerState<TurboEntryScreen> {
           const SizedBox(width: 12),
 
           // البونص
-          SizedBox(
-            width: 80,
+          Expanded(
+            flex: 2,
             child: TextField(
               controller: _bonusController,
               focusNode: _bonusFocus,
@@ -404,8 +399,8 @@ class _TurboEntryScreenState extends ConsumerState<TurboEntryScreen> {
           const SizedBox(width: 12),
 
           // سعر الشراء
-          SizedBox(
-            width: 120,
+          Expanded(
+            flex: 2,
             child: TextField(
               controller: _priceController,
               focusNode: _priceFocus,
@@ -463,7 +458,7 @@ class _TurboEntryScreenState extends ConsumerState<TurboEntryScreen> {
             borderRadius: BorderRadius.circular(10),
             child: Consumer(
               builder: (context, ref, _) {
-                final state = ref.watch(productSearchProvider);
+                final state = ref.watch(productSearchDriftProvider);
                 if (state.isLoading) {
                   return const Padding(
                     padding: EdgeInsets.all(16),
@@ -497,7 +492,7 @@ class _TurboEntryScreenState extends ConsumerState<TurboEntryScreen> {
                         ),
                       ),
                       trailing: Text(
-                        '${product.purchasePrice}',
+                        '${product.costPrice}',
                         style: const TextStyle(
                           fontFamily: 'Tajawal',
                           fontWeight: FontWeight.bold,
@@ -522,11 +517,11 @@ class _TurboEntryScreenState extends ConsumerState<TurboEntryScreen> {
     _overlayEntry = null;
   }
 
-  void _selectProduct(ProductSearchItem product) {
+  void _selectProduct(ProductSearchDisplayItem product) {
     setState(() {
       _selectedProduct = product;
       _productController.text = product.name;
-      _priceController.text = product.purchasePrice.toString();
+      _priceController.text = product.costPrice.toString();
     });
     _hideOverlay();
     _quantityFocus.requestFocus();
@@ -538,7 +533,7 @@ class _TurboEntryScreenState extends ConsumerState<TurboEntryScreen> {
       _productController.clear();
       _priceController.clear();
     });
-    ref.read(productSearchProvider.notifier).clearSelection();
+    ref.read(productSearchDriftProvider.notifier).clearSelection();
     _productFocus.requestFocus();
   }
 
@@ -819,7 +814,7 @@ class _TurboEntryScreenState extends ConsumerState<TurboEntryScreen> {
         quantity: quantity,
         bonus: bonus,
         purchasePrice: price,
-        oldCost: _selectedProduct?.purchasePrice,
+        oldCost: _selectedProduct?.costPrice,
       ));
     });
 
@@ -859,10 +854,10 @@ class _TurboEntryScreenState extends ConsumerState<TurboEntryScreen> {
       final currentUser = await UserService.getCurrentUser();
       if (currentUser == null) throw Exception('لم يتم تسجيل الدخول');
 
-      final purchaseOrdersDao = PurchaseOrdersDao();
+      final purchaseService = ref.read(purchaseOrderServiceProvider);
       final items = _items
           .map((item) => PurchaseItemData(
-                productId: item.productId?.toString() ?? '',
+                productId: item.productId ?? '',
                 productName: item.productName,
                 unit: 'قطعة',
                 quantity: item.quantity,
@@ -872,7 +867,7 @@ class _TurboEntryScreenState extends ConsumerState<TurboEntryScreen> {
               ))
           .toList();
 
-      await purchaseOrdersDao.createDraftOrder(
+      await purchaseService.createDraftOrder(
         supplierId: _selectedSupplierId!,
         invoiceNumber: _invoiceNumberController.text.isNotEmpty
             ? _invoiceNumberController.text
@@ -928,14 +923,12 @@ class _TurboEntryScreenState extends ConsumerState<TurboEntryScreen> {
       final currentUser = await UserService.getCurrentUser();
       if (currentUser == null) throw Exception('لم يتم تسجيل الدخول');
 
-      final purchaseOrdersDao = PurchaseOrdersDao();
-      final stockMovementsDao = StockMovementsDao();
-      final supplierLedgerDao = SupplierLedgerDao();
+      final purchaseService = ref.read(purchaseOrderServiceProvider);
 
       // 1. إنشاء طلب الشراء
       final items = _items
           .map((item) => PurchaseItemData(
-                productId: item.productId?.toString() ?? '',
+                productId: item.productId ?? '',
                 productName: item.productName,
                 unit: 'قطعة',
                 quantity: item.quantity,
@@ -945,39 +938,26 @@ class _TurboEntryScreenState extends ConsumerState<TurboEntryScreen> {
               ))
           .toList();
 
-      final orderId = await purchaseOrdersDao.createDraftOrder(
+      final invoiceNumber = _invoiceNumberController.text.isNotEmpty
+          ? _invoiceNumberController.text
+          : 'INV-${DateTime.now().millisecondsSinceEpoch}';
+
+      final orderId = await purchaseService.createDraftOrder(
         supplierId: _selectedSupplierId!,
-        invoiceNumber: _invoiceNumberController.text.isNotEmpty
-            ? _invoiceNumberController.text
-            : 'INV-${DateTime.now().millisecondsSinceEpoch}',
+        invoiceNumber: invoiceNumber,
         items: items,
         createdBy: currentUser.id,
       );
 
-      // 2. ترحيل الطلب
-      await purchaseOrdersDao.postOrder(orderId);
-
-      // 3. تحديث المخزون لكل بند
-      for (final item in _items) {
-        if (item.productId != null) {
-          final totalQuantity = item.quantity + item.bonus;
-          await stockMovementsDao.addPurchaseMovement(
-            productId: item.productId.toString(),
-            purchaseOrderId: orderId,
-            quantity: totalQuantity,
-            costPerUnit: item.costPerUnit,
-          );
-        }
-      }
-
-      // 4. تسجيل في دفتر أستاذ المورد
+      // 2. ترحيل الطلب (تحديث المخزون + تسجيل في دفتر أستاذ المورد)
       final totalAmount =
           _items.fold<double>(0, (sum, item) => sum + item.purchasePrice);
-      await supplierLedgerDao.addInvoiceEntry(
+
+      await purchaseService.postOrder(
+        orderId: orderId,
         supplierId: _selectedSupplierId!,
-        invoiceId: orderId,
-        amount: totalAmount,
-        description: 'فاتورة شراء رقم ${_invoiceNumberController.text}',
+        totalAmount: totalAmount,
+        invoiceNumber: invoiceNumber,
       );
 
       if (mounted) {

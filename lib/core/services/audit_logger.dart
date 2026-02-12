@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
-import '../../database/database_helper.dart';
+import '../database/drift/daos/audit_log_drift_dao.dart';
+import '../database/drift/app_database.dart';
 import 'package:uuid/uuid.dart';
 
 // ==================== أنواع العمليات ====================
@@ -90,14 +91,26 @@ enum AuditSeverity {
 /// 📝 نظام تسجيل شامل للعمليات الحساسة (Audit Logger)
 /// يسجل جميع العمليات المهمة مع تفاصيل كاملة للمراجعة والأمان
 class AuditLogger {
-  static final AuditLogger _instance = AuditLogger._internal();
-  factory AuditLogger() => _instance;
-  AuditLogger._internal();
+  static AuditLogger? _instance;
+  static AuditLogDriftDao? _dao;
 
-  final DatabaseHelper _dbHelper = DatabaseHelper();
   final Uuid _uuid = const Uuid();
 
-  // ==================== تسجيل العمليات ====================  /// تسجيل عملية في سجل التدقيق
+  factory AuditLogger() {
+    _instance ??= AuditLogger._internal();
+    return _instance!;
+  }
+
+  AuditLogger._internal();
+
+  /// Initialize with DAO from DI
+  static void init(AuditLogDriftDao dao) {
+    _dao = dao;
+  }
+
+  // ==================== تسجيل العمليات ====================
+
+  /// تسجيل عملية في سجل التدقيق
   Future<String> log({
     required AuditActionType action,
     required String userId,
@@ -110,29 +123,27 @@ class AuditLogger {
     bool isSuccess = true,
     String? errorMessage,
   }) async {
+    if (_dao == null) {
+      throw Exception('AuditLogger not initialized. Call init() first.');
+    }
+
     try {
-      final db = await _dbHelper.database;
       final auditId = _uuid.v4();
       final now = DateTime.now();
 
-      final auditLog = {
-        'id': auditId,
-        'action_type': action.code,
-        'action_name': action.displayName,
-        'severity': action.severity.code,
-        'user_id': userId,
-        'user_name': userName,
-        'entity_type': entityType,
-        'entity_id': entityId,
-        'description': description,
-        'metadata': metadata != null ? jsonEncode(metadata) : null,
-        'ip_address': ipAddress ?? '127.0.0.1',
-        'is_success': isSuccess ? 1 : 0,
-        'error_message': errorMessage,
-        'created_at': now.toIso8601String(),
-      };
-
-      await db.insert('audit_logs', auditLog);
+      await _dao!.logAction(
+        actionType: action.code,
+        actionName: action.displayName,
+        severity: action.severity.code,
+        userId: userId,
+        userName: userName,
+        entityType: entityType,
+        entityId: entityId,
+        description: description,
+        metadata: metadata != null ? jsonEncode(metadata) : null,
+        isSuccess: isSuccess,
+        errorMessage: errorMessage,
+      );
 
       // تسجيل في الـ console للتطوير
       final icon = _getSeverityIcon(action.severity);
@@ -421,109 +432,28 @@ class AuditLogger {
   // ==================== استعلام السجلات ====================
 
   /// جلب سجلات التدقيق حسب المعايير
-  Future<List<Map<String, dynamic>>> getLogs({
+  Future<List<AuditLogEntry>> getLogs({
     String? userId,
-    AuditActionType? actionType,
+    String? actionType,
     AuditSeverity? minSeverity,
     DateTime? startDate,
     DateTime? endDate,
     int limit = 100,
     int offset = 0,
   }) async {
+    if (_dao == null) return [];
+
     try {
-      final db = await _dbHelper.database;
-
-      String whereClause = '1=1';
-      List<dynamic> whereArgs = [];
-
-      if (userId != null) {
-        whereClause += ' AND user_id = ?';
-        whereArgs.add(userId);
-      }
-
-      if (actionType != null) {
-        whereClause += ' AND action_type = ?';
-        whereArgs.add(actionType.code);
-      }
-
-      if (minSeverity != null) {
-        final severities = AuditSeverity.values
-            .where((s) => s.level >= minSeverity.level)
-            .map((s) => "'${s.code}'")
-            .join(',');
-        whereClause += ' AND severity IN ($severities)';
-      }
-
-      if (startDate != null) {
-        whereClause += ' AND created_at >= ?';
-        whereArgs.add(startDate.toIso8601String());
-      }
-
-      if (endDate != null) {
-        whereClause += ' AND created_at <= ?';
-        whereArgs.add(endDate.toIso8601String());
-      }
-
-      final results = await db.query(
-        'audit_logs',
-        where: whereClause,
-        whereArgs: whereArgs.isEmpty ? null : whereArgs,
-        orderBy: 'created_at DESC',
+      return await _dao!.getLogsFiltered(
+        userId: userId,
+        actionType: actionType,
+        startDate: startDate,
+        endDate: endDate,
         limit: limit,
-        offset: offset,
       );
-
-      return results;
     } catch (e) {
       developer.log('❌ خطأ في جلب سجلات التدقيق: $e', name: 'AuditLogger');
       return [];
-    }
-  }
-
-  /// حصول على إحصائيات السجلات
-  Future<Map<String, dynamic>> getStatistics({
-    DateTime? startDate,
-    DateTime? endDate,
-  }) async {
-    try {
-      final db = await _dbHelper.database;
-
-      String whereClause = '1=1';
-      List<dynamic> whereArgs = [];
-
-      if (startDate != null) {
-        whereClause += ' AND created_at >= ?';
-        whereArgs.add(startDate.toIso8601String());
-      }
-
-      if (endDate != null) {
-        whereClause += ' AND created_at <= ?';
-        whereArgs.add(endDate.toIso8601String());
-      }
-
-      final totalResult = await db.rawQuery(
-        'SELECT COUNT(*) as count FROM audit_logs WHERE $whereClause',
-        whereArgs.isEmpty ? null : whereArgs,
-      );
-
-      final bySeverity = await db.rawQuery(
-        'SELECT severity, COUNT(*) as count FROM audit_logs WHERE $whereClause GROUP BY severity',
-        whereArgs.isEmpty ? null : whereArgs,
-      );
-
-      final byAction = await db.rawQuery(
-        'SELECT action_type, action_name, COUNT(*) as count FROM audit_logs WHERE $whereClause GROUP BY action_type ORDER BY count DESC LIMIT 10',
-        whereArgs.isEmpty ? null : whereArgs,
-      );
-
-      return {
-        'total_logs': (totalResult.first['count'] as int?) ?? 0,
-        'by_severity': bySeverity,
-        'top_actions': byAction,
-      };
-    } catch (e) {
-      developer.log('❌ خطأ في جلب إحصائيات التدقيق: $e', name: 'AuditLogger');
-      return {};
     }
   }
 

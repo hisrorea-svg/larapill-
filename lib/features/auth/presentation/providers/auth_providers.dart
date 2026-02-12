@@ -6,7 +6,7 @@ import '../../domain/usecases/get_current_user_usecase.dart';
 import '../../domain/usecases/change_password_usecase.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 // Using legacy User for now until migration is complete
-import '../../domain/models/user.dart';
+import '../../domain/entities/user.dart';
 
 // ================================
 // Repository Provider

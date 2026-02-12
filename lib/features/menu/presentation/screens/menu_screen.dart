@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../../../reports/presentation/screens/financial_hub_screen.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../inventory/presentation/screens/inventory_screen.dart';
@@ -11,9 +12,9 @@ import '../../../pos/presentation/screens/pos_screen.dart';
 import '../../../returns/presentation/screens/returns_screen.dart';
 import '../../../dashboard/presentation/screens/dashboard_screen.dart';
 import '../../../debts/presentation/screens/debts_screen.dart';
-import '../../../reports/presentation/screens/modern_reports_screen.dart';
+import '../../../tools/presentation/screens/tools_screen.dart';
 import '../../../../core/controllers/session_controller.dart';
-import '../../../../core/services/realtime_sync_service.dart';
+
 import '../../../../core/widgets/session_warning_dialog.dart';
 import '../../../dashboard/presentation/widgets/top_bar.dart';
 import '../widgets/terminal_type_selector.dart';
@@ -28,19 +29,29 @@ class MenuScreen extends ConsumerStatefulWidget {
 }
 
 class _MenuScreenState extends ConsumerState<MenuScreen> {
+  // ✅ قائمة الأيقونات للـ Pre-caching
+  static const _iconPaths = [
+    'assets/Icons/home.svg',
+    'assets/Icons/pos.svg',
+    'assets/Icons/inventory.svg',
+    'assets/Icons/purchases.svg',
+    'assets/Icons/Returns.svg',
+    'assets/Icons/Debts.svg',
+    'assets/Icons/reports.svg',
+    'assets/Icons/settings.svg',
+    'assets/Icons/tool.svg',
+  ];
+
   @override
   void initState() {
     super.initState();
     _setFullScreen();
-    // بدء خدمة المزامنة التلقائية
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(realtimeSyncServiceProvider).start();
-    });
+    _precacheIcons();
+    // NOTE: Realtime sync service removed. Use SyncNotifier from features/sync.
   }
 
   @override
   void dispose() {
-    ref.read(realtimeSyncServiceProvider).stop();
     super.dispose();
   }
 
@@ -54,6 +65,22 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
       DeviceOrientation.landscapeRight,
       DeviceOrientation.portraitUp,
     ]);
+  }
+
+  /// ✅ Pre-caching للأيقونات لتحسين الأداء
+  /// 
+  /// ملاحظة: flutter_svg يقوم بالـ caching تلقائياً بعد أول render.
+  /// هذا الكود يضمن تحميل الأيقونات في الذاكرة بمجرد فتح القائمة.
+  void _precacheIcons() async {
+    // تحميل ملفات SVG في الذاكرة (ليس render، فقط قراءة الملفات)
+    for (final path in _iconPaths) {
+      try {
+        await DefaultAssetBundle.of(context).loadString(path);
+      } catch (e) {
+        developer.log('⚠️ Failed to preload icon $path: $e', name: 'MenuScreen');
+      }
+    }
+    developer.log('✅ Pre-loaded ${_iconPaths.length} icons', name: 'MenuScreen');
   }
 
   @override
@@ -257,13 +284,19 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
         svgPath: 'assets/Icons/reports.svg',
         title: 'التقارير',
         color: Colors.indigo,
-        screen: ModernReportsScreen(),
+        screen: FinancialHubScreen(),
       ),
       const _MenuItem(
         svgPath: 'assets/Icons/settings.svg',
         title: 'الإعدادات',
         color: Colors.grey,
         screen: SettingsScreen(),
+      ),
+      const _MenuItem(
+        svgPath: 'assets/Icons/tool.svg',
+        title: 'الأدوات',
+        color: Colors.cyan,
+        screen: ToolsScreen(),
       ),
     ];
 
@@ -275,33 +308,33 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
 
         if (constraints.maxWidth >= 1200) {
           crossAxisCount = 4;
-          maxCardWidth = 180;
+          maxCardWidth = 140;
         } else if (constraints.maxWidth >= 900) {
           crossAxisCount = 3;
-          maxCardWidth = 170;
+          maxCardWidth = 140;
         } else if (constraints.maxWidth >= 600) {
           crossAxisCount = 3;
-          maxCardWidth = 150;
+          maxCardWidth = 120;
         } else {
           crossAxisCount = 2;
-          maxCardWidth = 140;
+          maxCardWidth = 110;
         }
 
         return Center(
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              maxWidth: (maxCardWidth + 20) * crossAxisCount + 60,
+              maxWidth: (maxCardWidth + 16) * crossAxisCount + 48,
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               child: GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: crossAxisCount,
-                  mainAxisSpacing: 16,
-                  crossAxisSpacing: 16,
-                  childAspectRatio: 1.0,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 1.1,
                 ),
                 itemCount: menuItems.length,
                 itemBuilder: (context, index) {
@@ -437,8 +470,16 @@ class _MinimalMenuTileState extends State<_MinimalMenuTile> {
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
+      onEnter: (_) {
+        Future.microtask(() {
+          if (mounted) setState(() => _isHovered = true);
+        });
+      },
+      onExit: (_) {
+        Future.microtask(() {
+          if (mounted) setState(() => _isHovered = false);
+        });
+      },
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTapDown: (_) => setState(() => _isPressed = true),
@@ -680,8 +721,16 @@ class _AnimatedMenuButtonState extends State<_AnimatedMenuButton>
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
+      onEnter: (_) {
+        Future.microtask(() {
+          if (mounted) setState(() => _isHovered = true);
+        });
+      },
+      onExit: (_) {
+        Future.microtask(() {
+          if (mounted) setState(() => _isHovered = false);
+        });
+      },
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTapDown: (_) {

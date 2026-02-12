@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../inventory/data/repositories/product_repository.dart';
 import '../../../../core/models/shared/product.dart';
@@ -13,7 +12,8 @@ class GlobalSearchDelegate extends SearchDelegate<String> {
   String get searchFieldLabel => 'بحث عن دواء أو اسم تجاري...';
 
   @override
-  TextStyle get searchFieldStyle => GoogleFonts.tajawal(
+  TextStyle get searchFieldStyle => const TextStyle(
+        fontFamily: 'Tajawal',
         fontSize: 16,
         color: AppColors.textPrimary,
       );

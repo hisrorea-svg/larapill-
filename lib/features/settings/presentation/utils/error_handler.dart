@@ -35,7 +35,8 @@ class SettingsErrorHandler {
             Expanded(
               child: Text(
                 message,
-                style: const TextStyle(fontFamily: 'Tajawal', color: Colors.white),
+                style:
+                    const TextStyle(fontFamily: 'Tajawal', color: Colors.white),
               ),
             ),
             if (onRetry != null)

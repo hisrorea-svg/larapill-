@@ -1,14 +1,19 @@
-import '../../../../database/database_helper.dart';
-import '../../../auth/domain/models/user.dart';
+import 'package:drift/drift.dart';
+
+import '../../../../core/database/drift/daos/users_drift_dao.dart';
+import '../../../../core/database/drift/app_database.dart';
+import '../../../auth/domain/entities/user.dart';
 import '../../domain/repositories/users_repository.dart';
 import '../../domain/repositories/settings_repository.dart'; // For Either, Unit
 import '../../domain/failures/settings_failure.dart';
 
-/// Users Repository implementation with Either type
+/// Users Repository implementation with Either type using Drift
 ///
 /// Never throws exceptions - always returns Either
 class UsersRepositoryImpl implements UsersRepository {
-  final dbHelper = DatabaseHelper();
+  final UsersDriftDao _dao;
+
+  UsersRepositoryImpl(this._dao);
 
   @override
   Future<Either<SettingsFailure, User>> createUser(
@@ -16,12 +21,21 @@ class UsersRepositoryImpl implements UsersRepository {
     String? createdBy,
   }) async {
     try {
-      final db = await dbHelper.database;
-      final map = user.toMap();
-      if (createdBy != null) {
-        map['created_by'] = createdBy;
-      }
-      await db.insert('users', map);
+      await _dao.createUser(UsersCompanion.insert(
+        id: user.id,
+        username: user.username,
+        fullName: user.fullName,
+        email: Value(user.email),
+        phone: Value(user.phone),
+        passwordHash: user.passwordHash,
+        role: Value(user.role.name),
+        permissions: Value(user.permissions.join(',')),
+        isActive: Value(user.isActive),
+        forcePasswordChange: Value(user.forcePasswordChange),
+        createdAt: user.createdAt,
+        updatedAt: DateTime.now(),
+        createdBy: Value(createdBy),
+      ));
       return Either.right(user);
     } catch (e) {
       return Either.left(DatabaseSettingsFailure('فشل في إنشاء المستخدم: $e'));
@@ -31,9 +45,7 @@ class UsersRepositoryImpl implements UsersRepository {
   @override
   Future<Either<SettingsFailure, Unit>> deleteUser(String userId) async {
     try {
-      final db = await dbHelper.database;
-      await db.update('users', {'is_active': 0},
-          where: 'id = ?', whereArgs: [userId]);
+      await _dao.deleteUser(userId);
       return const Either.right(Unit.unit);
     } catch (e) {
       return Either.left(DatabaseSettingsFailure('فشل في حذف المستخدم: $e'));
@@ -43,9 +55,8 @@ class UsersRepositoryImpl implements UsersRepository {
   @override
   Future<Either<SettingsFailure, List<User>>> getActiveUsers() async {
     try {
-      final db = await dbHelper.database;
-      final maps = await db.query('users', where: 'is_active = 1');
-      final users = maps.map((map) => User.fromMap(map)).toList();
+      final entries = await _dao.getActiveUsers();
+      final users = entries.map(_mapEntryToUser).toList();
       return Either.right(users);
     } catch (e) {
       return Either.left(DatabaseSettingsFailure('فشل في جلب المستخدمين: $e'));
@@ -55,11 +66,9 @@ class UsersRepositoryImpl implements UsersRepository {
   @override
   Future<Either<SettingsFailure, User?>> getUserById(String userId) async {
     try {
-      final db = await dbHelper.database;
-      final maps =
-          await db.query('users', where: 'id = ?', whereArgs: [userId]);
-      if (maps.isEmpty) return const Either.right(null);
-      return Either.right(User.fromMap(maps.first));
+      final entry = await _dao.findById(userId);
+      if (entry == null) return const Either.right(null);
+      return Either.right(_mapEntryToUser(entry));
     } catch (e) {
       return Either.left(DatabaseSettingsFailure('فشل في جلب المستخدم: $e'));
     }
@@ -69,11 +78,9 @@ class UsersRepositoryImpl implements UsersRepository {
   Future<Either<SettingsFailure, User?>> getUserByUsername(
       String username) async {
     try {
-      final db = await dbHelper.database;
-      final maps =
-          await db.query('users', where: 'username = ?', whereArgs: [username]);
-      if (maps.isEmpty) return const Either.right(null);
-      return Either.right(User.fromMap(maps.first));
+      final entry = await _dao.findByUsername(username);
+      if (entry == null) return const Either.right(null);
+      return Either.right(_mapEntryToUser(entry));
     } catch (e) {
       return Either.left(DatabaseSettingsFailure('فشل في جلب المستخدم: $e'));
     }
@@ -86,16 +93,8 @@ class UsersRepositoryImpl implements UsersRepository {
     bool forceChange = false,
   }) async {
     try {
-      final db = await dbHelper.database;
-      await db.update(
-        'users',
-        {
-          'password_hash': newPasswordHash,
-          'force_password_change': forceChange ? 1 : 0
-        },
-        where: 'id = ?',
-        whereArgs: [userId],
-      );
+      await _dao.updatePassword(userId, newPasswordHash,
+          forceChange: forceChange);
 
       final userResult = await getUserById(userId);
       return userResult.fold(
@@ -119,13 +118,7 @@ class UsersRepositoryImpl implements UsersRepository {
     List<String> permissions,
   ) async {
     try {
-      final db = await dbHelper.database;
-      await db.update(
-        'users',
-        {'permissions': permissions.join(',')},
-        where: 'id = ?',
-        whereArgs: [userId],
-      );
+      await _dao.updatePermissions(userId, permissions);
 
       final userResult = await getUserById(userId);
       return userResult.fold(
@@ -145,9 +138,15 @@ class UsersRepositoryImpl implements UsersRepository {
   @override
   Future<Either<SettingsFailure, User>> updateUser(User user) async {
     try {
-      final db = await dbHelper.database;
-      final map = user.toMap();
-      await db.update('users', map, where: 'id = ?', whereArgs: [user.id]);
+      await _dao.updateUser(
+        user.id,
+        fullName: user.fullName,
+        email: user.email,
+        phone: user.phone,
+        role: user.role.name,
+        permissions: user.permissions,
+        isActive: user.isActive,
+      );
       return Either.right(user);
     } catch (e) {
       return Either.left(DatabaseSettingsFailure('فشل في تحديث المستخدم: $e'));
@@ -156,10 +155,32 @@ class UsersRepositoryImpl implements UsersRepository {
 
   @override
   Future<Either<SettingsFailure, bool>> usernameExists(String username) async {
-    final userResult = await getUserByUsername(username);
-    return userResult.fold(
-      (failure) => Either.left(failure),
-      (user) => Either.right(user != null),
+    try {
+      final exists = await _dao.usernameExists(username);
+      return Either.right(exists);
+    } catch (e) {
+      return Either.left(
+          DatabaseSettingsFailure('فشل في التحقق من المستخدم: $e'));
+    }
+  }
+
+  /// Map Drift UserEntry to domain User
+  User _mapEntryToUser(UserEntry entry) {
+    return User(
+      id: entry.id,
+      username: entry.username,
+      fullName: entry.fullName,
+      email: entry.email,
+      phone: entry.phone,
+      passwordHash: entry.passwordHash,
+      role: UserRole.fromString(entry.role),
+      permissions: entry.permissions?.split(',') ?? [],
+      isActive: entry.isActive,
+      forcePasswordChange: entry.forcePasswordChange,
+      lastLogin: entry.lastLogin,
+      createdAt: entry.createdAt,
+      updatedAt: entry.updatedAt,
+      createdBy: entry.createdBy,
     );
   }
 }

@@ -1,29 +1,60 @@
+// lib/features/purchases/presentation/screens/supplier_account_screen.dart
+// Direct Drift implementation - No wrappers!
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:drift/drift.dart' show Value;
+import 'package:uuid/uuid.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_toast.dart';
-import '../../data/datasources/local/supplier_ledger_dao.dart';
-import '../../data/datasources/local/supplier_payments_dao.dart';
+import '../../../../core/database/drift/app_database.dart';
+import '../../../../core/database/drift/daos/supplier_drift_dao.dart';
+import '../../../../core/database/drift/database_provider.dart';
 import '../../data/models/supplier_ledger_entry.dart';
 
-/// Provider لحسابات الموردين
+/// Provider for supplier account data using Drift directly
 final supplierAccountProvider =
     FutureProvider.family<SupplierAccountData, String>((ref, supplierId) async {
-  final ledgerDao = SupplierLedgerDao();
-  final paymentsDao = SupplierPaymentsDao();
+  final db = ref.watch(appDatabaseProvider);
+  final dao = SupplierDriftDao(db);
 
-  final entries = await ledgerDao.getSupplierEntries(supplierId);
-  final balance = await ledgerDao.getSupplierBalance(supplierId);
-  final totalPayments = await paymentsDao.getSupplierTotalPayments(supplierId);
+  final entries = await dao.findLedgerBySupplier(supplierId);
+  final balance = await dao.getBalance(supplierId);
+  final totalPayments = await _getSupplierTotalPayments(db, supplierId);
 
   return SupplierAccountData(
-    entries: entries,
+    entries: entries.map(_ledgerToModel).toList(),
     currentBalance: balance,
     totalPayments: totalPayments,
   );
 });
 
+/// Get total payments for a supplier
+Future<double> _getSupplierTotalPayments(
+    AppDatabase db, String supplierId) async {
+  final payments = await (db.select(db.supplierPayments)
+        ..where((p) => p.supplierId.equals(supplierId)))
+      .get();
+
+  return payments.fold<double>(0, (sum, p) => sum + p.amount);
+}
+
+/// Convert Drift ledger entry to model
+SupplierLedgerEntry _ledgerToModel(SupplierLedgerData entry) {
+  return SupplierLedgerEntry(
+    id: entry.id,
+    supplierId: entry.supplierId,
+    referenceId: entry.referenceId,
+    referenceType: entry.referenceType,
+    amount: entry.amount,
+    balanceAfter: entry.balanceAfter,
+    description: entry.description,
+    createdAt: entry.createdAt,
+  );
+}
+
+/// Supplier account data model
 class SupplierAccountData {
   final List<SupplierLedgerEntry> entries;
   final double currentBalance;
@@ -36,7 +67,7 @@ class SupplierAccountData {
   });
 }
 
-/// شاشة كشف حساب المذخر
+/// Supplier account screen
 class SupplierAccountScreen extends ConsumerStatefulWidget {
   final String supplierId;
   final String supplierName;
@@ -107,10 +138,7 @@ class _SupplierAccountScreenState extends ConsumerState<SupplierAccountScreen> {
   Widget _buildContent(SupplierAccountData data) {
     return Column(
       children: [
-        // بطاقة الملخص
         _buildSummaryCard(data),
-
-        // قائمة الحركات
         Expanded(
           child: data.entries.isEmpty
               ? _buildEmptyState()
@@ -245,7 +273,7 @@ class _SupplierAccountScreenState extends ConsumerState<SupplierAccountScreen> {
   }
 
   Widget _buildEntryCard(SupplierLedgerEntry entry) {
-    final isDebit = entry.amount > 0; // فاتورة = زيادة الدين
+    final isDebit = entry.amount > 0;
     final icon = _getEntryIcon(entry.referenceType);
     final color = isDebit ? Colors.red : Colors.green;
 
@@ -261,7 +289,6 @@ class _SupplierAccountScreenState extends ConsumerState<SupplierAccountScreen> {
       ),
       child: Row(
         children: [
-          // أيقونة النوع
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
@@ -270,10 +297,7 @@ class _SupplierAccountScreenState extends ConsumerState<SupplierAccountScreen> {
             ),
             child: Icon(icon, color: color, size: 20),
           ),
-
           const SizedBox(width: 12),
-
-          // التفاصيل
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -296,8 +320,6 @@ class _SupplierAccountScreenState extends ConsumerState<SupplierAccountScreen> {
               ],
             ),
           ),
-
-          // المبلغ والرصيد
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -327,6 +349,7 @@ class _SupplierAccountScreenState extends ConsumerState<SupplierAccountScreen> {
   IconData _getEntryIcon(String type) {
     switch (type) {
       case 'invoice':
+      case 'purchase_order':
         return Icons.receipt;
       case 'payment':
         return Icons.payments;
@@ -340,6 +363,7 @@ class _SupplierAccountScreenState extends ConsumerState<SupplierAccountScreen> {
   String _getEntryTypeLabel(String type) {
     switch (type) {
       case 'invoice':
+      case 'purchase_order':
         return 'فاتورة شراء';
       case 'payment':
         return 'دفعة';
@@ -360,7 +384,6 @@ class _SupplierAccountScreenState extends ConsumerState<SupplierAccountScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // المبلغ
               TextField(
                 controller: _amountController,
                 keyboardType: TextInputType.number,
@@ -374,10 +397,7 @@ class _SupplierAccountScreenState extends ConsumerState<SupplierAccountScreen> {
                 ),
                 style: const TextStyle(fontFamily: 'Tajawal'),
               ),
-
               const SizedBox(height: 16),
-
-              // طريقة الدفع
               DropdownButtonFormField<String>(
                 initialValue: _paymentMethod,
                 decoration: InputDecoration(
@@ -406,10 +426,7 @@ class _SupplierAccountScreenState extends ConsumerState<SupplierAccountScreen> {
                   setState(() => _paymentMethod = value!);
                 },
               ),
-
               const SizedBox(height: 16),
-
-              // ملاحظات
               TextField(
                 controller: _notesController,
                 maxLines: 2,
@@ -459,18 +476,50 @@ class _SupplierAccountScreenState extends ConsumerState<SupplierAccountScreen> {
     setState(() => _isAddingPayment = true);
 
     try {
-      final paymentsDao = SupplierPaymentsDao();
-      await paymentsDao.createPayment(
-        supplierId: widget.supplierId,
-        amount: amount,
-        paymentMethod: _paymentMethod,
-        notes: _notesController.text.isNotEmpty ? _notesController.text : null,
-      );
+      final db = ref.read(appDatabaseProvider);
+      final dao = SupplierDriftDao(db);
 
-      // تحديث البيانات
+      // Calculate new balance
+      final currentBalance = await dao.getBalance(widget.supplierId);
+      final newBalance = currentBalance - amount;
+
+      // Create payment and ledger entry in a transaction
+      await db.transaction(() async {
+        // Insert payment
+        await db.into(db.supplierPayments).insert(
+              SupplierPaymentsCompanion.insert(
+                id: const Uuid().v4(),
+                supplierId: widget.supplierId,
+                amount: amount,
+                paymentMethod: Value(_paymentMethod),
+                notes: Value(_notesController.text.isNotEmpty
+                    ? _notesController.text
+                    : null),
+                createdAt: DateTime.now(),
+              ),
+            );
+
+        // Insert ledger entry
+        await db.into(db.supplierLedger).insert(
+              SupplierLedgerCompanion.insert(
+                id: const Uuid().v4(),
+                supplierId: widget.supplierId,
+                referenceId: const Uuid().v4(),
+                referenceType: 'payment',
+                amount: -amount,
+                balanceAfter: newBalance,
+                description: _notesController.text.isNotEmpty
+                    ? 'دفعة: ${_notesController.text}'
+                    : 'دفعة نقدية',
+                createdAt: DateTime.now(),
+              ),
+            );
+      });
+
+      // Refresh data
       ref.invalidate(supplierAccountProvider(widget.supplierId));
 
-      // مسح الحقول
+      // Clear fields
       _amountController.clear();
       _notesController.clear();
       _paymentMethod = 'cash';

@@ -1,8 +1,9 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:sqflite/sqflite.dart';
-import '../../../../database/database_helper.dart';
+import 'package:drift/drift.dart' show Variable;
+import '../../../../core/database/drift/database_provider.dart';
+import '../../../../core/database/drift/app_database.dart';
 
 /// نموذج بيانات تحليل سرعة الاستهلاك
 class ProductVelocityData {
@@ -101,45 +102,46 @@ class SmartStockSettings {
 
 /// خدمة تحليل سرعة الاستهلاك
 class ProductVelocityAnalyzer {
-  final DatabaseHelper _dbHelper = DatabaseHelper();
+  final AppDatabase _db;
+
+  ProductVelocityAnalyzer(this._db);
 
   /// تحليل سرعة استهلاك منتج واحد
   Future<ProductVelocityData> analyzeProduct(String productId,
       {int daysBack = 30}) async {
-    final db = await _dbHelper.database;
-
     // جلب بيانات المنتج
-    final productResult = await db.query(
-      'products',
-      where: 'id = ?',
-      whereArgs: [productId],
-      limit: 1,
-    );
+    final productResult = await _db.customSelect(
+      'SELECT * FROM products WHERE id = ? LIMIT 1',
+      variables: [Variable.withString(productId)],
+    ).get();
 
     if (productResult.isEmpty) {
       throw Exception('المنتج غير موجود');
     }
 
-    final product = productResult.first;
+    final product = productResult.first.data;
     final productName = product['name'] as String;
     final currentMinStock =
         (product['min_stock_level'] as num?)?.toDouble() ?? 5.0;
 
     // جلب بيانات المبيعات للفترة
     final fromDate = DateTime.now().subtract(Duration(days: daysBack));
-    final salesData = await db.rawQuery('''
+    final salesData = await _db.customSelect('''
       SELECT 
-        date,
-        SUM(quantity) as total_quantity,
+        s.date,
+        SUM(si.quantity) as total_quantity,
         COUNT(*) as transaction_count
       FROM sale_items si
       INNER JOIN sales s ON si.sale_id = s.id
       WHERE si.product_id = ?
         AND s.date >= ?
         AND s.status = 'completed'
-      GROUP BY date(si.sale_id)
+      GROUP BY date(s.date)
       ORDER BY s.date DESC
-    ''', [productId, fromDate.toIso8601String()]);
+    ''', variables: [
+      Variable.withString(productId),
+      Variable.withString(fromDate.toIso8601String()),
+    ]).get();
 
     // حساب المتوسط اليومي
     double totalQuantity = 0;
@@ -148,8 +150,12 @@ class ProductVelocityAnalyzer {
     final dailySales = <double>[];
 
     for (final row in salesData) {
-      final quantity = (row['total_quantity'] as num?)?.toDouble() ?? 0;
-      final date = DateTime.parse(row['date'] as String);
+      final quantity = (row.data['total_quantity'] as num?)?.toDouble() ?? 0;
+      final dateStr = row.data['date'] as String?;
+      if (dateStr == null) continue;
+
+      final date = DateTime.tryParse(dateStr);
+      if (date == null) continue;
 
       totalQuantity += quantity;
       daysWithSales++;
@@ -185,26 +191,28 @@ class ProductVelocityAnalyzer {
             .roundToDouble());
 
     // جلب تاريخ آخر بيع
-    final lastSaleResult = await db.rawQuery('''
+    final lastSaleResult = await _db.customSelect('''
       SELECT MAX(s.date) as last_sale
       FROM sale_items si
       INNER JOIN sales s ON si.sale_id = s.id
       WHERE si.product_id = ? AND s.status = 'completed'
-    ''', [productId]);
+    ''', variables: [Variable.withString(productId)]).get();
 
-    final lastSaleDate =
-        lastSaleResult.isNotEmpty && lastSaleResult.first['last_sale'] != null
-            ? DateTime.parse(lastSaleResult.first['last_sale'] as String)
-            : null;
+    final lastSaleDate = lastSaleResult.isNotEmpty &&
+            lastSaleResult.first.data['last_sale'] != null
+        ? DateTime.parse(lastSaleResult.first.data['last_sale'] as String)
+        : null;
 
     // جلب عدد مرات نفاد المخزون
-    final stockoutResult = await db.rawQuery('''
+    final stockoutResult = await _db.customSelect('''
       SELECT COUNT(*) as count
       FROM product_sales_history
       WHERE product_id = ? AND quantity_sold = 0
-    ''', [productId]);
+    ''', variables: [Variable.withString(productId)]).get();
 
-    final stockoutCount = (stockoutResult.first['count'] as num?)?.toInt() ?? 0;
+    final stockoutCount = stockoutResult.isNotEmpty
+        ? (stockoutResult.first.data['count'] as num?)?.toInt() ?? 0
+        : 0;
 
     return ProductVelocityData(
       productId: productId,
@@ -224,24 +232,23 @@ class ProductVelocityAnalyzer {
   /// تحليل جميع المنتجات
   Future<List<ProductVelocityData>> analyzeAllProducts(
       {int daysBack = 30}) async {
-    final db = await _dbHelper.database;
-
     // جلب جميع المنتجات النشطة
-    final products = await db.query(
-      'products',
-      where: 'is_active = 1',
-      columns: ['id'],
-    );
+    final products = await _db
+        .customSelect(
+          'SELECT id FROM products WHERE is_active = 1',
+        )
+        .get();
 
     final results = <ProductVelocityData>[];
 
     for (final product in products) {
       try {
-        final analysis =
-            await analyzeProduct(product['id'] as String, daysBack: daysBack);
+        final productId = product.data['id']?.toString() ?? '';
+        if (productId.isEmpty) continue;
+        final analysis = await analyzeProduct(productId, daysBack: daysBack);
         results.add(analysis);
       } catch (e) {
-        debugPrint('خطأ في تحليل المنتج ${product['id']}: $e');
+        debugPrint('خطأ في تحليل المنتج ${product.data['id']}: $e');
       }
     }
 
@@ -282,37 +289,40 @@ class ProductVelocityAnalyzer {
   /// تطبيق الحد الأدنى الذكي على منتج
   Future<void> applySmartMinStock(String productId,
       {bool autoApply = false}) async {
-    final db = await _dbHelper.database;
-
     final analysis = await analyzeProduct(productId);
 
     if (!autoApply || analysis.needsAdjustment) {
-      await db.update(
-        'products',
-        {
-          'min_stock_level': analysis.recommendedMinStock,
-          'avg_daily_sales': analysis.avgDailySales,
-          'sales_velocity': analysis.velocityCategory,
-          'last_sale_date': analysis.lastSaleDate?.toIso8601String(),
-        },
-        where: 'id = ?',
-        whereArgs: [productId],
-      );
+      await _db.customStatement('''
+        UPDATE products SET
+          min_stock_level = ?,
+          avg_daily_sales = ?,
+          sales_velocity = ?,
+          last_sale_date = ?,
+          updated_at = ?
+        WHERE id = ?
+      ''', [
+        analysis.recommendedMinStock,
+        analysis.avgDailySales,
+        analysis.velocityCategory,
+        analysis.lastSaleDate?.toIso8601String(),
+        DateTime.now().toIso8601String(),
+        productId,
+      ]);
 
       // تحديث إعدادات الحد الأدنى الذكي
-      await db.insert(
-        'smart_stock_settings',
-        {
-          'product_id': productId,
-          'base_min_stock': 5.0,
-          'velocity_multiplier':
-              _getVelocityMultiplier(analysis.velocityCategory),
-          'seasonal_factor': 1.0,
-          'last_calculated_at': DateTime.now().toIso8601String(),
-          'calculated_min_stock': analysis.recommendedMinStock,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await _db.customStatement('''
+        INSERT OR REPLACE INTO smart_stock_settings 
+        (product_id, base_min_stock, velocity_multiplier, seasonal_factor, 
+         last_calculated_at, calculated_min_stock)
+        VALUES (?, ?, ?, ?, ?, ?)
+      ''', [
+        productId,
+        5.0,
+        _getVelocityMultiplier(analysis.velocityCategory),
+        1.0,
+        DateTime.now().toIso8601String(),
+        analysis.recommendedMinStock,
+      ]);
     }
   }
 
@@ -347,75 +357,73 @@ class ProductVelocityAnalyzer {
   /// تسجيل عملية بيع في التاريخ
   Future<void> recordSale(
       String productId, double quantity, DateTime date) async {
-    final db = await _dbHelper.database;
-
-    await db.insert(
-        'product_sales_history',
-        {
-          'id': '${productId}_${date.millisecondsSinceEpoch}',
-          'product_id': productId,
-          'date': date.toIso8601String(),
-          'quantity_sold': quantity,
-          'day_of_week': date.weekday,
-          'is_weekend': date.weekday == DateTime.friday ||
-                  date.weekday == DateTime.saturday
-              ? 1
-              : 0,
-        },
-        conflictAlgorithm: ConflictAlgorithm.ignore);
+    await _db.customStatement('''
+      INSERT OR IGNORE INTO product_sales_history
+      (id, product_id, date, quantity_sold, day_of_week, is_weekend)
+      VALUES (?, ?, ?, ?, ?, ?)
+    ''', [
+      '${productId}_${date.millisecondsSinceEpoch}',
+      productId,
+      date.toIso8601String(),
+      quantity,
+      date.weekday,
+      (date.weekday == DateTime.friday || date.weekday == DateTime.saturday)
+          ? 1
+          : 0,
+    ]);
   }
 
   /// الحصول على إعدادات المنتج
   Future<SmartStockSettings?> getSmartSettings(String productId) async {
-    final db = await _dbHelper.database;
-
-    final result = await db.query(
-      'smart_stock_settings',
-      where: 'product_id = ?',
-      whereArgs: [productId],
-      limit: 1,
-    );
+    final result = await _db.customSelect('''
+      SELECT * FROM smart_stock_settings WHERE product_id = ? LIMIT 1
+    ''', variables: [Variable.withString(productId)]).get();
 
     if (result.isEmpty) return null;
-    return SmartStockSettings.fromMap(result.first);
+    return SmartStockSettings.fromMap(result.first.data);
   }
 
   /// تحديث العوامل الموسمية
   Future<void> updateSeasonalFactors(Map<String, double> seasonalData) async {
-    final db = await _dbHelper.database;
-
     for (final entry in seasonalData.entries) {
-      await db.insert(
-        'smart_stock_settings',
-        {
-          'product_id': entry.key,
-          'seasonal_factor': entry.value,
-          'last_calculated_at': DateTime.now().toIso8601String(),
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await _db.customStatement('''
+        INSERT OR REPLACE INTO smart_stock_settings
+        (product_id, seasonal_factor, last_calculated_at)
+        VALUES (?, ?, ?)
+      ''', [
+        entry.key,
+        entry.value,
+        DateTime.now().toIso8601String(),
+      ]);
     }
   }
 
   /// تنظيف البيانات القديمة (أقدم من 90 يوم)
   Future<int> cleanupOldData({int daysToKeep = 90}) async {
-    final db = await _dbHelper.database;
     final cutoffDate = DateTime.now().subtract(Duration(days: daysToKeep));
 
-    final result = await db.delete(
-      'product_sales_history',
-      where: 'date < ?',
-      whereArgs: [cutoffDate.toIso8601String()],
-    );
+    // نحتاج استخدام customSelect لمعرفة عدد الصفوف المتأثرة
+    final countBefore = await _db.customSelect('''
+      SELECT COUNT(*) as count FROM product_sales_history WHERE date < ?
+    ''', variables: [Variable.withString(cutoffDate.toIso8601String())]).get();
 
-    return result;
+    final deletedCount = countBefore.isNotEmpty
+        ? (countBefore.first.data['count'] as int?) ?? 0
+        : 0;
+
+    await _db.customStatement('''
+      DELETE FROM product_sales_history WHERE date < ?
+    ''', [cutoffDate.toIso8601String()]);
+
+    return deletedCount;
   }
 }
 
 /// Provider للمحلل
 final productVelocityAnalyzerProvider =
     Provider<ProductVelocityAnalyzer>((ref) {
-  return ProductVelocityAnalyzer();
+  final db = ref.watch(appDatabaseProvider);
+  return ProductVelocityAnalyzer(db);
 });
 
 /// Provider لتحليل جميع المنتجات

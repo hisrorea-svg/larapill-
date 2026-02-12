@@ -1,13 +1,25 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/domain.dart';
-import '../../data/data.dart';
+import '../../data/repositories/sync_repository_impl.dart';
+import '../../../../core/database/drift/daos/daos.dart';
+import '../../../../features/pos/data/repositories/sales_repository.dart';
 
 // ============ Repository Providers ============
 
 /// Provider for SyncRepository
+///
+/// Architecture: Repository → DAO → Database
 final syncRepositoryProvider = Provider<SyncRepository>((ref) {
-  return SyncRepositoryImpl();
+  final syncDao = ref.watch(syncDriftDaoProvider);
+  final productDao = ref.watch(productDriftDaoProvider);
+  final salesRepository = ref.watch(salesRepositoryProvider);
+
+  return SyncRepositoryImpl(
+    syncDao: syncDao,
+    productDao: productDao,
+    salesRepository: salesRepository,
+  );
 });
 
 // ============ Use Case Providers ============

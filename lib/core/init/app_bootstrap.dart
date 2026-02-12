@@ -1,54 +1,289 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:intl/date_symbol_data_local.dart';
+// Note: Path imports moved to database helper classes
 
-import '../../database/database_helper.dart';
 import '../../core/config/pharmacy_info.dart';
 import '../../features/auth/data/repositories/user_service.dart';
+import '../../features/auth/data/services/authentication_service.dart';
 import '../services/meds_data_service.dart';
+import '../services/audit_logger.dart';
+import '../services/pharmacy_settings_service.dart';
 import '../storage/hive_storage.dart';
-import '../../features/auth/domain/models/user.dart';
-// Note: SmartNotificationService removed - using Clean Architecture notifications
+import '../../features/auth/domain/entities/user.dart';
+import '../database/drift/app_database.dart';
+import '../database/drift/daos/daos.dart';
+import '../../features/auth/data/services/session_service.dart';
+import '../database/drift/database_provider.dart';
+import 'package:drift/drift.dart';
 
-/// كلاس مسؤول عن تهيئة التطبيق وكل ما يلزم قبل تشغيل الواجهة
+// ============================================================================
+// 🚀 AppBootstrap - Lazy Initialization Pattern
+// ============================================================================
+
+/// حالة التهيئة للمتابعة
+enum BootstrapStatus {
+  idle,
+  initializing,
+  criticalDone,      // ✅ الخدمات الحرجة جاهزة (يمكن عرض UI)
+  backgroundRunning, // 🔄 الخدمات الثقيلة تعمل في الخلفية
+  completed,         // ✅ جميع الخدمات جاهزة
+  error,
+}
+
+/// نتيجة التهيئة
+class BootstrapResult {
+  final BootstrapStatus status;
+  final String? error;
+  final Duration elapsedTime;
+
+  const BootstrapResult({
+    required this.status,
+    this.error,
+    required this.elapsedTime,
+  });
+}
+
+/// كلاس مسؤول عن تهيئة التطبيق بشكل Lazy وغير متزامن
+/// 
+/// الميزات:
+/// - ✅ تهيئة الخدمات الحرجة فوراً (UI Thread)
+/// - ✅ تهيئة الخدمات الثقيلة (UI Thread - plugins لا تعمل في isolates)
+/// - ✅ عدم حظر UI أثناء التهيئة
+/// - ✅ إمكانية عرض الواجهة قبل اكتمال جميع الخدمات
 class AppBootstrap {
-  /// الدالة الرئيسية للتهيئة
-  static Future<void> init() async {
+  static final _initCompleter = Completer<BootstrapResult>();
+  static bool _isInitializing = false;
+  static final _criticalCompleter = Completer<void>();
+  static DateTime? _initStartTime;
+
+  // ==========================================================================
+  // Public API
+  // ==========================================================================
+
+  /// ✅ الدالة الرئيسية للتهيئة - لا تحظر UI
+  /// 
+  /// تقوم بـ:
+  /// 1. تهيئة الخدمات الحرجة فوراً (UI Thread)
+  /// 2. بدء تهيئة الخدمات الثقيلة في Isolate
+  static Future<BootstrapResult> init() async {
+    if (_isInitializing) return _initCompleter.future;
+    _isInitializing = true;
+    _initStartTime = DateTime.now();
+
+    developer.log('🚀 بدء التهيئة المتقدمة...', name: 'AppBootstrap');
+
     try {
-      // 1. تهيئة Flutter Bindings
-      WidgetsFlutterBinding.ensureInitialized();
+      // ✅ الخطوة 1: تهيئة حرجة فورية (UI Thread)
+      await _initCriticalServices();
+      
+      // ✅ الخطوة 2: إشارة بأن الخدمات الحرجة جاهزة
+      _criticalCompleter.complete();
+      developer.log('✅ الخدمات الحرجة جاهزة - يمكن عرض UI', 
+          name: 'AppBootstrap');
 
-      // ✅ استخدام الخطوط المحلية فقط (بدون تحميل من الإنترنت)
-      GoogleFonts.config.allowRuntimeFetching = false;
+      // ✅ الخطوة 3: تهيئة الخدمات الثقيلة في Isolate
+      _initHeavyServicesInBackground();
 
-      // 2. تهيئة بيانات التاريخ والوقت (intl)
-      await initializeDateFormatting('ar', null);
-      await initializeDateFormatting('en', null);
-
-      // 3. إعداد معالجة الأخطاء
-      _setupErrorHandling();
-
-      // 4. تهيئة FFI للويندوز/لينكس
-      _setupDesktopSupport();
-
-      // 5. إعدادات النظام (System UI)
-      await _setupSystemUI();
-
-      // 6. تهيئة قاعدة البيانات والخدمات
-      await _initServices();
+      return await _initCompleter.future;
     } catch (e, stack) {
-      developer.log('❌ خطأ كارثي أثناء تهيئة التطبيق',
+      developer.log('❌ خطأ كارثي أثناء التهيئة',
           name: 'AppBootstrap', error: e, stackTrace: stack);
-      // يمكن هنا إضافة منطق لإظهار شاشة خطأ للمستخدم في حال فشل التهيئة تماماً
-      rethrow;
+      
+      final result = BootstrapResult(
+        status: BootstrapStatus.error,
+        error: e.toString(),
+        elapsedTime: DateTime.now().difference(_initStartTime!),
+      );
+      
+      if (!_criticalCompleter.isCompleted) {
+        _criticalCompleter.completeError(e);
+      }
+      if (!_initCompleter.isCompleted) {
+        _initCompleter.complete(result);
+      }
+      
+      return result;
     }
   }
+
+  /// ✅ الانتظار حتى تكون الخدمات الحرجة جاهزة (للـ Splash Screen)
+  static Future<void> get waitForCritical => _criticalCompleter.future;
+
+  /// ✅ الانتظار حتى تكتمل جميع الخدمات
+  static Future<BootstrapResult> get waitForComplete => _initCompleter.future;
+
+  /// ✅ فحص هل التهيئة اكتملت
+  static bool get isComplete => _initCompleter.isCompleted;
+
+  /// ✅ فحص هل الخدمات الحرجة جاهزة
+  static bool get isCriticalReady => _criticalCompleter.isCompleted;
+
+  // ==========================================================================
+  // Private Implementation - Critical Services (UI Thread)
+  // ==========================================================================
+
+  /// ✅ تهيئة الخدمات الحرجة فقط - تؤثر على UI
+  static Future<void> _initCriticalServices() async {
+    final stopwatch = Stopwatch()..start();
+
+    // 1. تعطيل تحميل الخطوط من الإنترنت
+    GoogleFonts.config.allowRuntimeFetching = false;
+
+    // 2. إعداد معالجة الأخطاء
+    _setupErrorHandling();
+
+    // 3. تهيئة FFI للويندوز/لينكس (سريع)
+    _setupDesktopSupport();
+
+    // 4. إعدادات النظام (System UI)
+    await _setupSystemUI();
+
+    stopwatch.stop();
+    developer.log(
+      '✅ Critical services initialized in ${stopwatch.elapsedMilliseconds}ms',
+      name: 'AppBootstrap',
+    );
+  }
+
+  // ==========================================================================
+  // Private Implementation - Heavy Services (Background on UI Thread)
+  // ==========================================================================
+
+  /// ✅ تهيئة الخدمات الثقيلة (على Main Isolate)
+  /// 
+  /// ملاحظة: لا يمكن استخدام Isolate لأن Flutter plugins لا تعمل في isolates
+  static void _initHeavyServicesInBackground() {
+    // تشغيل على Main Isolate مباشرة (الـ plugins تتطلب UI thread)
+    _heavyInitialization().then((result) {
+      _handleHeavyInitComplete(result);
+    }).catchError((error) {
+      _handleHeavyInitError(error);
+    });
+  }
+
+  /// ✅ هذه الدالة تعمل على Main Isolate
+  /// 
+  /// تحذير: Flutter plugins لا تعمل في isolates
+  static Future<Map<String, dynamic>> _heavyInitialization() async {
+    final stopwatch = Stopwatch()..start();
+    final results = <String, dynamic>{};
+
+    try {
+      developer.log('🔄 Heavy initialization started', 
+          name: 'AppBootstrap.Background');
+
+      // 1. تهيئة intl
+      await initializeDateFormatting('ar', null);
+      await initializeDateFormatting('en', null);
+      results['intl'] = true;
+      
+      // ✅ السماح لـ UI بالتحديث
+      await Future.delayed(Duration.zero);
+
+      // 2. تهيئة Hive Storage
+      await HiveStorage.init();
+      results['hive'] = true;
+      developer.log('✅ Hive initialized', 
+          name: 'AppBootstrap.Background');
+      
+      // ✅ السماح لـ UI بالتحديث
+      await Future.delayed(Duration.zero);
+
+      // 3. تهيئة قاعدة البيانات
+      final db = DatabaseProviderHelper.instance;
+      await db.ensureInitialized();
+      results['database'] = true;
+      developer.log('✅ Database initialized', 
+          name: 'AppBootstrap.Background');
+      
+      // ✅ السماح لـ UI بالتحديث
+      await Future.delayed(Duration.zero);
+
+      // 4. تهيئة DAOs
+      _initDaoServicesInIsolate(db);
+      results['daos'] = true;
+
+      // 5. تحميل معلومات الصيدلية
+      await PharmacyInfo.loadFromDatabase();
+      results['pharmacy_info'] = true;
+
+      // 6. تهيئة المستخدمين (إذا لزم الأمر)
+      await _initializeDefaultUserInIsolate(db);
+      results['users'] = true;
+
+      // 7. تحميل بيانات الأدوية (Lazy - لا تُحمل في الذاكرة)
+      await MedsDataService.init(); // فقط فتح الـ index
+      results['meds'] = true;
+
+      stopwatch.stop();
+      results['elapsed_ms'] = stopwatch.elapsedMilliseconds;
+      results['success'] = true;
+
+      developer.log(
+        '✅ Heavy initialization completed in ${stopwatch.elapsedMilliseconds}ms',
+        name: 'AppBootstrap',
+      );
+
+      return results;
+    } catch (e, stack) {
+      developer.log('❌ Error in background init: $e',
+          name: 'AppBootstrap', error: e, stackTrace: stack);
+      return {
+        'success': false,
+        'error': e.toString(),
+        'stack': stack.toString(),
+        'elapsed_ms': stopwatch.elapsedMilliseconds,
+      };
+    }
+  }
+
+  /// ✅ معالجة اكتمال التهيئة الثقيلة
+  static void _handleHeavyInitComplete(Map<String, dynamic> result) {
+    final elapsed = DateTime.now().difference(_initStartTime!);
+
+    if (result['success'] == true) {
+      developer.log(
+        '🎉 All services ready! Total time: ${elapsed.inMilliseconds}ms '
+        '(Background: ${result['elapsed_ms']}ms)',
+        name: 'AppBootstrap',
+      );
+
+      _initCompleter.complete(BootstrapResult(
+        status: BootstrapStatus.completed,
+        elapsedTime: elapsed,
+      ));
+    } else {
+      _initCompleter.complete(BootstrapResult(
+        status: BootstrapStatus.error,
+        error: result['error'],
+        elapsedTime: elapsed,
+      ));
+    }
+  }
+
+  /// ✅ معالجة خطأ التهيئة الثقيلة
+  static void _handleHeavyInitError(dynamic error) {
+    final elapsed = DateTime.now().difference(_initStartTime!);
+    
+    developer.log('❌ Heavy init error: $error', name: 'AppBootstrap');
+    
+    _initCompleter.complete(BootstrapResult(
+      status: BootstrapStatus.error,
+      error: error.toString(),
+      elapsedTime: elapsed,
+    ));
+  }
+
+  // ==========================================================================
+  // Helper Methods
+  // ==========================================================================
 
   static void _setupErrorHandling() {
     FlutterError.onError = (FlutterErrorDetails details) {
@@ -83,121 +318,143 @@ class AppBootstrap {
     }
   }
 
-  static Future<void> _initServices() async {
-    developer.log('🚀 بدء تهيئة الخدمات...', name: 'AppBootstrap');
+  // ==========================================================================
+  // DAO Services (يعمل في Isolate)
+  // ==========================================================================
 
-    // 🗄️ تهيئة Hive Storage أولاً (قبل كل شيء)
-    await HiveStorage.init();
+  static void _initDaoServicesInIsolate(AppDatabase database) {
+    // Initialize AuditLogger with its DAO
+    final auditLogDao = AuditLogDriftDao(database);
+    AuditLogger.init(auditLogDao);
 
-    final dbHelper = DatabaseHelper();
-    await dbHelper.initializeDatabase();
+    // Initialize SessionService with its DAO
+    final usersDao = UsersDriftDao(database);
+    SessionService.init(usersDao);
 
-    developer.log('📋 تحميل معلومات الصيدلية...', name: 'AppBootstrap');
-    await PharmacyInfo.loadFromDatabase();
+    // Initialize UserService with its DAO
+    UserService.init(usersDao);
 
-    developer.log('👤 تهيئة نظام المستخدمين...', name: 'AppBootstrap');
-    await _initializeDefaultUser();
+    // Initialize AuthenticationService with its DAO
+    AuthenticationService.init(usersDao);
 
-    final stats = await dbHelper.getDatabaseStats();
-    developer.log(
-        '📊 المنتجات: ${stats['products']}, المبيعات: ${stats['sales']}, الموردين: ${stats['suppliers']}',
-        name: 'AppBootstrap');
-
-    developer.log('🎉 قاعدة البيانات وإعدادات الصيدلية جاهزة!',
-        name: 'AppBootstrap');
-
-    // تحميل بيانات الأدوية
-    await MedsDataService.loadMeds();
-
-    // ✅ نظام الإشعارات يعمل عبر Clean Architecture
-    // يتم تفعيل startupNotificationCheckProvider تلقائياً عند تحميل الـ ProviderScope
-    developer.log('🔔 نظام الإشعارات جاهز (Clean Architecture)',
-        name: 'AppBootstrap');
+    // Initialize PharmacySettingsService with its DAO
+    final settingsDao = SettingsDriftDao(database);
+    PharmacySettingsService.init(settingsDao);
   }
 
-  // 🔥 دالة إنشاء المستخدم الافتراضي
-  static Future<void> _initializeDefaultUser() async {
+  // ==========================================================================
+  // User Initialization (يعمل في Isolate)
+  // ==========================================================================
+
+  static Future<void> _initializeDefaultUserInIsolate(AppDatabase db) async {
     try {
-      developer.log('👤 فحص المستخدمين الموجودين...', name: 'UserInit');
+      final usersDao = UsersDriftDao(db);
+      final users = await usersDao.getAllUsers();
 
-      final users = await UserService.getAllUsers();
-
-      // إنشاء المدير الافتراضي دائماً إذا لم يوجد
-      if (users.isEmpty || !users.any((u) => u.username == 'admin')) {
-        developer.log('👤 إنشاء المدير الافتراضي...', name: 'UserInit');
-
-        final result = await UserService.createUser(
-          username: 'admin',
-          fullName: 'مدير النظام',
-          password: 'admin123',
-          role: UserRole.admin,
-          email: 'admin@larapill.com',
-          phone: '0501234567',
-          permissions: ['all'],
-          createdBy: 'system',
-        );
-
-        if (result['success']) {
-          developer.log('✅ تم إنشاء المدير الافتراضي بنجاح', name: 'UserInit');
-          developer.log('📝 البيانات: admin / admin123', name: 'UserInit');
-
-          // إنشاء بعض المستخدمين التجريبيين
-          await _createDemoUsers();
-        } else {
-          developer.log('❌ فشل في إنشاء المدير الافتراضي: ${result['error']}',
-              name: 'UserInit');
-        }
-      } else {
-        developer.log('👥 يوجد ${users.length} مستخدم في النظام',
-            name: 'UserInit');
+      if (users.isEmpty) {
+        developer.log('👤 إنشاء المستخدمين الافتراضيين...', 
+            name: 'AppBootstrap.Background');
+        await _batchCreateDefaultUsers(usersDao);
       }
-
-      // إحصائيات المستخدمين
-      final userStats = await UserService.getUserStats();
-      developer.log(
-          '📊 إحصائيات - المجموع: ${userStats['total']}, النشط: ${userStats['active']}, المدراء: ${userStats['admins']}',
-          name: 'UserInit');
     } catch (e) {
-      developer.log('❌ خطأ في تهيئة المستخدمين: $e', name: 'UserInit');
+      developer.log('⚠️ User init warning: $e', name: 'AppBootstrap.Background');
     }
   }
 
-  // إنشاء مستخدمين تجريبيين
-  static Future<void> _createDemoUsers() async {
-    try {
-      // مدير
-      await UserService.createUser(
+  static Future<void> _batchCreateDefaultUsers(UsersDriftDao dao) async {
+    final now = DateTime.now();
+    final users = [
+      _createUserCompanion(
+        username: 'admin',
+        fullName: 'مدير النظام',
+        passwordHash: _hashPassword('admin123'),
+        role: UserRole.admin,
+        email: 'admin@larapill.com',
+        phone: '0501234567',
+        permissions: ['all'],
+        now: now,
+      ),
+      _createUserCompanion(
         username: 'manager',
         fullName: 'أحمد محمد - مدير',
-        password: '123456',
+        passwordHash: _hashPassword('123456'),
         role: UserRole.manager,
         email: 'manager@larapill.com',
-        createdBy: 'system',
-      );
-
-      // صيدلي
-      await UserService.createUser(
+        now: now,
+      ),
+      _createUserCompanion(
         username: 'pharmacist',
         fullName: 'فاطمة علي - صيدلي',
-        password: '123456',
+        passwordHash: _hashPassword('123456'),
         role: UserRole.pharmacist,
         email: 'pharmacist@larapill.com',
-        createdBy: 'system',
-      );
-
-      // كاشير
-      await UserService.createUser(
+        now: now,
+      ),
+      _createUserCompanion(
         username: 'cashier',
         fullName: 'محمد خالد - كاشير',
-        password: '123456',
+        passwordHash: _hashPassword('123456'),
         role: UserRole.cashier,
-        createdBy: 'system',
-      );
+        email: 'cashier@larapill.com',
+        now: now,
+      ),
+    ];
 
-      developer.log('✅ تم إنشاء المستخدمين التجريبيين', name: 'UserInit');
-    } catch (e) {
-      developer.log('❌ خطأ في إنشاء المستخدمين التجريبيين: $e',
-          name: 'UserInit');
+    // ✅ Batch insert في عملية واحدة
+    await dao.batchInsertUsers(users);
+    
+    developer.log('✅ تم إنشاء ${users.length} مستخدمين', 
+        name: 'AppBootstrap.Isolate');
+  }
+
+  static UsersCompanion _createUserCompanion({
+    required String username,
+    required String fullName,
+    required String passwordHash,
+    required UserRole role,
+    required DateTime now,
+    String? email,
+    String? phone,
+    List<String>? permissions,
+  }) {
+    return UsersCompanion.insert(
+      id: _generateId(),
+      username: username,
+      fullName: fullName,
+      passwordHash: passwordHash,
+      role: Value(role.name),
+      email: Value(email),
+      phone: Value(phone),
+      permissions: Value(permissions?.join(',') ?? _getDefaultPermissions(role)),
+      isActive: const Value(true),
+      forcePasswordChange: const Value(false),
+      createdAt: now,
+      updatedAt: now,
+      createdBy: const Value('system'),
+    );
+  }
+
+  static String _hashPassword(String password) {
+    // TODO: استخدم نفس منطق PasswordHasher
+    return password; // مؤقتاً - يجب استبداله بالتشفير الحقيقي
+  }
+
+  static final _random = Random();
+
+  static String _generateId() {
+    return '${DateTime.now().millisecondsSinceEpoch}_${_random.nextInt(10000)}';
+  }
+
+  static String _getDefaultPermissions(UserRole role) {
+    switch (role) {
+      case UserRole.admin:
+        return 'all';
+      case UserRole.manager:
+        return 'sales,inventory,reports,suppliers,users';
+      case UserRole.pharmacist:
+        return 'sales,inventory,reports';
+      case UserRole.cashier:
+        return 'sales';
     }
   }
 }

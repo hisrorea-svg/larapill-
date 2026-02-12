@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:month_picker_dialog/month_picker_dialog.dart';
+import '../../../../core/widgets/custom_month_picker.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../data/datasources/local/product_dao.dart';
+import '../../data/repositories/product_repository.dart';
 import '../../../../core/models/shared/product.dart';
 import '../../../../core/models/shared/medicine_unit.dart';
 import '../providers/inventory_providers.dart';
@@ -26,7 +27,6 @@ class ProfessionalEditProductDialog extends ConsumerStatefulWidget {
 class _ProfessionalEditProductDialogState
     extends ConsumerState<ProfessionalEditProductDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _productDao = ProductDAO();
 
   bool _isLoading = true;
   bool _isSaving = false;
@@ -39,6 +39,10 @@ class _ProfessionalEditProductDialogState
   final _barcodeController = TextEditingController();
   final _currentStockController = TextEditingController();
   final _minStockController = TextEditingController();
+
+  // Price controllers for units
+  final Map<MedicineUnit, TextEditingController> _sellingPriceControllers = {};
+  final Map<MedicineUnit, TextEditingController> _costPriceControllers = {};
 
   // Dates
   DateTime? _expiryDate;
@@ -62,7 +66,8 @@ class _ProfessionalEditProductDialogState
     try {
       setState(() => _isLoading = true);
 
-      final product = await _productDao.findById(widget.productId);
+      final productRepo = ref.read(productRepositoryProvider);
+      final product = await productRepo.getProductById(widget.productId);
 
       if (product == null) {
         throw Exception('المنتج غير موجود');
@@ -90,6 +95,8 @@ class _ProfessionalEditProductDialogState
 
         // Units data
         _unitsData = {};
+        _sellingPriceControllers.clear();
+        _costPriceControllers.clear();
         product.unitInfo.forEach((unit, info) {
           _unitsData[unit] = {
             'sellingPrice': info.sellingPrice,
@@ -98,6 +105,11 @@ class _ProfessionalEditProductDialogState
             'description': info.description,
             'quantity': info.quantity ?? 0,
           };
+          // Create controllers for prices
+          _sellingPriceControllers[unit] =
+              TextEditingController(text: info.sellingPrice.toString());
+          _costPriceControllers[unit] =
+              TextEditingController(text: info.costPrice.toString());
         });
 
         _isLoading = false;
@@ -120,102 +132,98 @@ class _ProfessionalEditProductDialogState
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       child: Container(
         width: 700,
-        constraints: const BoxConstraints(maxHeight: 700),
+        constraints: const BoxConstraints(maxHeight: 600),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
-            : Column(
-                children: [
-                  _buildHeader(),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(24),
-                      child: Form(
-                        key: _formKey,
+            : Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildHeader(),
+                    const SizedBox(height: 16),
+                    Flexible(
+                      child: SingleChildScrollView(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _buildBasicInfoSection(),
-                            const SizedBox(height: 24),
-                            _buildCategoryAndUnitSection(),
-                            const SizedBox(height: 24),
+                            const SizedBox(height: 20),
                             _buildStockSection(),
-                            const SizedBox(height: 24),
-                            _buildDatesSection(),
-                            const SizedBox(height: 24),
-                            _buildUnitsSection(),
+                            const SizedBox(height: 20),
+                            _buildExpiryDateSection(),
+                            const SizedBox(height: 20),
+                            _buildUnitsSection(), // ✅ قسم الوحدات والأسعار
                           ],
                         ),
                       ),
                     ),
-                  ),
-                  _buildFooter(),
-                ],
+                    const SizedBox(height: 16),
+                    _buildFooter(),
+                  ],
+                ),
               ),
       ),
     );
   }
 
   Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.primary,
-            AppColors.primary.withValues(alpha: 0.8),
-          ],
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Icon(
+            Icons.edit,
+            color: AppColors.primary,
+            size: 22,
+          ),
         ),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.edit,
-              color: Colors.white,
-              size: 28,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'تعديل المنتج',
-                  style: TextStyle(
-                    fontFamily: 'Tajawal',
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'تعديل المنتج',
+                style: TextStyle(
+                  fontFamily: 'Tajawal',
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
                 ),
-                Text(
-                  _product?.name ?? '',
-                  style: TextStyle(
-                    fontFamily: 'Tajawal',
-                    fontSize: 13,
-                    color: Colors.white.withValues(alpha: 0.9),
-                  ),
+              ),
+              Text(
+                _product?.name ?? '',
+                style: const TextStyle(
+                  fontFamily: 'Tajawal',
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
                 ),
-              ],
-            ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
-          IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.close, color: Colors.white),
-            tooltip: 'إغلاق',
-          ),
-        ],
-      ),
+        ),
+        IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.close, color: AppColors.textSecondary),
+          tooltip: 'إغلاق',
+        ),
+      ],
     );
   }
 
@@ -272,47 +280,6 @@ class _ProfessionalEditProductDialogState
     );
   }
 
-  Widget _buildCategoryAndUnitSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionTitle('الوحدة الأساسية', Icons.inventory_2),
-        const SizedBox(height: 16),
-        DropdownButtonFormField<MedicineUnit>(
-          initialValue: _selectedBaseUnit,
-          decoration: InputDecoration(
-            labelText: 'الوحدة الأساسية *',
-            labelStyle: const TextStyle(
-              fontFamily: 'Tajawal',
-            ),
-            prefixIcon: const Icon(Icons.inventory_2),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            filled: true,
-            fillColor: AppColors.surface,
-          ),
-          items: MedicineUnit.values.map((unit) {
-            return DropdownMenuItem(
-              value: unit,
-              child: Text(
-                unit.arabicName,
-                style: const TextStyle(
-                  fontFamily: 'Tajawal',
-                ),
-              ),
-            );
-          }).toList(),
-          onChanged: (value) {
-            setState(() => _selectedBaseUnit = value);
-          },
-          validator: (value) =>
-              value == null ? 'الرجاء اختيار الوحدة الأساسية' : null,
-        ),
-      ],
-    );
-  }
-
   Widget _buildStockSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -346,23 +313,15 @@ class _ProfessionalEditProductDialogState
     );
   }
 
-  Widget _buildDatesSection() {
+  // ✅ قسم تاريخ الصلاحية فقط (بدون تاريخ الإنتاج)
+  Widget _buildExpiryDateSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle('التواريخ', Icons.calendar_today),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-                child: _buildDateField('تاريخ الإنتاج', _productionDate,
-                    (date) => setState(() => _productionDate = date))),
-            const SizedBox(width: 16),
-            Expanded(
-                child: _buildDateField('تاريخ الصلاحية', _expiryDate,
-                    (date) => setState(() => _expiryDate = date))),
-          ],
-        ),
+        _buildSectionTitle('تاريخ الصلاحية', Icons.calendar_today),
+        const SizedBox(height: 12),
+        _buildDateField('تاريخ الصلاحية', _expiryDate,
+            (date) => setState(() => _expiryDate = date)),
       ],
     );
   }
@@ -385,6 +344,13 @@ class _ProfessionalEditProductDialogState
   }
 
   Widget _buildUnitCard(MedicineUnit unit, Map<String, dynamic> data) {
+    final sellingPriceController = _sellingPriceControllers[unit];
+    final costPriceController = _costPriceControllers[unit];
+
+    if (sellingPriceController == null || costPriceController == null) {
+      return const SizedBox.shrink();
+    }
+
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 2,
@@ -432,7 +398,7 @@ class _ProfessionalEditProductDialogState
               children: [
                 Expanded(
                   child: TextFormField(
-                    initialValue: data['sellingPrice'].toString(),
+                    controller: sellingPriceController,
                     decoration: InputDecoration(
                       labelText: 'سعر البيع (د.ع)',
                       labelStyle: const TextStyle(
@@ -449,15 +415,12 @@ class _ProfessionalEditProductDialogState
                       fontFamily: 'Tajawal',
                     ),
                     keyboardType: TextInputType.number,
-                    onChanged: (value) {
-                      data['sellingPrice'] = double.tryParse(value) ?? 0.0;
-                    },
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextFormField(
-                    initialValue: data['costPrice'].toString(),
+                    controller: costPriceController,
                     decoration: InputDecoration(
                       labelText: 'سعر التكلفة (د.ع)',
                       labelStyle: const TextStyle(
@@ -474,9 +437,6 @@ class _ProfessionalEditProductDialogState
                       fontFamily: 'Tajawal',
                     ),
                     keyboardType: TextInputType.number,
-                    onChanged: (value) {
-                      data['costPrice'] = double.tryParse(value) ?? 0.0;
-                    },
                   ),
                 ),
               ],
@@ -568,7 +528,7 @@ class _ProfessionalEditProductDialogState
   }
 
   Future<void> _selectDate(Function(DateTime?) onSelected) async {
-    final selected = await showMonthPicker(
+    final selected = await showCustomMonthPicker(
       context: context,
       initialDate: DateTime.now(),
       firstDate: DateTime(2020),
@@ -669,9 +629,16 @@ class _ProfessionalEditProductDialogState
       final updatedUnitInfo = <MedicineUnit, UnitInfo>{};
 
       _unitsData.forEach((unit, data) {
+        final sellingPriceController = _sellingPriceControllers[unit];
+        final costPriceController = _costPriceControllers[unit];
+
         updatedUnitInfo[unit] = UnitInfo(
-          sellingPrice: data['sellingPrice'],
-          costPrice: data['costPrice'],
+          sellingPrice: sellingPriceController != null
+              ? double.tryParse(sellingPriceController.text) ?? 0.0
+              : data['sellingPrice'],
+          costPrice: costPriceController != null
+              ? double.tryParse(costPriceController.text) ?? 0.0
+              : data['costPrice'],
           conversionToBase: data['conversionToBase'],
           description: data['description'],
           quantity: data['quantity'],
@@ -698,47 +665,22 @@ class _ProfessionalEditProductDialogState
       );
 
       // حفظ في قاعدة البيانات
-      final success = await _productDao.update(updatedProduct);
+      final productRepo = ref.read(productRepositoryProvider);
+      await productRepo.updateProduct(updatedProduct);
 
       if (!mounted) return;
 
-      if (success) {
-        // تحديث الـ providers
-        ref.invalidate(productsProvider);
+      // تحديث الـ providers
+      ref.invalidate(productsProvider);
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'تم تحديث المنتج بنجاح ✓',
-              style: TextStyle(
-                fontFamily: 'Tajawal',
-              ),
-            ),
-            backgroundColor: AppColors.success,
-            duration: Duration(seconds: 2),
-          ),
-        );
+      AppToast.success(context, 'تم تحديث المنتج بنجاح ✓');
 
-        widget.onProductUpdated();
-        Navigator.pop(context);
-      } else {
-        throw Exception('فشل التحديث');
-      }
+      widget.onProductUpdated();
+      Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'فشل حفظ التغييرات: $e',
-            style: const TextStyle(
-              fontFamily: 'Tajawal',
-            ),
-          ),
-          backgroundColor: AppColors.error,
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      AppToast.error(context, 'فشل حفظ التغييرات: $e');
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);
@@ -754,6 +696,13 @@ class _ProfessionalEditProductDialogState
     _barcodeController.dispose();
     _currentStockController.dispose();
     _minStockController.dispose();
+    // Dispose price controllers
+    for (final controller in _sellingPriceControllers.values) {
+      controller.dispose();
+    }
+    for (final controller in _costPriceControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 }

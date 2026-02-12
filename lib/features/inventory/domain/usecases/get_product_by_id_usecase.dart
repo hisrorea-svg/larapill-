@@ -10,7 +10,7 @@ class GetProductByIdUseCase {
 
   /// Execute the use case
   /// Returns the product or null if not found
-  Future<Either<InventoryFailure, ProductEntity?>> call(int id) async {
+  Future<Either<InventoryFailure, ProductEntity?>> call(String id) async {
     return _repository.getProductById(id);
   }
 }

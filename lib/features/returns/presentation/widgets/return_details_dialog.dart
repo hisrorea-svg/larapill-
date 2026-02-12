@@ -170,8 +170,8 @@ class ReturnDetailsDialog extends StatelessWidget {
         children: [
           Text(
             label,
-            style:
-                const TextStyle(fontFamily: 'Tajawal', fontWeight: FontWeight.bold),
+            style: const TextStyle(
+                fontFamily: 'Tajawal', fontWeight: FontWeight.bold),
           ),
           const SizedBox(width: 8),
           Text(value,

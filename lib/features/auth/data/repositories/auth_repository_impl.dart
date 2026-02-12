@@ -1,5 +1,5 @@
 import '../../domain/repositories/auth_repository.dart';
-import '../../domain/models/user.dart';
+import '../../domain/entities/user.dart';
 import '../../domain/failures/auth_failure.dart';
 import '../../../../core/utils/either.dart';
 import '../services/authentication_service.dart';

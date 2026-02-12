@@ -66,7 +66,7 @@ class TestData {
   // ============ Product Entities ============
 
   static ProductEntity createProductEntity({
-    int? id,
+    String? id,
     String name = 'Test Product',
     String company = 'Test Company',
     String category = 'Tablets',
@@ -80,7 +80,7 @@ class TestData {
     bool isSynced = false,
   }) {
     return ProductEntity(
-      id: id ?? DateTime.now().millisecondsSinceEpoch,
+      id: id ?? DateTime.now().millisecondsSinceEpoch.toString(),
       name: name,
       company: company,
       category: category,
@@ -99,7 +99,7 @@ class TestData {
     return List.generate(
       count,
       (index) => createProductEntity(
-        id: index + 1,
+        id: 'product_${index + 1}',
         name: 'Product $index',
         barcode: 'barcode_$index',
         quantity: (index + 1) * 10,

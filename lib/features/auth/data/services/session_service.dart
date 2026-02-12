@@ -1,14 +1,24 @@
 import 'dart:convert';
 import 'dart:math';
-import '../../../../database/database_helper.dart';
+import '../../../../core/database/drift/daos/users_drift_dao.dart';
+import '../../../../core/database/drift/app_database.dart';
 import '../../../../core/storage/hive_storage.dart';
 import '../../../../core/utils/device_helpers.dart';
+import 'package:drift/drift.dart';
 import 'dart:developer' as developer;
 
 /// Session management service
 /// Handles login sessions, tokens, and session lifecycle
 class SessionService {
   static const String _sessionTokenKey = 'session_token';
+
+  // Static DAO reference for static methods (will need to be set by DI)
+  static UsersDriftDao? _dao;
+
+  /// Initialize with DAO from DI
+  static void init(UsersDriftDao dao) {
+    _dao = dao;
+  }
 
   /// Generate a secure random session token
   static String generateSessionToken() {
@@ -22,27 +32,26 @@ class SessionService {
     required String userId,
     required String username,
   }) async {
-    try {
-      final dbHelper = DatabaseHelper();
-      final db = await dbHelper.database;
+    if (_dao == null) {
+      throw Exception('SessionService not initialized. Call init() first.');
+    }
 
+    try {
       final sessionToken = generateSessionToken();
       final deviceInfo = await DeviceHelpers.getDeviceInfo();
       final ipAddress = await DeviceHelpers.getIpAddress();
+      final now = DateTime.now();
 
-      await db.insert(
-        'user_sessions',
-        {
-          'id': 'session_${DateTime.now().millisecondsSinceEpoch}_$userId',
-          'user_id': userId,
-          'session_token': sessionToken,
-          'login_time': DateTime.now().toIso8601String(),
-          'last_activity': DateTime.now().toIso8601String(),
-          'device_info': deviceInfo,
-          'ip_address': ipAddress,
-          'is_active': 1,
-        },
-      );
+      await _dao!.createSession(UserSessionsCompanion.insert(
+        id: 'session_${now.millisecondsSinceEpoch}_$userId',
+        userId: userId,
+        sessionToken: sessionToken,
+        loginTime: now,
+        lastActivity: now,
+        deviceInfo: Value(deviceInfo),
+        ipAddress: Value(ipAddress),
+        isActive: const Value(true),
+      ));
 
       // Store in Hive for quick access
       await HiveStorage.setSecure(_sessionTokenKey, sessionToken);
@@ -57,20 +66,11 @@ class SessionService {
   }
 
   /// Get active sessions for a user
-  static Future<List<Map<String, dynamic>>> getActiveSessions(
-      String userId) async {
+  static Future<List<UserSessionEntry>> getActiveSessions(String userId) async {
+    if (_dao == null) return [];
+
     try {
-      final dbHelper = DatabaseHelper();
-      final db = await dbHelper.database;
-
-      final sessions = await db.query(
-        'user_sessions',
-        where: 'user_id = ? AND is_active = 1',
-        whereArgs: [userId],
-        orderBy: 'login_time DESC',
-      );
-
-      return sessions;
+      return await _dao!.getUserSessions(userId);
     } catch (e) {
       developer.log('❌ خطأ في جلب الجلسات النشطة: $e', name: 'SessionService');
       return [];
@@ -79,16 +79,11 @@ class SessionService {
 
   /// Terminate a specific session
   static Future<bool> terminateSession(String sessionToken) async {
-    try {
-      final dbHelper = DatabaseHelper();
-      final db = await dbHelper.database;
+    if (_dao == null) return false;
 
-      await db.update(
-        'user_sessions',
-        {'is_active': 0},
-        where: 'session_token = ?',
-        whereArgs: [sessionToken],
-      );
+    try {
+      // Find session by token first
+      await _dao!.invalidateSession(sessionToken);
 
       developer.log('✅ تم إنهاء الجلسة', name: 'SessionService');
       return true;
@@ -100,16 +95,10 @@ class SessionService {
 
   /// Terminate all sessions for a user (logout from all devices)
   static Future<bool> terminateAllSessions(String userId) async {
-    try {
-      final dbHelper = DatabaseHelper();
-      final db = await dbHelper.database;
+    if (_dao == null) return false;
 
-      await db.update(
-        'user_sessions',
-        {'is_active': 0},
-        where: 'user_id = ?',
-        whereArgs: [userId],
-      );
+    try {
+      await _dao!.invalidateAllUserSessions(userId);
 
       // Clear Hive storage
       await HiveStorage.removeSecure(_sessionTokenKey);
@@ -130,17 +119,11 @@ class SessionService {
 
   /// Check if session is valid
   static Future<bool> isSessionValid(String sessionToken) async {
+    if (_dao == null) return false;
+
     try {
-      final dbHelper = DatabaseHelper();
-      final db = await dbHelper.database;
-
-      final sessions = await db.query(
-        'user_sessions',
-        where: 'session_token = ? AND is_active = 1',
-        whereArgs: [sessionToken],
-      );
-
-      return sessions.isNotEmpty;
+      final session = await _dao!.getSession(sessionToken);
+      return session != null && session.isActive;
     } catch (e) {
       return false;
     }

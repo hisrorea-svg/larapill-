@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:month_picker_dialog/month_picker_dialog.dart';
+import '../../../../core/widgets/custom_month_picker.dart';
+import 'package:drift/drift.dart' show Variable;
 import '../../../../core/theme/app_colors.dart';
-
-import '../../../../database/database_helper.dart';
+import '../../../../core/database/drift/database_provider.dart';
 
 // --- Models ---
 
@@ -56,26 +56,31 @@ class MonthlyReportData {
 
 final monthlyReportProvider =
     FutureProvider.family<MonthlyReportData, DateTime>((ref, month) async {
-  final dbHelper = DatabaseHelper();
-  final db = await dbHelper.database;
+  final db = ref.watch(appDatabaseProvider);
 
   final startOfMonth = DateTime(month.year, month.month, 1);
   final endOfMonth = DateTime(month.year, month.month + 1, 0, 23, 59, 59);
 
   // 1. Totals
-  final totalsResult = await db.rawQuery('''
+  final totalsResult = await db.customSelect('''
     SELECT COUNT(*) as count, SUM(total) as total_amount 
     FROM purchase_orders 
     WHERE status = 'posted' 
       AND posted_at >= ? AND posted_at <= ?
-  ''', [startOfMonth.toIso8601String(), endOfMonth.toIso8601String()]);
+  ''', variables: [
+    Variable.withString(startOfMonth.toIso8601String()),
+    Variable.withString(endOfMonth.toIso8601String()),
+  ]).get();
 
-  final totalOrders = (totalsResult.first['count'] as int?) ?? 0;
-  final totalAmount =
-      (totalsResult.first['total_amount'] as num?)?.toDouble() ?? 0;
+  final totalOrders = totalsResult.isNotEmpty
+      ? (totalsResult.first.data['count'] as int?) ?? 0
+      : 0;
+  final totalAmount = totalsResult.isNotEmpty
+      ? (totalsResult.first.data['total_amount'] as num?)?.toDouble() ?? 0
+      : 0.0;
 
   // 2. Top Products
-  final productsResult = await db.rawQuery('''
+  final productsResult = await db.customSelect('''
     SELECT 
       oi.product_name, 
       SUM(oi.quantity) as total_qty, 
@@ -87,18 +92,21 @@ final monthlyReportProvider =
     GROUP BY oi.product_name
     ORDER BY total_amt DESC
     LIMIT 5
-  ''', [startOfMonth.toIso8601String(), endOfMonth.toIso8601String()]);
+  ''', variables: [
+    Variable.withString(startOfMonth.toIso8601String()),
+    Variable.withString(endOfMonth.toIso8601String()),
+  ]).get();
 
   final topProducts = productsResult
       .map((e) => TopProductData(
-            name: e['product_name'] as String? ?? 'منتج غير معروف',
-            quantity: (e['total_qty'] as num?)?.toInt() ?? 0,
-            amount: (e['total_amt'] as num?)?.toDouble() ?? 0,
+            name: e.data['product_name'] as String? ?? 'منتج غير معروف',
+            quantity: (e.data['total_qty'] as num?)?.toInt() ?? 0,
+            amount: (e.data['total_amt'] as num?)?.toDouble() ?? 0,
           ))
       .toList();
 
   // 3. Top Suppliers
-  final suppliersResult = await db.rawQuery('''
+  final suppliersResult = await db.customSelect('''
     SELECT 
       s.name as supplier_name, 
       COUNT(*) as order_count, 
@@ -110,18 +118,21 @@ final monthlyReportProvider =
     GROUP BY s.name
     ORDER BY supplier_total DESC
     LIMIT 5
-  ''', [startOfMonth.toIso8601String(), endOfMonth.toIso8601String()]);
+  ''', variables: [
+    Variable.withString(startOfMonth.toIso8601String()),
+    Variable.withString(endOfMonth.toIso8601String()),
+  ]).get();
 
   final topSuppliers = suppliersResult
       .map((e) => TopSupplierData(
-            name: e['supplier_name'] as String? ?? 'مورد غير معروف',
-            orderCount: (e['order_count'] as int?) ?? 0,
-            amount: (e['supplier_total'] as num?)?.toDouble() ?? 0,
+            name: e.data['supplier_name'] as String? ?? 'مورد غير معروف',
+            orderCount: (e.data['order_count'] as int?) ?? 0,
+            amount: (e.data['supplier_total'] as num?)?.toDouble() ?? 0,
           ))
       .toList();
 
   // 4. Daily Spending
-  final dailyResult = await db.rawQuery('''
+  final dailyResult = await db.customSelect('''
     SELECT 
       CAST(strftime('%d', posted_at) as INTEGER) as day,
       SUM(total) as daily_total
@@ -130,11 +141,13 @@ final monthlyReportProvider =
       AND posted_at >= ? AND posted_at <= ?
     GROUP BY day
     ORDER BY day ASC
-  ''', [startOfMonth.toIso8601String(), endOfMonth.toIso8601String()]);
+  ''', variables: [
+    Variable.withString(startOfMonth.toIso8601String()),
+    Variable.withString(endOfMonth.toIso8601String()),
+  ]).get();
 
   final dailySpending = dailyResult.map((row) {
-    // CAST(... as INTEGER) returns int in sqflite usually, or double.
-    final dayVal = row['day'];
+    final dayVal = row.data['day'];
     int day = 1;
     if (dayVal is int) {
       day = dayVal;
@@ -144,7 +157,7 @@ final monthlyReportProvider =
 
     return DailySpendingData(
       day: day,
-      amount: (row['daily_total'] as num?)?.toDouble() ?? 0,
+      amount: (row.data['daily_total'] as num?)?.toDouble() ?? 0,
     );
   }).toList();
 
@@ -178,7 +191,7 @@ class _MonthlyPurchaseReportScreenState
   DateTime _selectedMonth = DateTime.now();
 
   void _selectMonth() async {
-    final picked = await showMonthPicker(
+    final picked = await showCustomMonthPicker(
       context: context,
       initialDate: _selectedMonth,
       firstDate: DateTime(2020),
@@ -505,7 +518,7 @@ class _MonthlyPurchaseReportScreenState
                   ],
                   lineTouchData: LineTouchData(
                     touchTooltipData: LineTouchTooltipData(
-                      tooltipBgColor: Colors.blueGrey,
+                      getTooltipColor: (touchedSpot) => Colors.blueGrey,
                       getTooltipItems: (touchedSpots) {
                         return touchedSpots.map((spot) {
                           return LineTooltipItem(

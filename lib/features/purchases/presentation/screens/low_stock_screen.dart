@@ -5,7 +5,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_toast.dart';
-import '../../../../database/database_helper.dart';
+import '../../../../core/database/drift/daos/product_drift_dao.dart';
 import '../providers/daily_purchase_provider.dart';
 import '../widgets/shared_header_widgets.dart';
 
@@ -50,16 +50,21 @@ class LowStockProduct {
 /// Provider للمنتجات الناقصة
 final lowStockProductsProvider =
     FutureProvider.autoDispose<List<LowStockProduct>>((ref) async {
-  final dbHelper = DatabaseHelper();
-  final db = await dbHelper.database;
+  final productDao = ref.watch(productDriftDaoProvider);
+  final lowStockProducts = await productDao.findLowStock();
 
-  final result = await db.query(
-    'products',
-    where: 'current_stock <= min_stock_level AND is_active = 1',
-    orderBy: '(min_stock_level - current_stock) DESC',
-  );
-
-  return result.map((e) => LowStockProduct.fromMap(e)).toList();
+  return lowStockProducts
+      .map((p) => LowStockProduct(
+            id: p.id,
+            name: p.name,
+            company: p.company,
+            category: p.category,
+            baseUnit: p.baseUnit,
+            currentStock: p.currentStock,
+            minStockLevel: p.minStockLevel,
+            deficit: p.minStockLevel - p.currentStock,
+          ))
+      .toList();
 });
 
 /// شاشة النواقص
@@ -78,6 +83,30 @@ class _LowStockScreenState extends ConsumerState<LowStockScreen> {
   bool _selectAll = false;
   String? _internalSearchQuery;
   final TextEditingController _searchController = TextEditingController();
+
+  // ✅ تحويل اسم الوحدة للعربية
+  String _getArabicUnitName(String unit) {
+    switch (unit.toLowerCase()) {
+      case 'piece':
+        return 'وحدة';
+      case 'box':
+        return 'علبة';
+      case 'strip':
+        return 'شريط';
+      case 'bottle':
+        return 'زجاجة';
+      case 'tube':
+        return 'أنبوب';
+      case 'vial':
+        return 'قارورة';
+      case 'ampule':
+        return 'أمبول';
+      case 'sachet':
+        return 'كيس';
+      default:
+        return unit;
+    }
+  }
 
   // Memoization for filtered products
   List<LowStockProduct>? _cachedFilteredProducts;
@@ -496,7 +525,7 @@ class _LowStockScreenState extends ConsumerState<LowStockScreen> {
                           ),
                         ),
                         Text(
-                          product.baseUnit,
+                          _getArabicUnitName(product.baseUnit),
                           style: TextStyle(
                             fontFamily: 'Tajawal',
                             fontSize: 10,
@@ -509,7 +538,7 @@ class _LowStockScreenState extends ConsumerState<LowStockScreen> {
                   const SizedBox(width: 8),
                   // زر إضافة سريعة
                   IconButton(
-                    icon: const Icon(Icons.add_shopping_cart),
+                    icon: const Icon(Icons.shopping_bag_outlined),
                     color: AppColors.primary,
                     tooltip: 'إضافة للطلبية',
                     onPressed: () => _addSingleToOrder(product),
@@ -722,8 +751,10 @@ class _LowStockScreenState extends ConsumerState<LowStockScreen> {
       final pdf = pw.Document();
 
       // تحميل الخط العربي
-      final arabicFont = await PdfGoogleFonts.tajawalRegular();
-      final arabicFontBold = await PdfGoogleFonts.tajawalBold();
+      final arabicFont =
+          await fontFromAssetBundle('assets/fonts/Tajawal-Regular.ttf');
+      final arabicFontBold =
+          await fontFromAssetBundle('assets/fonts/Tajawal-Bold.ttf');
 
       pdf.addPage(
         pw.MultiPage(

@@ -138,6 +138,7 @@ class Product {
       'expiryDate': expiryDate?.toIso8601String(),
       'productionDate': productionDate?.toIso8601String(),
       'baseUnit': baseUnit.name,
+      'unitInfo': unitInfo.map((k, v) => MapEntry(k.name, v.toMap())),
       'currentStock': currentStock,
       'minStockLevel': minStockLevel,
       'isActive': isActive,

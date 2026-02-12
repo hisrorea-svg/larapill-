@@ -1,4 +1,4 @@
-import '../../../auth/domain/models/user.dart';
+import '../../../auth/domain/entities/user.dart';
 import '../failures/settings_failure.dart';
 import 'settings_repository.dart'; // For Either and Unit
 

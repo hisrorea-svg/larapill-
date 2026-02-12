@@ -239,8 +239,8 @@ class _ReportsSettingsDialogState extends ConsumerState<ReportsSettingsDialog> {
         ),
         const SizedBox(width: 12),
         Text(title,
-            style:
-                const TextStyle(fontFamily: 'Tajawal', fontWeight: FontWeight.w600)),
+            style: const TextStyle(
+                fontFamily: 'Tajawal', fontWeight: FontWeight.w600)),
         const Spacer(),
         DropdownButton<String>(
           value: value,

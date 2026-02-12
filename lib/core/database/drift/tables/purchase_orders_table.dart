@@ -37,6 +37,9 @@ class PurchaseOrders extends Table {
   /// تاريخ التسليم الفعلي
   DateTimeColumn get actualDeliveryDate => dateTime().nullable()();
 
+  /// تاريخ الترحيل (posted)
+  DateTimeColumn get postedAt => dateTime().nullable()();
+
   /// ملاحظات
   TextColumn get notes => text().nullable()();
 

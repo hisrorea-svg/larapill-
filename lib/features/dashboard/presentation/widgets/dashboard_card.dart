@@ -61,8 +61,12 @@ class _DashboardCardState extends State<DashboardCard>
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
-      onEnter: (_) => setState(() => isHovered = true),
-      onExit: (_) => setState(() => isHovered = false),
+      onEnter: (_) {
+        if (mounted) setState(() => isHovered = true);
+      },
+      onExit: (_) {
+        if (mounted) setState(() => isHovered = false);
+      },
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(

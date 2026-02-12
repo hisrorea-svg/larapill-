@@ -1,23 +1,29 @@
+import 'dart:async';
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:date_picker_plus/date_picker_plus.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../pos/domain/entities/sale.dart';
 import '../../data/repositories/dashboard_service.dart';
-import '../../../pos/data/repositories/sales_service.dart';
+import '../../../pos/data/repositories/sales_repository.dart';
 import '../widgets/dashboard_card.dart';
 import '../widgets/sales_chart.dart';
 import '../widgets/products_pie_chart.dart';
 
-class DashboardScreen extends StatefulWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Key _refreshKey = UniqueKey();
+  bool _isRefreshing = false;
+  DateTime? _lastRefresh;
+  static const _minRefreshInterval = Duration(seconds: 3); // ✅ Debouncing
 
   @override
   void initState() {
@@ -25,37 +31,80 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // تحديث البيانات عند فتح الصفحة
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        setState(() {
-          _refreshKey = UniqueKey();
-        });
+        _refreshData(silent: true);
       }
     });
+  }
+
+  /// ✅ تحديث البيانات مع Debouncing
+  Future<void> _refreshData({bool silent = false, bool force = false}) async {
+    // ✅ منع التحديث المتكرر (Debouncing)
+    if (!force && _lastRefresh != null) {
+      final timeSinceLast = DateTime.now().difference(_lastRefresh!);
+      if (timeSinceLast < _minRefreshInterval) {
+        developer.log(
+          '⏭️ Refresh skipped (debounced: ${timeSinceLast.inSeconds}s ago)',
+          name: 'Dashboard',
+        );
+        return;
+      }
+    }
+
+    if (_isRefreshing) return;
+
+    setState(() {
+      _isRefreshing = true;
+      if (!silent) _refreshKey = UniqueKey();
+    });
+
+    // ✅ إلغاء الكاش وإجبار تحديث جديد
+    ref.read(dashboardServiceProvider).invalidateCache();
+
+    // ✅ تحديث الـ Key لإعادة بناء FutureBuilder
+    setState(() {
+      _refreshKey = UniqueKey();
+      _isRefreshing = false;
+      _lastRefresh = DateTime.now();
+    });
+
+    developer.log('✅ Dashboard refreshed', name: 'Dashboard');
   }
 
   @override
   Widget build(BuildContext context) {
     final formatter = NumberFormat('#,###', 'en_US');
+    final dashboardService = ref.watch(dashboardServiceProvider);
 
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'اللوحة الرئيسية',
-            style: TextStyle(
-              fontFamily: 'Tajawal',
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-            ),
+          Row(
+            children: [
+              const Text(
+                'اللوحة الرئيسية',
+                style: TextStyle(
+                  fontFamily: 'Tajawal',
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const Spacer(),
+              // ✅ زر التحديث مع Debouncing
+              _RefreshButton(
+                isRefreshing: _isRefreshing,
+                onRefresh: () => _refreshData(force: true),
+              ),
+            ],
           ),
           const SizedBox(height: 24),
 
           // ✅ البيانات الحقيقية من قاعدة البيانات
           FutureBuilder<Map<String, dynamic>>(
             key: _refreshKey,
-            future: DashboardService().getDashboardStats(),
+            future: dashboardService.getDashboardStats(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 // Loading State - 5 كروت
@@ -230,7 +279,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _showTodaySalesDialog(BuildContext context) async {
     // جلب جميع المبيعات المكتملة
-    final allSales = await SalesService().getAllSales();
+    final salesRepo = ref.read(salesRepositoryProvider);
+    final allSales = await salesRepo.getAllSales();
     final completedSales =
         allSales.where((sale) => sale.status == SaleStatus.completed).toList();
 
@@ -566,6 +616,44 @@ class _SalesListDialogState extends State<_SalesListDialog> {
           label: const Text('إغلاق'),
         ),
       ],
+    );
+  }
+}
+
+// ✅ زر تحديث محسّن مع Animation
+class _RefreshButton extends StatelessWidget {
+  final bool isRefreshing;
+  final VoidCallback onRefresh;
+
+  const _RefreshButton({
+    required this.isRefreshing,
+    required this.onRefresh,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 200),
+      child: isRefreshing
+          ? const SizedBox(
+              key: ValueKey('loading'),
+              width: 40,
+              height: 40,
+              child: Padding(
+                padding: EdgeInsets.all(8.0),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.primary,
+                ),
+              ),
+            )
+          : IconButton(
+              key: const ValueKey('refresh'),
+              onPressed: onRefresh,
+              icon: const Icon(Icons.refresh),
+              tooltip: 'تحديث البيانات',
+              color: AppColors.primary,
+            ),
     );
   }
 }

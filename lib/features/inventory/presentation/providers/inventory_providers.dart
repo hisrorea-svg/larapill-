@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/services/meds_data_service.dart';
 import '../../domain/usecases/add_product_usecase.dart';
@@ -12,29 +13,16 @@ import '../../domain/entities/product_entity.dart';
 import '../../domain/entities/paginated_result.dart';
 import '../../domain/validators/product_validator.dart';
 import '../../data/repositories/inventory_repository_impl.dart';
-import '../../data/datasources/inventory_local_datasource.dart';
-import '../../../../database/database_helper.dart';
-import '../../../pos/presentation/providers/pos_providers.dart'; // ✅ ربط مع نقطة البيع
-
-// ============ Infrastructure ============
-
-/// Database helper provider
-final databaseHelperProvider = Provider<DatabaseHelper>((ref) {
-  return DatabaseHelper();
-});
-
-/// Local data source provider
-final inventoryLocalDataSourceProvider =
-    Provider<InventoryLocalDataSourceImpl>((ref) {
-  final dbHelper = ref.watch(databaseHelperProvider);
-  return InventoryLocalDataSourceImpl(dbHelper);
-});
+import '../../../../core/database/drift/daos/daos.dart';
+import '../../../pos/presentation/providers/pos_providers.dart';
 
 // ============ Repository ============
 
+/// Provider for InventoryRepository using ProductDriftDao directly
+/// Architecture (v2.x): Repository → DAO directly
 final inventoryRepositoryProvider = Provider<InventoryRepository>((ref) {
-  final localDataSource = ref.watch(inventoryLocalDataSourceProvider);
-  return InventoryRepositoryImpl(localDataSource, null);
+  final dao = ref.watch(productDriftDaoProvider);
+  return InventoryRepositoryImpl(dao, null);
 });
 
 // ============ Validator ============
@@ -139,16 +127,28 @@ class ReactiveInventoryController
   }
 
   /// حذف منتج
-  Future<void> deleteProduct(int productId) async {
+  Future<void> deleteProduct(String productId) async {
+    debugPrint(
+        '🗑️ ReactiveController: Starting delete for product ID: $productId');
+
     final deleteUseCase = ref.read(deleteProductUseCaseProvider);
+
+    debugPrint('🗑️ ReactiveController: Calling useCase...');
 
     // تنفيذ الحذف
     final result = await deleteUseCase(productId);
 
+    debugPrint(
+        '🗑️ ReactiveController: UseCase returned, processing result...');
+
     result.fold(
-      (failure) =>
-          throw Exception(failure.message), // يمكن معالجة الخطأ بشكل أفضل
+      (failure) {
+        debugPrint('❌ ReactiveController: Delete failed - ${failure.message}');
+        throw Exception(failure.message);
+      },
       (success) {
+        debugPrint(
+            '✅ ReactiveController: Delete successful, invalidating providers');
         // ✅ النقطة الجوهرية: نطلب من الـ Provider تحديث نفسه
         // هذا سيؤدي لإعادة جلب البيانات تلقائياً وتحديث الواجهة
         ref.invalidateSelf();
@@ -295,11 +295,13 @@ void invalidateProductProviders(WidgetRef ref) {
 
 // ============ Meds Data Service (for smart add) ============
 
+/// ✅ Provider للبحث في بيانات الأدوية (باستخدام Indexed Search)
 final medsSearchProvider =
-    StateProvider.family<List<Map<String, dynamic>>, String>((ref, query) {
-  return MedsDataService.searchMeds(query);
+    FutureProvider.family<List<Map<String, dynamic>>, String>((ref, query) async {
+  return MedsDataService.search(query);
 });
 
+/// ✅ Provider لتهيئة خدمة الأدوية
 final medsLoadingProvider = FutureProvider<void>((ref) async {
-  await MedsDataService.loadMeds();
+  await MedsDataService.init();
 });

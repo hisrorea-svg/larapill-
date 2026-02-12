@@ -1,24 +1,24 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:convert';
 import '../models/report_settings.dart';
-import '../../database/database_helper.dart';
+import '../database/drift/daos/settings_drift_dao.dart';
 
 /// Service موحد لإدارة جميع إعدادات التقارير
 class ReportSettingsService extends StateNotifier<ReportSettings> {
   static const String _settingsKey = 'report_settings';
+  final SettingsDriftDao _dao;
 
-  ReportSettingsService() : super(const ReportSettings()) {
+  ReportSettingsService(this._dao) : super(const ReportSettings()) {
     _loadSettings();
   }
 
   /// تحميل الإعدادات من قاعدة البيانات
   Future<void> _loadSettings() async {
     try {
-      final dbHelper = DatabaseHelper();
-      final settingsJson = await dbHelper.getSetting(_settingsKey);
+      final settingsValue = await _dao.getSettingValue(_settingsKey);
 
-      if (settingsJson != null) {
-        final settings = ReportSettings.fromJson(json.decode(settingsJson));
+      if (settingsValue != null) {
+        final settings = ReportSettings.fromJson(json.decode(settingsValue));
         state = settings;
       }
     } catch (e) {
@@ -29,12 +29,10 @@ class ReportSettingsService extends StateNotifier<ReportSettings> {
   /// حفظ الإعدادات
   Future<void> saveSettings(ReportSettings settings) async {
     try {
-      final dbHelper = DatabaseHelper();
-
-      // ✅ تصحيح: setSetting تأخذ key و value فقط
-      await dbHelper.setSetting(
-        _settingsKey,
-        json.encode(settings.toJson()),
+      await _dao.saveSetting(
+        key: _settingsKey,
+        value: json.encode(settings.toJson()),
+        category: 'reports',
       );
 
       // حفظ وقت التحديث
@@ -97,9 +95,7 @@ class ReportSettingsService extends StateNotifier<ReportSettings> {
   /// الحصول على آخر تحديث للإعدادات
   Future<String?> getLastUpdateTime() async {
     try {
-      final dbHelper = DatabaseHelper();
-      final result = await dbHelper.getSetting('${_settingsKey}_updated');
-      return result;
+      return await _dao.getSettingValue('${_settingsKey}_updated');
     } catch (e) {
       return null;
     }
@@ -108,12 +104,10 @@ class ReportSettingsService extends StateNotifier<ReportSettings> {
   /// حفظ وقت آخر تحديث
   Future<void> _saveUpdateTime() async {
     try {
-      final dbHelper = DatabaseHelper();
-
-      // ✅ تصحيح: setSetting تأخذ key و value فقط
-      await dbHelper.setSetting(
-        '${_settingsKey}_updated',
-        DateTime.now().toIso8601String(),
+      await _dao.saveSetting(
+        key: '${_settingsKey}_updated',
+        value: DateTime.now().toIso8601String(),
+        category: 'reports',
       );
     } catch (e) {
       // تجاهل الخطأ
@@ -158,8 +152,9 @@ class ReportSettingsService extends StateNotifier<ReportSettings> {
   }
 }
 
-/// Provider للوصول للخدمة
+/// Provider للوصول للخدمة - يحتاج SettingsDriftDao من DI
 final reportSettingsProvider =
     StateNotifierProvider<ReportSettingsService, ReportSettings>((ref) {
-  return ReportSettingsService();
+  // This will be overridden in the main app with actual DAO
+  throw UnimplementedError('reportSettingsProvider must be overridden');
 });

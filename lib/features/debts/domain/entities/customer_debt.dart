@@ -1,3 +1,5 @@
+import 'debt_status.dart';
+
 /// 💰 نموذج دين العميل
 class CustomerDebt {
   final String id;
@@ -92,6 +94,27 @@ class CustomerDebt {
     if (totalDebt == 0) return 100.0;
     return (totalPaid / totalDebt) * 100;
   }
+
+  /// عمر الدين بالأيام (منذ آخر معاملة)
+  int get debtAgeDays {
+    return DateTime.now().difference(lastTransactionDate).inDays;
+  }
+
+  /// حالة الدين بناءً على عمره
+  DebtStatus get status {
+    if (debtAgeDays >= DebtThresholds.overdueDays) {
+      return DebtStatus.overdue;
+    } else if (debtAgeDays >= DebtThresholds.warningDays) {
+      return DebtStatus.warning;
+    }
+    return DebtStatus.normal;
+  }
+
+  /// هل الدين متأخر؟
+  bool get isOverdue => status == DebtStatus.overdue;
+
+  /// هل الدين قريب من التأخير؟
+  bool get isWarning => status == DebtStatus.warning;
 
   @override
   String toString() {

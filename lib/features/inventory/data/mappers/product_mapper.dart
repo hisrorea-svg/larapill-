@@ -1,4 +1,5 @@
 import 'package:uuid/uuid.dart';
+import '../../../../core/database/drift/app_database.dart';
 
 import '../../domain/entities/product_entity.dart';
 import '../../domain/entities/add_product_params.dart';
@@ -12,11 +13,8 @@ import '../models/product_model.dart';
 class ProductMapper {
   /// Convert ProductModel (data) to ProductEntity (domain)
   static ProductEntity toEntity(ProductModel model) {
-    // Parse id to int (for ProductEntity compatibility)
-    final intId = int.tryParse(model.id) ?? 0;
-
     return ProductEntity(
-      id: intId,
+      id: model.id,
       name: model.name,
       company: model.company,
       category: model.category,
@@ -86,5 +84,90 @@ class ProductMapper {
   /// Convert list of entities to list of models
   static List<ProductModel> toModelList(List<ProductEntity> entities) {
     return entities.map(toModel).toList();
+  }
+
+  /// Convert ProductEntry or ProductEntryWithPrices (Drift) to ProductEntity (domain)
+  static ProductEntity fromEntry(dynamic entry) {
+    // Check if entry has price fields (ProductEntryWithPrices)
+    final double price = _extractPrice(entry);
+    final double? costPrice = _extractCostPrice(entry);
+
+    return ProductEntity(
+      id: entry.id.toString(),
+      name: entry.name ?? '',
+      company: entry.company ?? '',
+      category: entry.category ?? 'medicalSupplies',
+      barcode: entry.barcode ?? '',
+      quantity: (entry.currentStock as double?)?.toInt() ?? 0,
+      price: price,
+      costPrice: costPrice,
+      expiryDate: entry.expiryDate as DateTime?,
+      createdAt: entry.createdAt as DateTime?,
+      updatedAt: entry.updatedAt as DateTime?,
+      isSynced: true,
+    );
+  }
+
+  /// Convert Product (entry) + List<ProductUnitEntry> to ProductEntity
+  static ProductEntity fromWrappedEntry(
+      dynamic entry, List<ProductUnitEntry> units) {
+    // Find base unit (piece) or first available unit
+    final baseUnit = units.firstWhere(
+      (u) => u.unit == 'piece',
+      orElse: () => units.isNotEmpty
+          ? units.first
+          : const ProductUnitEntry(
+              id: '',
+              productId: '',
+              unit: '',
+              sellingPrice: 0,
+              costPrice: 0,
+              conversionToBase: 1,
+              description: ''),
+    );
+
+    return ProductEntity(
+      id: entry.id.toString(),
+      name: entry.name ?? '',
+      company: entry.company ?? '',
+      category: entry.category ?? 'medicalSupplies',
+      barcode: entry.barcode ?? '',
+      quantity: (entry.currentStock as double?)?.toInt() ?? 0,
+      price: baseUnit.sellingPrice,
+      costPrice: baseUnit.costPrice,
+      expiryDate: entry.expiryDate as DateTime?,
+      createdAt: entry.createdAt as DateTime?,
+      updatedAt: entry.updatedAt as DateTime?,
+      isSynced: true,
+    );
+  }
+
+  /// Helper to extract selling price from entry
+  static double _extractPrice(dynamic entry) {
+    try {
+      // ProductEntryWithPrices has sellingPrice field
+      final price = entry.sellingPrice as double?;
+      return price ?? 0.0;
+    } catch (_) {
+      // In case we only have basic ProductEntry, we'd need another query
+      // but Repository should now avoid passing basic entries.
+    }
+    return 0.0;
+  }
+
+  /// Helper to extract cost price from entry
+  static double? _extractCostPrice(dynamic entry) {
+    try {
+      // ProductEntryWithPrices has costPrice field
+      return entry.costPrice as double?;
+    } catch (_) {
+      // Field doesn't exist, return null
+    }
+    return null;
+  }
+
+  /// Convert list of ProductEntry or ProductEntryWithPrices to list of ProductEntity
+  static List<ProductEntity> fromEntryList(List<dynamic> entries) {
+    return entries.map(fromEntry).toList();
   }
 }

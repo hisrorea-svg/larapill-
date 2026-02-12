@@ -267,9 +267,135 @@ class SalesDriftDao extends DatabaseAccessor<AppDatabase>
     }
 
     final lastNumber = result.read<String>('invoice_number');
-    final sequence = int.parse(lastNumber.substring(8)) + 1;
-    return '$prefix${sequence.toString().padLeft(3, '0')}';
+
+    // Handle legacy or malformed invoice numbers gracefully
+    int sequence;
+    try {
+      // Extract sequence part after the date prefix (8 chars: YYYYMMDD)
+      if (lastNumber.length >= 8) {
+        final sequencePart = lastNumber.substring(8);
+        sequence = int.tryParse(sequencePart) ?? 0;
+      } else {
+        sequence = 0;
+      }
+    } catch (e) {
+      // Fallback if parsing fails
+      sequence = 0;
+    }
+
+    return '$prefix${(sequence + 1).toString().padLeft(3, '0')}';
   }
+
+  /// Generate next short Sale ID (e.g. FK-7PS)
+  Future<String> generateSaleId() async {
+    final count = await (selectOnly(sales)..addColumns([sales.id.count()]))
+        .map((row) => row.read(sales.id.count()))
+        .getSingle();
+    final nextCount = (count ?? 0) + 1;
+    final suffix = nextCount.toRadixString(36).toUpperCase();
+    return 'FK-$suffix';
+  }
+
+  /// Get Today's Revenue
+  Future<double> getTodayRevenue() async {
+    final summary = await getTodaySummary();
+    return summary.totalSales;
+  }
+
+  /// Get Today's Sales Count
+  Future<int> getTodaySalesCount() async {
+    final summary = await getTodaySummary();
+    return summary.salesCount;
+  }
+
+  /// Get weekly sales data grouped by day (last 7 days)
+  Future<List<DailySalesData>> getWeeklySalesData() async {
+    final now = DateTime.now();
+    final startOfWeek = DateTime(now.year, now.month, now.day - 6);
+
+    final query = await customSelect(
+      '''
+      SELECT 
+        DATE(date) as day,
+        COALESCE(SUM(total), 0) as total
+      FROM sales
+      WHERE date >= ? AND status != 'cancelled'
+      GROUP BY DATE(date)
+      ORDER BY date ASC
+      ''',
+      variables: [Variable.withDateTime(startOfWeek)],
+      readsFrom: {sales},
+    ).get();
+
+    return query
+        .map((row) => DailySalesData(
+              day: row.read<String>('day'),
+              total: row.read<double>('total'),
+            ))
+        .toList();
+  }
+
+  /// Get all sale items for multiple sales in one query (optimized for reports)
+  /// This solves the N+1 query problem when calculating top products
+  Future<List<SaleItemWithSaleDate>> getSaleItemsWithDateRange(
+      DateTime start, DateTime end) async {
+    return customSelect(
+      '''
+      SELECT 
+        si.sale_id,
+        si.product_id,
+        si.product_name,
+        si.quantity,
+        si.unit_price,
+        si.total,
+        s.date as sale_date
+      FROM sale_items si
+      INNER JOIN sales s ON si.sale_id = s.id
+      WHERE s.date >= ? AND s.date < ? AND s.status != 'cancelled'
+      ''',
+      variables: [Variable.withDateTime(start), Variable.withDateTime(end)],
+      readsFrom: {saleItems, sales},
+    )
+        .map((row) => SaleItemWithSaleDate(
+              saleId: row.read<String>('sale_id'),
+              productId: row.read<String>('product_id'),
+              productName: row.read<String>('product_name'),
+              quantity: row.read<double>('quantity'),
+              unitPrice: row.read<double>('unit_price'),
+              total: row.read<double>('total'),
+              saleDate: row.read<DateTime>('sale_date'),
+            ))
+        .get();
+  }
+}
+
+/// Daily sales data for charts
+class DailySalesData {
+  final String day;
+  final double total;
+
+  DailySalesData({required this.day, required this.total});
+}
+
+/// Sale item with sale date for optimized reports
+class SaleItemWithSaleDate {
+  final String saleId;
+  final String productId;
+  final String productName;
+  final double quantity;
+  final double unitPrice;
+  final double total;
+  final DateTime saleDate;
+
+  SaleItemWithSaleDate({
+    required this.saleId,
+    required this.productId,
+    required this.productName,
+    required this.quantity,
+    required this.unitPrice,
+    required this.total,
+    required this.saleDate,
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

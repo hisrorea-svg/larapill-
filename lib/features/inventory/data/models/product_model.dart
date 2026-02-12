@@ -90,6 +90,18 @@ class ProductModel {
 
   /// Create from SQLite row (joined query with product_units)
   factory ProductModel.fromSqlite(Map<String, dynamic> row) {
+    // Helper to convert date from various formats
+    String? parseDate(dynamic value) {
+      if (value == null) return null;
+      if (value is String) return value;
+      if (value is DateTime) return value.toIso8601String();
+      if (value is int) {
+        // Drift stores DateTime as milliseconds since epoch
+        return DateTime.fromMillisecondsSinceEpoch(value).toIso8601String();
+      }
+      return null;
+    }
+
     return ProductModel(
       id: row['id']?.toString() ?? '',
       name: row['name'] as String? ?? '',
@@ -100,10 +112,10 @@ class ProductModel {
       baseUnit: row['base_unit'] as String? ?? 'piece',
       currentStock: (row['current_stock'] as num?)?.toDouble() ?? 0.0,
       minStockLevel: (row['min_stock_level'] as num?)?.toDouble() ?? 10.0,
-      expiryDate: row['expiry_date'] as String?,
-      productionDate: row['production_date'] as String?,
-      createdAt: row['created_at'] as String?,
-      updatedAt: row['updated_at'] as String?,
+      expiryDate: parseDate(row['expiry_date']),
+      productionDate: parseDate(row['production_date']),
+      createdAt: parseDate(row['created_at']),
+      updatedAt: parseDate(row['updated_at']),
       isActive: (row['is_active'] as num?)?.toInt() ?? 1,
       // From joined product_units
       sellingPrice: (row['selling_price'] as num?)?.toDouble(),

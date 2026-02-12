@@ -34,6 +34,18 @@ class SaleItems extends Table {
   /// تاريخ الانتهاء
   DateTimeColumn get expiryDate => dateTime().nullable()();
 
+  /// 🗑️ Soft Delete
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+
+  /// 🗑️ تاريخ الحذف
+  DateTimeColumn get deletedAt => dateTime().nullable()();
+
+  /// تاريخ الإنشاء
+  DateTimeColumn get createdAt => dateTime().nullable()();
+
+  /// 👤 من أنشأ السجل
+  TextColumn get createdBy => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }

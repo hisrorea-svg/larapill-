@@ -33,8 +33,8 @@ class UpdateNotificationSettingsUseCase {
   ) async {
     // Validation
     if (params.expiryDays <= 0 || params.expiryDays > 365) {
-      return const Either.left(ValidationSettingsFailure(
-          'أيام التنبيه يجب أن تكون بين 1 و 365'));
+      return const Either.left(
+          ValidationSettingsFailure('أيام التنبيه يجب أن تكون بين 1 و 365'));
     }
 
     final settings = NotificationSettingsEntity(

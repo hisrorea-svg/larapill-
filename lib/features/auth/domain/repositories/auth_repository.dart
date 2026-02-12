@@ -1,4 +1,4 @@
-import '../models/user.dart';
+import '../entities/user.dart';
 import '../failures/auth_failure.dart';
 import '../../../../core/utils/either.dart';
 

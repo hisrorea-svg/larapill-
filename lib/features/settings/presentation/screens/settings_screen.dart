@@ -1,21 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../database/database_helper.dart';
+import '../../../../core/database/drift/services/database_management_service.dart';
+import '../../../../core/database/drift/daos/settings_drift_dao.dart';
+import '../../../../core/database/drift/daos/users_drift_dao.dart';
+import '../../../../core/database/drift/app_database.dart';
+import 'package:drift/drift.dart' show Value;
 import '../../../../core/services/password_hasher.dart';
 import '../../../../core/services/pharmacy_settings_service.dart';
 import '../widgets/notification_settings_dialog.dart';
 import '../widgets/security_settings_dialog.dart';
 import '../widgets/system_log_dialog.dart';
 import '../providers/settings_providers.dart';
-import '../../../../features/auth/domain/models/user.dart';
+import '../../../../features/auth/domain/entities/user.dart';
 import '../utils/error_handler.dart';
 import '../../../../core/exceptions/app_exceptions.dart';
-import 'package:sqflite/sqflite.dart' as sqflite;
 import '../../../network/presentation/screens/network_settings_screen.dart';
+import '../dialogs/super_admin_auth_dialog.dart'; // 🔐 Super Admin Auth
+import '../dialogs/delete_confirmation_dialog.dart'; // 🔐 Delete Confirmation
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/widgets/app_toast.dart';
+import '../widgets/clear_data_dialog.dart';
+import '../../../inventory/presentation/widgets/inventory_stats_widget.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -26,6 +32,39 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _isLoading = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    // التأكد من تحميل البيانات عند بدء الشاشة
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeData();
+    });
+  }
+
+  Future<void> _initializeData() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+
+      // محاولة الوصول إلى Providers للتأكد من أنها تعمل
+      ref.read(usersRepositoryProvider);
+
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'خطأ في تحميل البيانات: $e';
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -97,6 +136,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         onTap: () => _showAbout(),
       ),
     ];
+
+    // عرض رسالة الخطأ إن وجدت
+    if (_errorMessage != null && !_isLoading) {
+      return Scaffold(
+        backgroundColor: Colors.grey[100],
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: AppColors.error),
+              const SizedBox(height: 16),
+              Text(
+                _errorMessage!,
+                style: const TextStyle(
+                    fontFamily: 'Tajawal', color: AppColors.error),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _initializeData,
+                icon: const Icon(Icons.refresh),
+                label: const Text('إعادة المحاولة',
+                    style: TextStyle(fontFamily: 'Tajawal')),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: Colors.grey[100],
@@ -188,8 +256,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _createBackup() async {
     setState(() => _isLoading = true);
     try {
-      final dbHelper = DatabaseHelper();
-      final result = await dbHelper.createBackup();
+      final dbService = ref.read(databaseManagementServiceProvider);
+      final result = await dbService.createBackup();
       if (mounted) {
         setState(() => _isLoading = false);
         if (result['success'] == true) {
@@ -201,20 +269,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             operation: 'backup',
           );
         }
-      }
-    } on sqflite.DatabaseException catch (e, stackTrace) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        SettingsErrorHandler.handleError(
-          context,
-          DatabaseException(
-            'خطأ في قاعدة البيانات أثناء إنشاء النسخة الاحتياطية',
-            userMessage: 'حدث خطأ في قاعدة البيانات. يرجى المحاولة مرة أخرى.',
-            originalError: e,
-            stackTrace: stackTrace,
-            operation: 'backup',
-          ),
-        );
       }
     } on AppException catch (e, stackTrace) {
       if (mounted) {
@@ -236,8 +290,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _showRestoreOptions() async {
     try {
-      final dbHelper = DatabaseHelper();
-      final backups = await dbHelper.getBackupsList();
+      final dbService = ref.read(databaseManagementServiceProvider);
+      final backups = await dbService.getBackupsList();
       if (!mounted) return;
       if (backups.isEmpty) {
         _showSnackBar('لا توجد نسخ احتياطية متاحة', AppColors.warning);
@@ -285,21 +339,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ],
         ),
       );
-    } on sqflite.DatabaseException catch (e, stackTrace) {
-      if (mounted) {
-        SettingsErrorHandler.handleError(
-          context,
-          DatabaseException(
-            'خطأ في قاعدة البيانات أثناء تحميل النسخ الاحتياطية',
-            userMessage:
-                'فشل تحميل قائمة النسخ الاحتياطية. يرجى المحاولة مرة أخرى.',
-            originalError: e,
-            stackTrace: stackTrace,
-            operation: 'query',
-            tableName: 'backups',
-          ),
-        );
-      }
     } on AppException catch (e, stackTrace) {
       if (mounted) {
         SettingsErrorHandler.handleError(context, e, stackTrace: stackTrace);
@@ -351,26 +390,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (confirmed == true && mounted) {
       setState(() => _isLoading = true);
       try {
-        final dbHelper = DatabaseHelper();
-        await dbHelper.restoreBackup(backup['path']);
+        final dbService = ref.read(databaseManagementServiceProvider);
+        await dbService.restoreBackup(backup['path']);
         if (mounted) {
           setState(() => _isLoading = false);
           _showSnackBar(
               'تم استعادة النسخة الاحتياطية بنجاح', AppColors.success);
-        }
-      } on sqflite.DatabaseException catch (e, stackTrace) {
-        if (mounted) {
-          setState(() => _isLoading = false);
-          SettingsErrorHandler.handleError(
-            context,
-            DatabaseException(
-              'خطأ في قاعدة البيانات أثناء استعادة النسخة الاحتياطية',
-              userMessage: 'فشل استعادة النسخة الاحتياطية. تأكد من صحة الملف.',
-              originalError: e,
-              stackTrace: stackTrace,
-              operation: 'restore',
-            ),
-          );
         }
       } on FileException catch (e, stackTrace) {
         if (mounted) {
@@ -451,6 +476,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 _resetDatabase();
               },
             ),
+            const SizedBox(height: 12),
+            _buildDialogOption(
+              icon: Icons.delete_forever,
+              title: 'مسح البيانات والكاش',
+              subtitle: 'حذف قاعدة البيانات + الكاش + الإعدادات',
+              color: Colors.red.shade700,
+              onTap: () {
+                Navigator.pop(context);
+                ClearDataDialog.show(context, ref);
+              },
+            ),
           ],
         ),
         actions: [
@@ -469,26 +505,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _checkDatabaseIntegrity() async {
     setState(() => _isLoading = true);
     try {
-      final dbHelper = DatabaseHelper();
-      final db = await dbHelper.database;
+      final dbService = ref.read(databaseManagementServiceProvider);
 
-      // فحص سلامة قاعدة البيانات
-      final result = await db.rawQuery('PRAGMA integrity_check');
-      final isOk = result.isNotEmpty && result.first['integrity_check'] == 'ok';
+      // Check integrity using service
+      final integrityResult = await dbService.checkIntegrity();
+      final isOk = integrityResult['isOk'] == true;
 
-      // فحص الجداول الأساسية
-      final tables = await db.rawQuery(
-          "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
-
-      // فحص عدد السجلات في كل جدول
-      final tableStats = <String, int>{};
-      for (var table in tables) {
-        final tableName = table['name'] as String;
-        final countResult =
-            await db.rawQuery('SELECT COUNT(*) FROM $tableName');
-        final count = countResult.first.values.first as int;
-        tableStats[tableName] = count;
-      }
+      // Get table statistics using service
+      final tableStats = await dbService.getTableStats();
 
       if (mounted) {
         setState(() => _isLoading = false);
@@ -614,55 +638,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (confirmed == true && mounted) {
       setState(() => _isLoading = true);
       try {
-        final dbHelper = DatabaseHelper();
-        final db = await dbHelper.database;
-
-        int totalDeleted = 0;
-
-        // حذف المبيعات القديمة (أكثر من سنة)
-        final oldSalesDate = DateTime.now()
-            .subtract(const Duration(days: 365))
-            .toIso8601String();
-        final salesDeleted = await db.delete(
-          'sales',
-          where: 'created_at < ?',
-          whereArgs: [oldSalesDate],
-        );
-        totalDeleted += salesDeleted;
-
-        // حذف السجلات القديمة (أكثر من 6 أشهر)
-        final oldLogsDate = DateTime.now()
-            .subtract(const Duration(days: 180))
-            .toIso8601String();
-        final logsDeleted = await db.delete(
-          'system_logs',
-          where: 'created_at < ?',
-          whereArgs: [oldLogsDate],
-        );
-        totalDeleted += logsDeleted;
-
-        // حذف المنتجات المنتهية (منتهية منذ أكثر من 90 يوم)
-        final expiredDate =
-            DateTime.now().subtract(const Duration(days: 90)).toIso8601String();
-        final expiredDeleted = await db.delete(
-          'products',
-          where: 'expiry_date < ? AND quantity = 0',
-          whereArgs: [expiredDate],
-        );
-        totalDeleted += expiredDeleted;
-
-        // حذف النسخ الاحتياطية القديمة (أكثر من 3 أشهر)
-        final oldBackupDate =
-            DateTime.now().subtract(const Duration(days: 90)).toIso8601String();
-        final backupsDeleted = await db.delete(
-          'backups',
-          where: 'created_at < ?',
-          whereArgs: [oldBackupDate],
-        );
-        totalDeleted += backupsDeleted;
-
-        // تحسين قاعدة البيانات
-        await db.execute('VACUUM');
+        final dbService = ref.read(databaseManagementServiceProvider);
+        final totalDeleted = await dbService.cleanOldData();
 
         if (mounted) {
           setState(() => _isLoading = false);
@@ -679,137 +656,138 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _resetDatabase() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('تحذير!',
-            style: TextStyle(fontFamily: 'Tajawal', color: AppColors.error)),
-        content: const Text('سيتم حذف جميع البيانات بشكل نهائي!\nهل أنت متأكد؟',
-            style: TextStyle(
-              fontFamily: 'Tajawal',
-            )),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('إلغاء',
-                style: TextStyle(
-                  fontFamily: 'Tajawal',
-                )),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-            child: const Text('حذف كل شيء',
-                style: TextStyle(
-                  fontFamily: 'Tajawal',
-                )),
-          ),
-        ],
-      ),
+    // 🔐 PHASE 1: Super Admin Authentication
+    final authenticated = await SuperAdminAuthDialog.authenticate(context, ref);
+    if (!authenticated) return;
+
+    // 🔐 PHASE 2: Double Confirmation
+    if (!mounted) return;
+    final confirmed = await DeleteConfirmationDialog.confirm(
+      context,
+      operationType: 'إعادة تعيين قاعدة البيانات',
+      warningMessage:
+          'سيتم حذف جميع البيانات (المنتجات، المبيعات، الخ) مع الاحتفاظ بالمستخدمين والإعدادات',
     );
-    if (confirmed == true && mounted) {
-      setState(() => _isLoading = true);
-      try {
-        final dbHelper = DatabaseHelper();
-        final db = await dbHelper.database;
+    if (!confirmed) return;
 
-        // الحصول على قائمة جميع الجداول
-        final tables = await db.rawQuery(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
+    // 💾 PHASE 3: Create Backup
+    setState(() => _isLoading = true);
+    try {
+      final dbService = ref.read(databaseManagementServiceProvider);
 
-        // حذف جميع البيانات من كل جدول
-        for (var table in tables) {
-          final tableName = table['name'] as String;
-          if (tableName != 'users') {
-            // عدم حذف جدول المستخدمين
-            await db.delete(tableName);
-          }
-        }
+      // Auto backup
+      final backup = await dbService.createBackup();
+      if (backup['success'] != true) {
+        throw Exception('فشل في إنشاء نسخة احتياطية');
+      }
 
-        // إعادة إنشاء البيانات الأساسية الافتراضية
-        await dbHelper.database.then((db) async {
-          // إعادة إدراج إعدادات الصيدلية الافتراضية
-          final pharmacyExists = await db.query('pharmacy_settings', limit: 1);
-          if (pharmacyExists.isEmpty) {
-            await db.insert('pharmacy_settings', {
-              'name_ar': 'صيدلية فارماكليك',
-              'name_en': 'LaRaPill Pharmacy',
-              'license_number': '',
-              'phone': '',
-              'mobile': '',
-              'email': '',
-              'website': '',
-              'address': '',
-              'city': '',
-              'tax_number': '',
-              'commercial_registration': '',
-              'created_at': DateTime.now().toIso8601String(),
-              'updated_at': DateTime.now().toIso8601String(),
-            });
-          }
-        });
+      // Get current user for audit log
+      final currentUser = ref.read(currentUserProvider).value;
+      if (currentUser == null) {
+        throw Exception('لم يتم العثور على معلومات المستخدم');
+      }
 
-        // تحسين قاعدة البيانات
-        await db.execute('VACUUM');
+      // Execute reset with audit logging
+      await dbService.resetDatabaseWithAudit(
+        userId: currentUser.id,
+        userName: currentUser.fullName.isNotEmpty
+            ? currentUser.fullName
+            : currentUser.username,
+        backupFileName: backup['fileName'] as String?,
+      );
 
-        if (mounted) {
-          setState(() => _isLoading = false);
-          showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16)),
-              title: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.success.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.check_circle,
-                        color: AppColors.success),
+      if (mounted) {
+        setState(() => _isLoading = false);
+
+        // ✅ FIX: Invalidate providers to refresh UI
+        ref.invalidate(databaseManagementServiceProvider);
+        ref.invalidate(inventoryStatsProvider);
+
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  const SizedBox(width: 12),
-                  const Text('تم بنجاح',
-                      style: TextStyle(fontFamily: 'Tajawal', fontSize: 18)),
-                ],
-              ),
-              content: const Text(
-                'تم إعادة تعيين قاعدة البيانات بنجاح.\nسيتم إعادة تشغيل التطبيق.',
-                style: TextStyle(
-                  fontFamily: 'Tajawal',
+                  child:
+                      const Icon(Icons.check_circle, color: AppColors.success),
                 ),
-                textAlign: TextAlign.center,
-              ),
-              actions: [
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    // إعادة توجيه المستخدم لشاشة تسجيل الدخول
-                    Navigator.of(context).pushNamedAndRemoveUntil(
-                      '/login',
-                      (route) => false,
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
+                const SizedBox(width: 12),
+                const Text('تم بنجاح',
+                    style: TextStyle(fontFamily: 'Tajawal', fontSize: 18)),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'تم إعادة تعيين قاعدة البيانات بنجاح.\nسيتم إعادة تشغيل التطبيق.',
+                  style: TextStyle(
+                    fontFamily: 'Tajawal',
                   ),
-                  child: const Text('موافق',
-                      style: TextStyle(
-                        fontFamily: 'Tajawal',
-                      )),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.info.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.backup, size: 16, color: AppColors.info),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'تم إنشاء نسخة احتياطية: ${backup['fileName']}',
+                          style: const TextStyle(
+                            fontFamily: 'Tajawal',
+                            fontSize: 12,
+                            color: AppColors.info,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          setState(() => _isLoading = false);
-          _showSnackBar('خطأ في إعادة التعيين: $e', AppColors.error);
-        }
+            actions: [
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  // إعادة توجيه المستخدم لشاشة تسجيل الدخول
+                  Navigator.of(context).pushNamedAndRemoveUntil(
+                    '/login',
+                    (route) => false,
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('موافق',
+                    style: TextStyle(
+                      fontFamily: 'Tajawal',
+                    )),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _showSnackBar('خطأ في إعادة التعيين: $e', AppColors.error);
       }
     }
   }
@@ -1103,12 +1081,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     // تحميل إعدادات الصيدلية من قاعدة البيانات
     Map<String, dynamic>? pharmacyData;
     try {
-      final dbHelper = DatabaseHelper();
-      final db = await dbHelper.database;
-
-      final result = await db.query('pharmacy_settings', limit: 1);
-      if (result.isNotEmpty) {
-        pharmacyData = result.first;
+      final settingsDao = ref.read(settingsDriftDaoProvider);
+      final settings = await settingsDao.getPharmacySettings();
+      if (settings != null) {
+        pharmacyData = {
+          'id': settings.id,
+          'name_ar': settings.nameAr,
+          'name_en': settings.nameEn,
+          'license_number': settings.licenseNumber,
+          'phone': settings.phone,
+          'mobile': settings.mobile,
+          'email': settings.email,
+          'website': settings.website,
+          'address': settings.address,
+          'city': settings.city,
+          'tax_number': settings.taxNumber,
+          'commercial_registration': settings.commercialRegistration,
+          'logo_path': settings.logoPath,
+        };
       }
     } catch (e) {
       pharmacyData = null;
@@ -1326,28 +1316,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           );
         }
 
-        final dbHelper = DatabaseHelper();
-        final db = await dbHelper.database;
-
-        await db.update(
-          'users',
-          {
-            'full_name': nameController.text.trim(),
-            'email': emailController.text.trim().isEmpty
-                ? null
-                : emailController.text.trim(),
-            'phone': phoneController.text.trim().isEmpty
-                ? null
-                : phoneController.text.trim(),
-            'updated_at': DateTime.now().toIso8601String(),
-          },
-          where: 'id = ?',
-          whereArgs: [user.id],
+        final usersDao = ref.read(usersDriftDaoProvider);
+        await usersDao.updateUser(
+          user.id,
+          fullName: nameController.text.trim(),
+          email: emailController.text.trim().isEmpty
+              ? null
+              : emailController.text.trim(),
+          phone: phoneController.text.trim().isEmpty
+              ? null
+              : phoneController.text.trim(),
         );
 
         _showSnackBar('تم تحديث بيانات المستخدم بنجاح', AppColors.success);
         setState(() {}); // إعادة تحميل البيانات
-      } on sqflite.DatabaseException catch (e, stackTrace) {
+      } on ValidationException catch (e, stackTrace) {
+        if (mounted) {
+          SettingsErrorHandler.handleError(context, e, stackTrace: stackTrace);
+        }
+      } on NotFoundException catch (e, stackTrace) {
+        if (mounted) {
+          SettingsErrorHandler.handleError(context, e, stackTrace: stackTrace);
+        }
+      } on AppException catch (e, stackTrace) {
+        if (mounted) {
+          SettingsErrorHandler.handleError(context, e, stackTrace: stackTrace);
+        }
+      } on Exception catch (e, stackTrace) {
         if (mounted) {
           SettingsErrorHandler.handleError(
             context,
@@ -1360,18 +1355,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               tableName: 'users',
             ),
           );
-        }
-      } on ValidationException catch (e, stackTrace) {
-        if (mounted) {
-          SettingsErrorHandler.handleError(context, e, stackTrace: stackTrace);
-        }
-      } on NotFoundException catch (e, stackTrace) {
-        if (mounted) {
-          SettingsErrorHandler.handleError(context, e, stackTrace: stackTrace);
-        }
-      } on AppException catch (e, stackTrace) {
-        if (mounted) {
-          SettingsErrorHandler.handleError(context, e, stackTrace: stackTrace);
         }
       } catch (e, stackTrace) {
         final appException = convertToAppException(e, stackTrace: stackTrace);
@@ -1484,18 +1467,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         final selectedPermissions =
             result.entries.where((e) => e.value).map((e) => e.key).toList();
 
-        final dbHelper = DatabaseHelper();
-        final db = await dbHelper.database;
-
-        await db.update(
-          'users',
-          {
-            'permissions': selectedPermissions.join(','),
-            'updated_at': DateTime.now().toIso8601String(),
-          },
-          where: 'id = ?',
-          whereArgs: [user.id],
-        );
+        final usersDao = ref.read(usersDriftDaoProvider);
+        await usersDao.updatePermissions(user.id, selectedPermissions);
 
         _showSnackBar('تم تحديث الصلاحيات بنجاح', AppColors.success);
       } catch (e) {
@@ -1625,39 +1598,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     if (result == true && mounted) {
       try {
-        final dbHelper = DatabaseHelper();
-        final db = await dbHelper.database;
+        final usersDao = ref.read(usersDriftDaoProvider);
 
         // تشفير كلمة المرور الجديدة
         final hashedPassword = PasswordHasher.hash(passwordController.text);
 
-        await db.update(
-          'users',
-          {
-            'password_hash': hashedPassword,
-            'force_password_change': 1,
-            'updated_at': DateTime.now().toIso8601String(),
-          },
-          where: 'id = ?',
-          whereArgs: [user.id],
-        );
+        await usersDao.updatePassword(user.id, hashedPassword,
+            forceChange: true);
 
         _showSnackBar('تم إعادة تعيين كلمة المرور بنجاح', AppColors.success);
-      } on sqflite.DatabaseException catch (e, stackTrace) {
-        if (mounted) {
-          SettingsErrorHandler.handleError(
-            context,
-            DatabaseException(
-              'خطأ في قاعدة البيانات أثناء إعادة تعيين كلمة المرور',
-              userMessage:
-                  'فشل إعادة تعيين كلمة المرور. يرجى المحاولة مرة أخرى.',
-              originalError: e,
-              stackTrace: stackTrace,
-              operation: 'update',
-              tableName: 'users',
-            ),
-          );
-        }
       } on ValidationException catch (e, stackTrace) {
         if (mounted) {
           SettingsErrorHandler.handleError(context, e, stackTrace: stackTrace);
@@ -1721,9 +1670,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 textAlign: TextAlign.center),
             const SizedBox(height: 8),
-            Text('هذا الإجراء لا يمكن التراجع عنه.',
-                style:
-                    GoogleFonts.tajawal(fontSize: 12, color: AppColors.error),
+            const Text('هذا الإجراء لا يمكن التراجع عنه.',
+                style: TextStyle(
+                    fontFamily: 'Tajawal',
+                    fontSize: 12,
+                    color: AppColors.error),
                 textAlign: TextAlign.center),
           ],
         ),
@@ -1752,34 +1703,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     if (confirmed == true && mounted) {
       try {
-        final dbHelper = DatabaseHelper();
-        final db = await dbHelper.database;
+        final usersDao = ref.read(usersDriftDaoProvider);
 
         // التحقق من أن المستخدم ليس لديه ارتباطات (مثل مبيعات)
         // يمكن إضافة هذا التحقق لاحقًا
 
-        await db.delete(
-          'users',
-          where: 'id = ?',
-          whereArgs: [user.id],
-        );
+        await usersDao.deleteUser(user.id);
 
         _showSnackBar('تم حذف المستخدم بنجاح', AppColors.success);
         setState(() {}); // إعادة تحميل البيانات
-      } on sqflite.DatabaseException catch (e, stackTrace) {
-        if (mounted) {
-          SettingsErrorHandler.handleError(
-            context,
-            DatabaseException(
-              'خطأ في قاعدة البيانات أثناء حذف المستخدم',
-              userMessage: 'فشل حذف المستخدم. يرجى المحاولة مرة أخرى.',
-              originalError: e,
-              stackTrace: stackTrace,
-              operation: 'delete',
-              tableName: 'users',
-            ),
-          );
-        }
       } on BusinessRuleException catch (e, stackTrace) {
         if (mounted) {
           SettingsErrorHandler.handleError(context, e, stackTrace: stackTrace);
@@ -2033,23 +1965,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     if (result == true && mounted) {
       try {
-        final dbHelper = DatabaseHelper();
-        final db = await dbHelper.database;
+        final usersDao = ref.read(usersDriftDaoProvider);
 
         // تشفير كلمة المرور قبل التخزين
         final hashedPassword = PasswordHasher.hash(passwordController.text);
 
-        await db.insert('users', {
-          'username': usernameController.text,
-          'full_name': nameController.text,
-          'email': emailController.text.isEmpty ? null : emailController.text,
-          'phone': phoneController.text.isEmpty ? null : phoneController.text,
-          'password_hash': hashedPassword,
-          'role': selectedRole,
-          'is_active': 1,
-          'force_password_change': 0,
-          'created_at': DateTime.now().toIso8601String(),
-        });
+        await usersDao.createUser(UsersCompanion.insert(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          username: usernameController.text,
+          fullName: nameController.text,
+          email:
+              Value(emailController.text.isEmpty ? null : emailController.text),
+          phone:
+              Value(phoneController.text.isEmpty ? null : phoneController.text),
+          passwordHash: hashedPassword,
+          role: Value(selectedRole),
+          isActive: const Value(true),
+          forcePasswordChange: const Value(false),
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ));
 
         _showSnackBar('تم إضافة المستخدم بنجاح', AppColors.success);
         setState(() {}); // إعادة تحميل البيانات
@@ -2544,40 +2479,44 @@ class _PharmacySettingsFormState extends State<_PharmacySettingsForm> {
     setState(() => _isLoading = true);
 
     try {
-      final dbHelper = DatabaseHelper();
-      final db = await dbHelper.database;
+      // الحصول على SettingsDriftDao من Riverpod container
+      final container = ProviderScope.containerOf(context);
+      final settingsDao = container.read(settingsDriftDaoProvider);
 
-      final data = {
-        'name_ar': _nameController.text.trim(),
-        'name_en': _nameEnController.text.trim(),
-        'license_number': _licenseController.text.trim(),
-        'phone': _phoneController.text.trim(),
-        'mobile': _mobileController.text.trim(),
-        'email': _emailController.text.trim(),
-        'website': _websiteController.text.trim(),
-        'address': _addressController.text.trim(),
-        'city': _cityController.text.trim(),
-        'tax_number': _taxNumberController.text.trim(),
-        'commercial_registration': _commercialRegController.text.trim(),
-        'updated_at': DateTime.now().toIso8601String(),
-      };
-
-      // التحقق من وجود سجل
-      final existing = await db.query('pharmacy_settings', limit: 1);
-
-      if (existing.isEmpty) {
-        // إدراج سجل جديد
-        data['created_at'] = DateTime.now().toIso8601String();
-        await db.insert('pharmacy_settings', data);
-      } else {
-        // تحديث السجل الموجود
-        await db.update(
-          'pharmacy_settings',
-          data,
-          where: 'id = ?',
-          whereArgs: [existing.first['id']],
-        );
-      }
+      await settingsDao.savePharmacySettings(PharmacySettingsCompanion(
+        nameAr: Value(_nameController.text.trim()),
+        nameEn: Value(_nameEnController.text.trim().isEmpty
+            ? null
+            : _nameEnController.text.trim()),
+        licenseNumber: Value(_licenseController.text.trim().isEmpty
+            ? null
+            : _licenseController.text.trim()),
+        phone: Value(_phoneController.text.trim().isEmpty
+            ? null
+            : _phoneController.text.trim()),
+        mobile: Value(_mobileController.text.trim().isEmpty
+            ? null
+            : _mobileController.text.trim()),
+        email: Value(_emailController.text.trim().isEmpty
+            ? null
+            : _emailController.text.trim()),
+        website: Value(_websiteController.text.trim().isEmpty
+            ? null
+            : _websiteController.text.trim()),
+        address: Value(_addressController.text.trim().isEmpty
+            ? null
+            : _addressController.text.trim()),
+        city: Value(_cityController.text.trim().isEmpty
+            ? null
+            : _cityController.text.trim()),
+        taxNumber: Value(_taxNumberController.text.trim().isEmpty
+            ? null
+            : _taxNumberController.text.trim()),
+        commercialRegistration: Value(
+            _commercialRegController.text.trim().isEmpty
+                ? null
+                : _commercialRegController.text.trim()),
+      ));
 
       // مسح الكاش ليتم إعادة تحميل البيانات
       await _clearPharmacyCache();

@@ -7,7 +7,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../../core/models/shared/product.dart';
 import '../../../../core/models/shared/medicine_unit.dart';
-import '../../../../core/network/sync_aware_dao.dart';
+import '../../../../features/inventory/data/repositories/product_repository.dart';
 import '../../../returns/presentation/widgets/return_form_dialog.dart';
 import '../../domain/entities/sale.dart';
 import '../widgets/checkout_panel.dart';
@@ -94,24 +94,36 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     // استخدام البيانات المحملة مسبقاً
     final productsAsync = ref.read(posControllerProvider);
 
+    debugPrint('🔍 البحث عن: "$query"');
+    debugPrint(
+        '📊 حالة المنتجات: hasValue=${productsAsync.hasValue}, hasError=${productsAsync.hasError}, isLoading=${productsAsync.isLoading}');
+
     if (productsAsync.hasValue) {
       final allProducts = productsAsync.value!;
+      debugPrint('📦 عدد المنتجات الكلي: ${allProducts.length}');
+
       final results = allProducts
           .where((p) {
             final name = p.name.toLowerCase();
             final scientific = p.scientificName?.toLowerCase() ?? '';
             final barcode = p.barcode;
             final q = query.toLowerCase();
-            return name.contains(q) ||
+            final matches = name.contains(q) ||
                 scientific.contains(q) ||
                 barcode.contains(q);
+            if (matches) {
+              debugPrint('✅ تطابق: ${p.name}');
+            }
+            return matches;
           })
           .take(8)
           .toList();
 
+      debugPrint('🎯 عدد النتائج: ${results.length}');
+
       setState(() {
         _searchResults = results;
-        _selectedIndex = 0; // ✨ إعادة تعيين المؤشر لأول عنصر
+        _selectedIndex = 0;
         _isSearching = false;
       });
 
@@ -120,8 +132,12 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       } else {
         _hideOverlay();
       }
+    } else if (productsAsync.hasError) {
+      debugPrint('❌ خطأ في تحميل المنتجات: ${productsAsync.error}');
+      setState(() => _isSearching = false);
     } else {
       // البيانات لم تحمل بعد
+      debugPrint('⏳ البيانات لم تحمل بعد');
       setState(() => _isSearching = false);
     }
   }
@@ -394,6 +410,17 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           builder: (context) {
             // ✅ تحميل المنتجات عند فتح الشاشة
             final productsState = ref.watch(posControllerProvider);
+
+            // تسجيل حالة المنتجات
+            debugPrint(
+                '🏗️ build: isLoading=${productsState.isLoading}, hasValue=${productsState.hasValue}, hasError=${productsState.hasError}');
+            if (productsState.hasValue) {
+              debugPrint(
+                  '📦 build: عدد المنتجات = ${productsState.value?.length ?? 0}');
+            }
+            if (productsState.hasError) {
+              debugPrint('❌ build: خطأ = ${productsState.error}');
+            }
 
             // إظهار رسالة تحميل إذا البيانات لم تحمل بعد
             if (productsState.isLoading && !productsState.hasValue) {
@@ -1004,9 +1031,9 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   }
 
   void _showChangeUnitDialog(SaleItem item, int index) async {
-    // ✨ استخدام Sync-Aware DAO للتوافق مع الكاشير المتعدد
-    final syncDao = ref.read(syncAwareProductDaoProvider);
-    final product = await syncDao.findById(item.productId);
+    // ✨ استخدام ProductRepository
+    final repo = ref.read(productRepositoryProvider);
+    final product = await repo.getProductById(item.productId);
     if (product == null || !mounted) return;
 
     final units = product.unitInfo.keys.toList();

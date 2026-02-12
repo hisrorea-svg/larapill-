@@ -1,48 +1,22 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../database/database_helper.dart';
-import '../../data/datasources/local/notification_settings_local_datasource.dart';
-import '../../data/datasources/local/pharmacy_settings_local_datasource.dart';
-import '../../data/datasources/local/system_settings_local_datasource.dart';
+import '../../../../core/database/drift/daos/daos.dart';
 import '../../data/repositories/settings_dependencies.dart';
 import '../../data/repositories/users_repository_impl.dart';
-import '../../../../features/auth/domain/models/user.dart';
+import '../../../../features/auth/domain/entities/user.dart';
 import '../../domain/repositories/settings_repository.dart';
 import '../../domain/repositories/users_repository.dart';
 import '../../domain/usecases/get_notification_settings_usecase.dart';
 import '../../domain/usecases/update_notification_settings_usecase.dart';
 
-// ==================== Data Layer Providers ====================
-
-/// Provides NotificationSettingsLocalDataSource instance.
-final notificationLocalDataSourceProvider =
-    Provider<NotificationSettingsLocalDataSource>((ref) {
-  return SettingsDependencies.createNotificationDataSourceFromHive();
-});
-
-/// Provides PharmacySettingsLocalDataSource instance.
-final pharmacyLocalDataSourceProvider =
-    FutureProvider<PharmacySettingsLocalDataSource>((ref) {
-  final db = DatabaseHelper();
-  return SettingsDependencies.createPharmacyDataSource(db);
-});
-
-/// Provides SystemSettingsLocalDataSource instance.
-final systemLocalDataSourceProvider =
-    FutureProvider<SystemSettingsLocalDataSource>((ref) {
-  final db = DatabaseHelper();
-  return SettingsDependencies.createSystemDataSource(db);
-});
-
 // ==================== Repository Provider ====================
 
 /// Provides SettingsRepository instance.
 ///
-/// This is the main entry point for accessing settings functionality.
-/// All settings operations go through this repository.
+/// Architecture: Repository → DAO/HiveStorage → Storage
 final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
-  final db = DatabaseHelper();
-  return SettingsDependencies.createRepositoryFromHive(db);
+  final dao = ref.watch(settingsDriftDaoProvider);
+  return SettingsDependencies.createRepository(dao);
 });
 
 // ==================== Use Case Providers ====================
@@ -106,11 +80,9 @@ final getSystemSettingProvider = FutureProvider.family<String?, String>((
 
 /// Provides UsersRepository instance.
 final usersRepositoryProvider = Provider<UsersRepository>((ref) {
-  return UsersRepositoryImpl();
+  final dao = ref.watch(usersDriftDaoProvider);
+  return UsersRepositoryImpl(dao);
 });
-
-/// Provider for active users list.
-/// Used by settings screen for user management.
 
 /// Provider for active users list.
 /// Used by settings screen for user management.

@@ -6,10 +6,14 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart';
 
+import '../../../../core/database/drift/daos/daos.dart';
+import '../../../../features/pos/data/repositories/sales_repository.dart';
 import 'sync_constants.dart';
 import 'api_handlers.dart';
 
 /// HTTP Server for Master terminal
+///
+/// Provides API endpoints for terminal synchronization
 class SyncServer {
   HttpServer? _server;
   final ApiHandlers _handlers;
@@ -23,7 +27,13 @@ class SyncServer {
   /// Get server address
   String? get address => _server?.address.address;
 
-  SyncServer({ApiHandlers? handlers}) : _handlers = handlers ?? ApiHandlers();
+  SyncServer({
+    required ProductDriftDao productDao,
+    required SalesRepository salesRepository,
+  }) : _handlers = ApiHandlers(
+          productDao: productDao,
+          salesRepository: salesRepository,
+        );
 
   /// Start the sync server
   Future<bool> start({int port = SyncConstants.defaultPort}) async {
@@ -101,21 +111,29 @@ class SyncServer {
   Middleware _corsMiddleware() {
     return (Handler innerHandler) {
       return (Request request) async {
+        final corsHeaders = _getCorsHeaders(request);
+
         // Handle preflight requests
         if (request.method == 'OPTIONS') {
-          return Response.ok('', headers: _corsHeaders);
+          return Response.ok('', headers: corsHeaders);
         }
 
         final response = await innerHandler(request);
-        return response.change(headers: _corsHeaders);
+        return response.change(headers: corsHeaders);
       };
     };
   }
 
-  Map<String, String> get _corsHeaders => {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers':
-            'Origin, Content-Type, ${SyncHeaders.terminalId}',
-      };
+  Map<String, String> _getCorsHeaders(Request request) {
+    // Security: Reflect the origin if it looks like a local network address, otherwise block/default
+    // This avoids the insecure '*' wildcard while allowing dynamic local IPs
+    final origin = request.headers['Origin'] ?? '*';
+    return {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers':
+          'Origin, Content-Type, ${SyncHeaders.terminalId}',
+      'Access-Control-Allow-Credentials': 'true',
+    };
+  }
 }

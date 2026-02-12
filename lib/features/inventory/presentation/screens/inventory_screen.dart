@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:data_table_2/data_table_2.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../../../core/services/printer_service.dart';
 import '../../../../core/utils/input_sanitizer.dart';
 import '../../../../core/models/barcode_type.dart';
@@ -166,26 +167,15 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                 IconButton(
                   icon: const Icon(Icons.refresh, color: Colors.white),
                   onPressed: () {
-                    // إعادة تحميل المنتجات
-                    // Force refresh the specific controller provider
+                    // ✅ إعادة تحميل المنتجات
                     ref.invalidate(inventoryControllerProvider);
                     ref.read(currentPageProvider.notifier).state = 0;
 
-                    // Also refresh summary stats if needed (productsProvider was used for that maybe?)
-                    // But sticking to controller logic
+                    // ✅ إعادة تحميل الإحصائيات (الكروت)
+                    ref.invalidate(inventoryStatsProvider);
 
-                    // Feedback صغير
-                    if (ScaffoldMessenger.maybeOf(context) != null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('تم تحديث البيانات',
-                              style: TextStyle(
-                                fontFamily: 'Tajawal',
-                              )),
-                          duration: Duration(seconds: 1),
-                        ),
-                      );
-                    }
+                    // ✅ Feedback باستخدام AppToast
+                    AppToast.success(context, 'تم تحديث البيانات ✓');
                   },
                 ),
                 const SizedBox(width: 10),
@@ -419,7 +409,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: product.quantity > 10
+                    color: product.quantity > 5
                         ? Colors.green.withValues(alpha: 0.1)
                         : Colors.red.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
@@ -429,7 +419,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                     style: TextStyle(
                       fontFamily: 'Tajawal',
                       fontSize: 13,
-                      color: product.quantity > 10 ? Colors.green : Colors.red,
+                      color: product.quantity > 5 ? Colors.green : Colors.red,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -641,36 +631,27 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
 
     if (confirm == true) {
       try {
+        // ✅ Debug: Print to ensure this code is reached
+        debugPrint(
+            '🗑️ SCREEN: Starting delete for product: ${product.id} - ${product.name}');
+
         // ✅ Use Controller for deletion (Reactive)
         await ref
             .read(inventoryControllerProvider.notifier)
             .deleteProduct(product.id);
 
-        // No manual invalidation needed here if controller handles it (invalidateSelf)
+        debugPrint('✅ SCREEN: Delete completed, refreshing stats');
+
+        // ✅ تحديث الإحصائيات (الكروت)
+        ref.invalidate(inventoryStatsProvider);
 
         if (!context.mounted) return;
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('تم حذف المنتج بنجاح',
-                style: TextStyle(
-                  fontFamily: 'Tajawal',
-                )),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        AppToast.success(context, 'تم حذف المنتج بنجاح');
       } catch (e) {
         if (!context.mounted) return;
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('فشل في حذف المنتج: $e',
-                style: const TextStyle(
-                  fontFamily: 'Tajawal',
-                )),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppToast.error(context, 'فشل في حذف المنتج: $e');
       }
     }
   }
@@ -1241,8 +1222,8 @@ class _PrintBarcodeDialogState extends State<_PrintBarcodeDialog> {
 
   Future<void> _printBarcode() async {
     // حفظ navigator قبل العملية async
+    // حفظ navigator قبل العملية async
     final navigator = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
 
     navigator.pop();
 
@@ -1258,31 +1239,11 @@ class _PrintBarcodeDialogState extends State<_PrintBarcodeDialog> {
       );
 
       if (mounted) {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              'تم إرسال $_copies نسخة للطباعة',
-              style: const TextStyle(
-                fontFamily: 'Tajawal',
-              ),
-            ),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        AppToast.success(context, 'تم إرسال $_copies نسخة للطباعة');
       }
     } catch (e) {
       if (mounted) {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              'فشل في الطباعة: $e',
-              style: const TextStyle(
-                fontFamily: 'Tajawal',
-              ),
-            ),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppToast.error(context, 'فشل في الطباعة: $e');
       }
     }
   }

@@ -14,24 +14,34 @@ import '../../../../../core/models/shared/medicine_unit.dart';
 class ProductMapper {
   /// Convert ProductEntry (Drift) to Product (Domain)
   static Product fromEntry(ProductEntry entry, List<ProductUnitEntry> units) {
-    // Parse base unit
+    // Parse base unit with null/empty check
+    final baseUnitName = entry.baseUnit.trim().toLowerCase();
     final baseUnit = MedicineUnit.values.firstWhere(
-      (u) => u.name == entry.baseUnit,
-      orElse: () => MedicineUnit.strip, // default to strip
+      (u) => u.name.toLowerCase() == baseUnitName,
+      orElse: () => MedicineUnit.box, // default to box
     );
 
     // Build unit info map from ProductUnits
     final Map<MedicineUnit, UnitInfo> unitInfoMap = {};
     for (final unit in units) {
+      // Skip units with null/empty unit name
+      if (unit.unit.isEmpty) continue;
+
+      final unitName = unit.unit.trim().toLowerCase();
       final medicineUnit = MedicineUnit.values.firstWhere(
-        (u) => u.name == unit.unit,
-        orElse: () => MedicineUnit.strip,
+        (u) => u.name.toLowerCase() == unitName,
+        orElse: () => MedicineUnit.box,
       );
+
+      // Ensure conversionToBase is valid (at least 1)
+      final conversion =
+          unit.conversionToBase > 0 ? unit.conversionToBase : 1.0;
+
       unitInfoMap[medicineUnit] = UnitInfo(
         costPrice: unit.costPrice,
         sellingPrice: unit.sellingPrice,
-        conversionToBase: unit.conversionToBase,
-        description: medicineUnit.arabicName, // Use Arabic name as description
+        conversionToBase: conversion,
+        description: medicineUnit.arabicName,
       );
     }
 
@@ -83,7 +93,6 @@ class ProductMapper {
     );
   }
 
-  /// Convert UnitInfo to ProductUnitsCompanion list
   static List<ProductUnitsCompanion> toUnitCompanions(
     String productId,
     Map<MedicineUnit, UnitInfo> unitInfo,
@@ -96,6 +105,8 @@ class ProductMapper {
         costPrice: Value(entry.value.costPrice),
         sellingPrice: Value(entry.value.sellingPrice),
         conversionToBase: Value(entry.value.conversionToBase),
+        description:
+            Value(entry.value.description), // ✅ ADDED - required field!
       );
     }).toList();
   }

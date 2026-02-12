@@ -17,10 +17,19 @@ import 'features/auth/data/repositories/user_service.dart';
 void main() async {
   // ✅ كل شيء داخل نفس الـ zone
   runZonedGuarded(() async {
-    // 🔥 تهيئة التطبيق بالكامل عبر AppBootstrap
-    await AppBootstrap.init();
+    // ✅ تهيئة Flutter داخل الـ zone لتجنب Zone mismatch
+    WidgetsFlutterBinding.ensureInitialized();
 
-    // تشغيل التطبيق
+    // 🔥 تهيئة التطبيق بالكامل عبر AppBootstrap (غير متزامن)
+    final initResult = await AppBootstrap.init();
+
+    if (initResult.status == BootstrapStatus.error) {
+      developer.log('❌ Failed to initialize app: ${initResult.error}',
+          name: 'Main');
+      // يمكن عرض شاشة خطأ هنا
+    }
+
+    // تشغيل التطبيق (حتى لو لم تكتمل التهيئة بالكامل)
     runApp(const ProviderScope(child: LaRaPillApp()));
   }, (error, stackTrace) {
     developer.log('Zone Error: $error\nStackTrace: $stackTrace',
@@ -92,7 +101,7 @@ class LaRaPillApp extends StatelessWidget {
   }
 }
 
-// 🔥 شاشة التهيئة الأولى
+// 🔥 شاشة التهيئة الأولى - محسّنة
 class AppInitializer extends StatefulWidget {
   const AppInitializer({super.key});
 
@@ -101,16 +110,72 @@ class AppInitializer extends StatefulWidget {
 }
 
 class _AppInitializerState extends State<AppInitializer> {
+  bool _criticalReady = false;
+  bool _fullyReady = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    try {
+      // ✅ الخطوة 1: الانتظار حتى تكون الخدمات الحرجة جاهزة
+      await AppBootstrap.waitForCritical;
+
+      if (mounted) {
+        setState(() => _criticalReady = true);
+      }
+
+      // ✅ الخطوة 2: الانتظار حتى تكتمل جميع الخدمات (في الخلفية)
+      final result = await AppBootstrap.waitForComplete;
+
+      if (mounted) {
+        if (result.status == BootstrapStatus.completed) {
+          setState(() => _fullyReady = true);
+          developer.log(
+            '✅ App fully initialized in ${result.elapsedTime.inMilliseconds}ms',
+            name: 'AppInitializer',
+          );
+        } else if (result.status == BootstrapStatus.error) {
+          setState(() => _error = result.error);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _error = e.toString());
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return SplashScreen(
-      onComplete: () => _checkUserSession(),
-    );
+    // ✅ إذا كانت الخدمات الحرجة جاهزة، نعرض السبلاش
+    // ونبدأ فحص الجلسة في الخلفية
+    if (_criticalReady && _error == null) {
+      return SplashScreen(
+        onComplete: () => _checkUserSession(),
+      );
+    }
+
+    // ✅ إذا كان هناك خطأ، نعرض شاشة خطأ
+    if (_error != null) {
+      return _ErrorScreen(error: _error!);
+    }
+
+    // ✅ في البداية، نعرض شاشة تحميل بسيطة
+    return const _LoadingScreen();
   }
 
   Future<void> _checkUserSession() async {
     try {
-      // فحص جلسة المستخدم الحالي
+      // انتظار اكتمال التهيئة بالكامل قبل فحص الجلسة
+      if (!_fullyReady) {
+        await AppBootstrap.waitForComplete;
+      }
+
       final currentUser = await UserService.getCurrentUser();
 
       if (!mounted) return;
@@ -129,6 +194,63 @@ class _AppInitializerState extends State<AppInitializer> {
         Navigator.pushReplacementNamed(context, '/login');
       }
     }
+  }
+}
+
+// ✅ شاشة تحميل بسيطة (قبل السبلاش)
+class _LoadingScreen extends StatelessWidget {
+  const _LoadingScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        color: Colors.white,
+        child: const Center(
+          child: SizedBox(
+            width: 40,
+            height: 40,
+            child: CircularProgressIndicator(
+              strokeWidth: 3,
+              color: AppColors.primary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ✅ شاشة خطأ
+class _ErrorScreen extends StatelessWidget {
+  final String error;
+
+  const _ErrorScreen({required this.error});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 64, color: AppColors.error),
+            const SizedBox(height: 16),
+            const Text(
+              'خطأ في تشغيل التطبيق',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(error, textAlign: TextAlign.center),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () => AppBootstrap.init(),
+              child: const Text('إعادة المحاولة'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

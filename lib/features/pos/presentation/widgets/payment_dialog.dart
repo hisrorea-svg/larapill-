@@ -165,7 +165,14 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
                 padding: const EdgeInsets.only(left: 12),
                 child: InkWell(
                   onTap: () {
-                    setState(() => _selectedPaymentMethod = method);
+                    setState(() {
+                      _selectedPaymentMethod = method;
+                      // ✅ FIX: When deferred is selected, enable partial payment mode
+                      if (method == PaymentMethod.deferred) {
+                        _isPartialPayment = true;
+                        _paidAmountController.text = '0';
+                      }
+                    });
                   },
                   borderRadius: BorderRadius.circular(12),
                   child: Container(

@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_toast.dart';
-import '../../data/datasources/local/suppliers_dao.dart';
+import '../providers/purchases_drift_providers.dart';
 
 class AddSupplierSection extends ConsumerStatefulWidget {
   const AddSupplierSection({super.key});
@@ -34,7 +34,8 @@ class _AddSupplierSectionState extends ConsumerState<AddSupplierSection> {
     setState(() => _isLoading = true);
 
     try {
-      final supplier = SupplierItem(
+      await addSupplierDirect(
+        ref,
         id: const Uuid().v4(),
         name: _nameController.text.trim(),
         phone: _phoneController.text.trim().isEmpty
@@ -46,8 +47,6 @@ class _AddSupplierSectionState extends ConsumerState<AddSupplierSection> {
         paymentType: _paymentType,
       );
 
-      await SuppliersDao().addSupplier(supplier);
-
       if (!mounted) return;
       AppToast.success(context, 'تم إضافة المورد بنجاح');
 
@@ -56,9 +55,6 @@ class _AddSupplierSectionState extends ConsumerState<AddSupplierSection> {
       _phoneController.clear();
       _contactController.clear();
       setState(() => _paymentType = 'cash');
-
-      // Update Providers
-      ref.invalidate(suppliersProvider);
     } catch (e) {
       if (!mounted) return;
       AppToast.error(context, 'خطأ في إضافة المورد: $e');

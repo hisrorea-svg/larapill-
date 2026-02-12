@@ -356,8 +356,12 @@ class _ActionButtonState extends State<_ActionButton> {
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
-      onEnter: (_) => setState(() => isHovered = true),
-      onExit: (_) => setState(() => isHovered = false),
+      onEnter: (_) {
+        if (mounted) setState(() => isHovered = true);
+      },
+      onExit: (_) {
+        if (mounted) setState(() => isHovered = false);
+      },
       child: Tooltip(
         message: widget.tooltip,
         child: GestureDetector(

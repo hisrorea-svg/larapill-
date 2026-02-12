@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../screens/main_layout.dart';
+import '../../../../core/providers/navigation_providers.dart';
 
 // Provider لحالة الـ Sidebar (موسع أو مطوي)
 final sidebarExpandedProvider = StateProvider<bool>((ref) => true);

@@ -40,11 +40,23 @@ class Products extends Table {
   /// هل المنتج نشط
   BoolColumn get isActive => boolean().withDefault(const Constant(true))();
 
+  /// 🗑️ Soft Delete - هل المنتج محذوف
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+
+  /// 🗑️ تاريخ الحذف
+  DateTimeColumn get deletedAt => dateTime().nullable()();
+
   /// تاريخ الإنشاء
   DateTimeColumn get createdAt => dateTime()();
 
   /// تاريخ التحديث
   DateTimeColumn get updatedAt => dateTime()();
+
+  /// 👤 من أنشأ السجل
+  TextColumn get createdBy => text().nullable()();
+
+  /// 👤 من عدّل السجل آخر مرة
+  TextColumn get updatedBy => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};

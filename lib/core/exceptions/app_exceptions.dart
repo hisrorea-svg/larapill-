@@ -275,9 +275,8 @@ class ValidationException extends AppException {
 // ==================== الأعمال التجارية ====================
 
 /// استثناء عند فشل قواعد الأعمال
+/// DomainException is an alias for BusinessRuleException
 class BusinessRuleException extends AppException {
-  final String? ruleName;
-
   BusinessRuleException(
     super.message, {
     super.userMessage,
@@ -287,9 +286,14 @@ class BusinessRuleException extends AppException {
     this.ruleName,
   });
 
+  final String? ruleName;
+
   @override
   String getUserMessage() => userMessage ?? message;
 }
+
+/// DomainException - alias for BusinessRuleException for cleaner domain layer code
+typedef DomainException = BusinessRuleException;
 
 /// استثناء عند عدم كفاية المخزون
 class InsufficientStockException extends BusinessRuleException {

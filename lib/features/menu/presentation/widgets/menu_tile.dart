@@ -42,8 +42,12 @@ class _MenuTileState extends State<MenuTile> {
         final subtitleSize = constraints.maxWidth * 0.07;
 
         return MouseRegion(
-          onEnter: (_) => setState(() => _isHovered = true),
-          onExit: (_) => setState(() => _isHovered = false),
+          onEnter: (_) {
+            if (mounted) setState(() => _isHovered = true);
+          },
+          onExit: (_) {
+            if (mounted) setState(() => _isHovered = false);
+          },
           cursor: SystemMouseCursors.click,
           child: GestureDetector(
             onTapDown: (_) => setState(() => _isPressed = true),

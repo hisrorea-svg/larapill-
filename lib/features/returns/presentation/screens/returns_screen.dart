@@ -7,6 +7,7 @@ import '../../domain/entities/return_entity.dart';
 import '../providers/returns_providers.dart';
 import '../widgets/return_form_dialog.dart';
 import '../widgets/return_details_dialog.dart';
+import '../../data/repositories/returns_repository.dart';
 
 class ReturnsScreen extends ConsumerStatefulWidget {
   const ReturnsScreen({super.key});
@@ -19,7 +20,6 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
   @override
   void initState() {
     super.initState();
-    // تحديث البيانات تلقائياً عند فتح الصفحة
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         ref.invalidate(returnsProvider);
@@ -43,72 +43,10 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ===== Header =====
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.assignment_return,
-                      color: AppColors.primary,
-                      size: 28,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'إدارة المرتجعات',
-                        style: TextStyle(
-                          fontFamily: 'Tajawal',
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      Text(
-                        'معالجة وتتبع المرتجعات',
-                        style: TextStyle(
-                          fontFamily: 'Tajawal',
-                          fontSize: 14,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  ElevatedButton.icon(
-                    onPressed: () => _showReturnFormDialog(context, ref),
-                    icon: const Icon(Icons.add),
-                    label: const Text(
-                      'مرتجع جديد',
-                      style: TextStyle(
-                        fontFamily: 'Tajawal',
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 16,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+              _buildHeader(context),
               const SizedBox(height: 20),
-
-              // ===== Filters =====
               _buildFiltersBar(ref),
               const SizedBox(height: 20),
-
-              // ===== Table =====
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
@@ -130,12 +68,10 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
                       }
                       return Column(
                         children: [
-                          // الجدول
                           Expanded(
                             child: _buildReturnsTable(
                                 context, ref, paginatedReturns),
                           ),
-                          // التنقل بين الصفحات
                           const SizedBox(height: 12),
                           if (totalPages > 1)
                             _buildPaginationControls(
@@ -163,14 +99,57 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
     );
   }
 
-  // ===== Filters Bar =====
+  Widget _buildHeader(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Icon(Icons.assignment_return,
+              color: AppColors.primary, size: 28),
+        ),
+        const SizedBox(width: 16),
+        const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('إدارة المرتجعات',
+                style: TextStyle(
+                    fontFamily: 'Tajawal',
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary)),
+            Text('معالجة وتتبع المرتجعات',
+                style: TextStyle(
+                    fontFamily: 'Tajawal',
+                    fontSize: 14,
+                    color: AppColors.textSecondary)),
+          ],
+        ),
+        const Spacer(),
+        ElevatedButton.icon(
+          onPressed: () => _showReturnFormDialog(context, ref),
+          icon: const Icon(Icons.add),
+          label:
+              const Text('مرتجع جديد', style: TextStyle(fontFamily: 'Tajawal')),
+          style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 24, vertical: 16)),
+        ),
+      ],
+    );
+  }
+
   Widget _buildFiltersBar(WidgetRef ref) {
     final searchQuery = ref.watch(returnSearchQueryProvider);
     final statusFilter = ref.watch(returnStatusFilterProvider);
 
     return Row(
       children: [
-        // البحث
         Expanded(
           child: TextField(
             onChanged: (value) {
@@ -180,17 +159,14 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
             decoration: InputDecoration(
               hintText: 'ابحث برقم المرتجع أو رقم الفاتورة...',
               prefixIcon: const Icon(Icons.search),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
           ),
         ),
         const SizedBox(width: 16),
-
-        // فلتر الحالة
         DropdownButton<ReturnStatus?>(
           value: statusFilter,
           onChanged: (value) {
@@ -199,27 +175,17 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
           },
           items: [
             const DropdownMenuItem(
-              value: null,
-              child: Text('جميع الحالات',
-                  style: TextStyle(
-                    fontFamily: 'Tajawal',
-                  )),
-            ),
+                value: null,
+                child: Text('جميع الحالات',
+                    style: TextStyle(fontFamily: 'Tajawal'))),
             ...ReturnStatus.values.map(
               (status) => DropdownMenuItem(
-                value: status,
-                child: Text(status.arabicName,
-                    style: const TextStyle(
-                      fontFamily: 'Tajawal',
-                    )),
-              ),
+                  value: status,
+                  child: Text(status.arabicName,
+                      style: const TextStyle(fontFamily: 'Tajawal'))),
             ),
           ],
         ),
-
-        const SizedBox(width: 12),
-
-        // زر تنظيف الفلاتر
         if (searchQuery.isNotEmpty || statusFilter != null)
           IconButton(
             onPressed: () {
@@ -228,13 +194,11 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
               ref.read(currentReturnPageProvider.notifier).state = 0;
             },
             icon: const Icon(Icons.close),
-            tooltip: 'مسح الفلاتر',
           ),
       ],
     );
   }
 
-  // ===== Empty State =====
   Widget _buildEmptyState(BuildContext context, WidgetRef ref) {
     return Center(
       child: Column(
@@ -243,364 +207,111 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
           const Icon(Icons.assignment_return_outlined,
               size: 80, color: AppColors.textSecondary),
           const SizedBox(height: 16),
-          const Text(
-            'لا توجد مرتجعات',
-            style: TextStyle(
-              fontFamily: 'Tajawal',
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'ابدأ بإضافة مرتجع جديد',
-            style: TextStyle(
-              fontFamily: 'Tajawal',
-              fontSize: 14,
-              color: AppColors.textSecondary.withValues(alpha: 0.7),
-            ),
-          ),
+          const Text('لا توجد مرتجعات',
+              style: TextStyle(
+                  fontFamily: 'Tajawal',
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textSecondary)),
           const SizedBox(height: 20),
           ElevatedButton.icon(
             onPressed: () => _showReturnFormDialog(context, ref),
             icon: const Icon(Icons.add),
             label: const Text('مرتجع جديد'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
           ),
         ],
       ),
     );
   }
 
-  // ===== DataTable2 محسّن =====
   Widget _buildReturnsTable(
-    BuildContext context,
-    WidgetRef ref,
-    List<Return> paginatedReturns,
-  ) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final screenWidth = constraints.maxWidth;
-        final hasEnoughSpace = screenWidth >= 900;
-
-        return DataTable2(
-          headingRowHeight: 48,
-          dataRowHeight: 45,
-          columnSpacing: 8,
-          horizontalMargin: 8,
-          minWidth: hasEnoughSpace ? 900 : null,
-          fixedTopRows: 1,
-          border: TableBorder(
-            horizontalInside: const BorderSide(color: Colors.black, width: 1.0),
-            verticalInside: const BorderSide(color: Colors.black, width: 1.0),
-            top: const BorderSide(color: Colors.black, width: 1.2),
-            bottom: const BorderSide(color: Colors.black, width: 1.2),
-            left: const BorderSide(color: Colors.black, width: 1.2),
-            right: const BorderSide(color: Colors.black, width: 1.2),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          columns: [
-            DataColumn2(
-              label: const Center(
-                child: Text('ت',
-                    style: TextStyle(
-                        fontFamily: 'Tajawal',
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                        color: AppColors.textPrimary)),
-              ),
-              fixedWidth: hasEnoughSpace ? 30 : 25,
-              numeric: true,
-            ),
-            DataColumn2(
-              label: const Center(
-                child: Text('رقم المرتجع',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontFamily: 'Tajawal',
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                        color: AppColors.textPrimary)),
-              ),
-              fixedWidth: hasEnoughSpace ? 180 : 140,
-            ),
-            DataColumn2(
-              label: const Center(
-                child: Text('التاريخ',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontFamily: 'Tajawal',
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                        color: AppColors.textPrimary)),
-              ),
-              fixedWidth: hasEnoughSpace ? 130 : 100,
-            ),
-            DataColumn2(
-              label: const Center(
-                child: Text('السبب',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontFamily: 'Tajawal',
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                        color: AppColors.textPrimary)),
-              ),
-              fixedWidth: hasEnoughSpace ? 150 : 120,
-            ),
-            DataColumn2(
-              label: const Center(
-                child: Text('الحالة',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontFamily: 'Tajawal',
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                        color: AppColors.textPrimary)),
-              ),
-              fixedWidth: hasEnoughSpace ? 120 : 100,
-            ),
-            DataColumn2(
-              label: const Center(
-                child: Text('المبلغ المسترد',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontFamily: 'Tajawal',
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                        color: AppColors.textPrimary)),
-              ),
-              fixedWidth: hasEnoughSpace ? 130 : 110,
-              numeric: true,
-            ),
-            DataColumn2(
-              label: const Center(
-                child: Text('الإجراءات',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontFamily: 'Tajawal',
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                        color: AppColors.textPrimary)),
-              ),
-              fixedWidth: hasEnoughSpace ? 140 : 120,
-            ),
-          ],
-          rows: paginatedReturns.asMap().entries.map((entry) {
-            final index = entry.key + 1;
-            final return_ = entry.value;
-
-            final statusColor = _getStatusColor(return_.status);
-
-            return DataRow2(
-              color: WidgetStatePropertyAll(
-                return_.status == ReturnStatus.rejected
-                    ? AppColors.error.withValues(alpha: 0.08)
-                    : return_.status == ReturnStatus.completed
-                        ? AppColors.success.withValues(alpha: 0.08)
-                        : Colors.transparent,
-              ),
-              cells: [
-                DataCell(
-                  Center(
-                    child: Text(index.toString(),
-                        style: const TextStyle(
-                            fontFamily: 'Tajawal',
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600)),
-                  ),
-                ),
-                DataCell(
-                  Center(
-                    child: Text(return_.id,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                            fontFamily: 'Tajawal',
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600)),
-                  ),
-                ),
-                DataCell(
-                  Center(
-                    child: Text(return_.returnDate.toString().split(' ')[0],
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontFamily: 'Tajawal', fontSize: 13)),
-                  ),
-                ),
-                DataCell(
-                  Center(
-                    child: Text(return_.reason.arabicName,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontFamily: 'Tajawal', fontSize: 13)),
-                  ),
-                ),
-                DataCell(
-                  Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: statusColor.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        return_.status.arabicName,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontFamily: 'Tajawal',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: statusColor,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  Center(
-                    child: Text('${return_.totalRefund.toStringAsFixed(0)} د.ع',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontFamily: 'Tajawal', fontSize: 13)),
-                  ),
-                ),
-                DataCell(
-                  Center(
-                    child: _buildActions(context, ref, return_),
-                  ),
-                ),
-              ],
-            );
-          }).toList(),
-        );
-      },
+      BuildContext context, WidgetRef ref, List<Return> paginatedReturns) {
+    return DataTable2(
+      columns: const [
+        DataColumn2(label: Center(child: Text('ت')), fixedWidth: 40),
+        DataColumn2(
+            label: Center(child: Text('رقم المرتجع')), size: ColumnSize.L),
+        DataColumn2(label: Center(child: Text('التاريخ')), size: ColumnSize.M),
+        DataColumn2(label: Center(child: Text('السبب')), size: ColumnSize.M),
+        DataColumn2(label: Center(child: Text('الحالة')), size: ColumnSize.M),
+        DataColumn2(
+            label: Center(child: Text('المبلغ')),
+            size: ColumnSize.M,
+            numeric: true),
+        DataColumn2(
+            label: Center(child: Text('الإجراءات')), size: ColumnSize.S),
+      ],
+      rows: paginatedReturns.asMap().entries.map((entry) {
+        final index = entry.key + 1;
+        final ret = entry.value;
+        return DataRow2(cells: [
+          DataCell(Center(child: Text(index.toString()))),
+          DataCell(Center(child: Text(ret.id))),
+          DataCell(
+              Center(child: Text(ret.returnDate.toString().split(' ')[0]))),
+          DataCell(Center(child: Text(ret.reason.arabicName))),
+          DataCell(Center(child: _buildStatusBadge(ret.status))),
+          DataCell(Center(child: Text(ret.totalRefund.toStringAsFixed(0)))),
+          DataCell(Center(child: _buildActions(context, ref, ret))),
+        ]);
+      }).toList(),
     );
   }
 
-  // ===== Pagination Controls =====
-  Widget _buildPaginationControls(
-    WidgetRef ref,
-    int currentPage,
-    int totalPages,
-    int totalItems,
-  ) {
+  Widget _buildStatusBadge(ReturnStatus status) {
+    final color = _getStatusColor(status);
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.black, width: 1),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            'إجمالي: $totalItems مرتجع (50 في كل صفحة)',
-            style: const TextStyle(
-              fontFamily: 'Tajawal',
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          Row(
-            children: [
-              IconButton(
-                onPressed: currentPage > 0
-                    ? () =>
-                        ref.read(currentReturnPageProvider.notifier).state = 0
-                    : null,
-                icon: const Icon(Icons.first_page),
-                tooltip: 'الأولى',
-              ),
-              IconButton(
-                onPressed: currentPage > 0
-                    ? () => ref.read(currentReturnPageProvider.notifier).state--
-                    : null,
-                icon: const Icon(Icons.chevron_right),
-                tooltip: 'السابق',
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'صفحة ${currentPage + 1} من $totalPages',
-                  style: const TextStyle(
-                    fontFamily: 'Tajawal',
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
-              IconButton(
-                onPressed: currentPage < totalPages - 1
-                    ? () => ref.read(currentReturnPageProvider.notifier).state++
-                    : null,
-                icon: const Icon(Icons.chevron_left),
-                tooltip: 'التالي',
-              ),
-              IconButton(
-                onPressed: currentPage < totalPages - 1
-                    ? () => ref.read(currentReturnPageProvider.notifier).state =
-                        totalPages - 1
-                    : null,
-                icon: const Icon(Icons.last_page),
-                tooltip: 'الأخيرة',
-              ),
-            ],
-          ),
-        ],
-      ),
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(6)),
+      child: Text(status.arabicName,
+          style: TextStyle(
+              color: color, fontWeight: FontWeight.bold, fontSize: 12)),
     );
   }
 
-  // ===== Actions =====
-  Widget _buildActions(
-    BuildContext context,
-    WidgetRef ref,
-    Return return_,
-  ) {
+  Widget _buildActions(BuildContext context, WidgetRef ref, Return ret) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
-          tooltip: 'التفاصيل',
-          onPressed: () => _showReturnDetailsDialog(context, return_),
-          icon: const Icon(Icons.visibility, color: AppColors.info, size: 18),
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(),
-          iconSize: 18,
-        ),
-        const SizedBox(width: 4),
-        if (return_.status == ReturnStatus.pending)
+            icon: const Icon(Icons.visibility, color: AppColors.info),
+            onPressed: () => _showReturnDetailsDialog(context, ret)),
+        if (ret.status == ReturnStatus.pending)
           IconButton(
-            tooltip: 'موافقة',
-            onPressed: () => _updateReturnStatus(
-                context, ref, return_.id, ReturnStatus.approved),
-            icon: const Icon(Icons.check_circle_outline,
-                color: AppColors.success, size: 18),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            iconSize: 18,
-          ),
+              icon: const Icon(Icons.check_circle, color: AppColors.success),
+              onPressed: () => _updateReturnStatus(
+                  context, ref, ret.id, ReturnStatus.approved)),
       ],
     );
   }
 
-  // ===== Helpers =====
+  Widget _buildPaginationControls(
+      WidgetRef ref, int page, int total, int count) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text('إجمالي: $count مرتجع'),
+        Row(
+          children: [
+            IconButton(
+                icon: const Icon(Icons.chevron_right),
+                onPressed: page > 0
+                    ? () => ref.read(currentReturnPageProvider.notifier).state--
+                    : null),
+            Text('صفحة ${page + 1} من $total'),
+            IconButton(
+                icon: const Icon(Icons.chevron_left),
+                onPressed: page < total - 1
+                    ? () => ref.read(currentReturnPageProvider.notifier).state++
+                    : null),
+          ],
+        ),
+      ],
+    );
+  }
+
   Color _getStatusColor(ReturnStatus status) {
     switch (status) {
       case ReturnStatus.pending:
@@ -618,58 +329,32 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
     showDialog(
       context: context,
       builder: (_) => ReturnFormDialog(
-        onReturnCreated: () {
-          ref.invalidate(filteredReturnsProvider);
-          ref.read(currentReturnPageProvider.notifier).state = 0;
-        },
+        onReturnCreated: () => ref.invalidate(filteredReturnsProvider),
       ),
     );
   }
 
-  void _showReturnDetailsDialog(BuildContext context, Return return_) {
+  void _showReturnDetailsDialog(BuildContext context, Return ret) {
     showDialog(
       context: context,
-      builder: (_) => ReturnDetailsDialog(return_: return_),
+      builder: (_) => ReturnDetailsDialog(return_: ret),
     );
   }
 
-  Future<void> _updateReturnStatus(
-    BuildContext context,
-    WidgetRef ref,
-    String returnId,
-    ReturnStatus newStatus,
-  ) async {
-    final service = ref.read(returnServiceProvider);
-    final success = await service.updateReturnStatus(returnId, newStatus);
-
-    if (success) {
+  Future<void> _updateReturnStatus(BuildContext context, WidgetRef ref,
+      String id, ReturnStatus status) async {
+    try {
+      await ref.read(returnsRepositoryProvider).updateStatus(id, status);
       ref.invalidate(filteredReturnsProvider);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'تم تحديث حالة المرتجع بنجاح',
-              style: TextStyle(
-                fontFamily: 'Tajawal',
-              ),
-            ),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('تم التحديث بنجاح'),
+            backgroundColor: AppColors.success));
       }
-    } else {
+    } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'فشل تحديث المرتجع',
-              style: TextStyle(
-                fontFamily: 'Tajawal',
-              ),
-            ),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('خطأ: $e'), backgroundColor: AppColors.error));
       }
     }
   }

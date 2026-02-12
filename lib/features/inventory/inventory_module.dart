@@ -40,12 +40,14 @@ export 'data/models/inventory_stats_model.dart';
 export 'data/mappers/product_mapper.dart';
 export 'data/mappers/inventory_stats_mapper.dart';
 
-// Datasources
-export 'data/datasources/inventory_datasource_interface.dart';
-export 'data/datasources/inventory_local_datasource.dart';
-
 // Repository Implementation
 export 'data/repositories/inventory_repository_impl.dart';
+
+// ============ Infrastructure Layer ============
+
+// Sync API (for multi-terminal setup)
+export 'infrastructure/inventory_sync_interface.dart';
+export 'infrastructure/inventory_sync_api.dart';
 
 // ============ Presentation Layer ============
 

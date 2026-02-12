@@ -82,11 +82,11 @@ abstract class InventoryRepository {
 
   /// Delete a product by ID
   /// Returns Unit on success
-  Future<Either<InventoryFailure, Unit>> deleteProduct(int id);
+  Future<Either<InventoryFailure, Unit>> deleteProduct(String id);
 
   /// Get a product by ID
   /// Returns null if not found (not an error)
-  Future<Either<InventoryFailure, ProductEntity?>> getProductById(int id);
+  Future<Either<InventoryFailure, ProductEntity?>> getProductById(String id);
 
   /// Get a product by barcode
   /// Returns null if not found (not an error)
@@ -140,5 +140,5 @@ abstract class InventoryRepository {
   Stream<List<ProductEntity>> watchProducts();
 
   /// Watch a single product for real-time updates
-  Stream<ProductEntity?> watchProduct(int id);
+  Stream<ProductEntity?> watchProduct(String id);
 }

@@ -6,7 +6,7 @@ import 'package:pelaicons/pelaicons.dart';
 import '../../../../core/widgets/app_toast.dart';
 
 import '../../../../core/theme/app_colors.dart';
-import '../../domain/models/user.dart';
+import '../../domain/entities/user.dart';
 import '../../domain/failures/auth_failure.dart';
 import '../providers/auth_providers.dart' hide currentUserProvider;
 import '../../../../core/utils/input_sanitizer.dart';
@@ -188,7 +188,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                       onPressed: _showForgotPasswordDialog,
                                       child: const Text(
                                         'نسيت كلمة المرور؟',
-                                        style: TextStyle(fontFamily: 'Tajawal',
+                                        style: TextStyle(
+                                          fontFamily: 'Tajawal',
                                           color: AppColors.primary,
                                           fontSize: 13,
                                         ),
@@ -227,7 +228,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                             )
                                           : const Text(
                                               'تسجيل الدخول',
-                                              style: TextStyle(fontFamily: 'Tajawal',
+                                              style: TextStyle(
+                                                fontFamily: 'Tajawal',
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.bold,
                                               ),
@@ -488,7 +490,8 @@ class _Header extends StatelessWidget {
         const SizedBox(height: 24),
         const Text(
           'مرحباً بك',
-          style: TextStyle(fontFamily: 'Tajawal',
+          style: TextStyle(
+            fontFamily: 'Tajawal',
             fontSize: 28,
             fontWeight: FontWeight.bold,
             color: AppColors.textPrimary,
@@ -497,7 +500,8 @@ class _Header extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           pharmacyName,
-          style: const TextStyle(fontFamily: 'Tajawal',
+          style: const TextStyle(
+            fontFamily: 'Tajawal',
             fontSize: 16,
             fontWeight: FontWeight.w600,
             color: AppColors.primary,
@@ -507,7 +511,8 @@ class _Header extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           pharmacyNameEn,
-          style: const TextStyle(fontFamily: 'Tajawal',
+          style: const TextStyle(
+            fontFamily: 'Tajawal',
             fontSize: 13,
             color: AppColors.textSecondary,
           ),
@@ -571,7 +576,9 @@ class _UsernameField extends StatelessWidget {
             filled: true,
             fillColor: AppColors.surface,
           ),
-          style: const TextStyle(fontFamily: 'Tajawal',),
+          style: const TextStyle(
+            fontFamily: 'Tajawal',
+          ),
           onChanged: (_) => onChanged(),
           onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
         ),
@@ -589,7 +596,8 @@ class _UsernameField extends StatelessWidget {
                 Flexible(
                   child: Text(
                     errorText!,
-                    style: const TextStyle(fontFamily: 'Tajawal',
+                    style: const TextStyle(
+                      fontFamily: 'Tajawal',
                       fontSize: 12,
                       color: AppColors.error,
                     ),
@@ -678,7 +686,9 @@ class _PasswordField extends StatelessWidget {
             filled: true,
             fillColor: AppColors.surface,
           ),
-          style: const TextStyle(fontFamily: 'Tajawal',),
+          style: const TextStyle(
+            fontFamily: 'Tajawal',
+          ),
           onChanged: (_) => onChanged(),
           onFieldSubmitted: (val) {
             if (!isLoading) onSubmitted(val);
@@ -698,7 +708,8 @@ class _PasswordField extends StatelessWidget {
                 Flexible(
                   child: Text(
                     errorText!,
-                    style: const TextStyle(fontFamily: 'Tajawal',
+                    style: const TextStyle(
+                      fontFamily: 'Tajawal',
                       fontSize: 12,
                       color: AppColors.error,
                     ),
@@ -723,7 +734,8 @@ class _Footer extends StatelessWidget {
       children: [
         Text(
           'الإصدار 1.0.0',
-          style: TextStyle(fontFamily: 'Tajawal',
+          style: TextStyle(
+            fontFamily: 'Tajawal',
             fontSize: 11,
             color: AppColors.textSecondary,
           ),
@@ -731,7 +743,8 @@ class _Footer extends StatelessWidget {
         SizedBox(height: 8),
         Text(
           '© 2025 LaRaPill. جميع الحقوق محفوظة',
-          style: TextStyle(fontFamily: 'Tajawal',
+          style: TextStyle(
+            fontFamily: 'Tajawal',
             fontSize: 10,
             color: AppColors.textSecondary,
           ),
@@ -753,18 +766,24 @@ class _ForgotPasswordDialog extends StatelessWidget {
         children: [
           Icon(Icons.help_outline, color: AppColors.primary),
           SizedBox(width: 12),
-          Text('نسيت كلمة المرور؟', style: TextStyle(fontFamily: 'Tajawal',)),
+          Text('نسيت كلمة المرور؟',
+              style: TextStyle(
+                fontFamily: 'Tajawal',
+              )),
         ],
       ),
       content: const Text(
         'يرجى التواصل مع مدير النظام لإعادة تعيين كلمة المرور.',
-        style: TextStyle(fontFamily: 'Tajawal',),
+        style: TextStyle(
+          fontFamily: 'Tajawal',
+        ),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('حسناً',
-              style: TextStyle(fontFamily: 'Tajawal',color: AppColors.primary)),
+              style:
+                  TextStyle(fontFamily: 'Tajawal', color: AppColors.primary)),
         ),
       ],
     );

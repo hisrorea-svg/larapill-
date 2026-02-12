@@ -1,32 +1,23 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../database/database_helper.dart';
+import '../../../../core/database/drift/daos/sales_drift_dao.dart';
 
-class SalesChart extends StatelessWidget {
+/// Provider for weekly sales chart data
+final weeklySalesDataProvider =
+    FutureProvider<List<DailySalesData>>((ref) async {
+  final dao = ref.watch(salesDriftDaoProvider);
+  return dao.getWeeklySalesData();
+});
+
+class SalesChart extends ConsumerWidget {
   const SalesChart({super.key});
 
-  // ✅ جلب بيانات المبيعات الحقيقية
-  Future<List<Map<String, dynamic>>> _getSalesData() async {
-    final dbHelper = DatabaseHelper(); // ✅ الطريقة الصحيحة
-    final db = await dbHelper.database;
-
-    // جلب مبيعات آخر 7 أيام
-    final result = await db.rawQuery('''
-      SELECT 
-        DATE(date) as day,
-        SUM(total) as total
-      FROM sales
-      WHERE date >= date('now', '-7 days')
-      GROUP BY DATE(date)
-      ORDER BY date ASC
-    ''');
-
-    return result;
-  }
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final salesDataAsync = ref.watch(weeklySalesDataProvider);
+
     return Container(
       height: 300,
       padding: const EdgeInsets.all(16),
@@ -55,142 +46,145 @@ class SalesChart extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Expanded(
-            child: FutureBuilder<List<Map<String, dynamic>>>(
-              future: _getSalesData(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  // ✅ عرض رسالة عند عدم وجود بيانات
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.show_chart,
-                          size: 64,
-                          color: AppColors.textSecondary.withValues(alpha: 0.3),
-                        ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'لا توجد مبيعات لعرضها',
-                          style: TextStyle(
-                            fontFamily: 'Tajawal',
-                            fontSize: 14,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
+            child: salesDataAsync.when(
+              data: (salesData) => _buildChart(salesData),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (_, __) => _buildEmptyState(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-                // ✅ حساب القيم الديناميكية
-                final salesData = snapshot.data!;
-                final maxValue = salesData
-                    .map((e) => (e['total'] as num).toDouble())
-                    .reduce((a, b) => a > b ? a : b);
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.show_chart,
+            size: 64,
+            color: AppColors.textSecondary.withValues(alpha: 0.3),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'لا توجد مبيعات لعرضها',
+            style: TextStyle(
+              fontFamily: 'Tajawal',
+              fontSize: 14,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-                // ✅ حساب interval ديناميكي (لن يكون صفر أبداً)
-                final interval =
-                    maxValue > 0 ? (maxValue / 4).ceilToDouble() : 100000.0;
-                final roundedMax =
-                    maxValue > 0 ? (maxValue * 1.2).ceilToDouble() : 100000.0;
+  Widget _buildChart(List<DailySalesData> salesData) {
+    if (salesData.isEmpty) {
+      return _buildEmptyState();
+    }
 
-                // ✅ تحويل البيانات إلى FlSpots
-                final spots = List.generate(
-                  salesData.length,
-                  (index) => FlSpot(
-                    index.toDouble(),
-                    (salesData[index]['total'] as num).toDouble(),
-                  ),
-                );
+    // ✅ حساب القيم الديناميكية
+    final maxValue =
+        salesData.map((e) => e.total).reduce((a, b) => a > b ? a : b);
 
-                return LineChart(
-                  LineChartData(
-                    gridData: FlGridData(
-                      show: true,
-                      drawVerticalLine: false,
-                      horizontalInterval: interval, // ✅ دائماً > 0
-                      getDrawingHorizontalLine: (value) {
-                        return const FlLine(
-                          color: AppColors.border,
-                          strokeWidth: 1,
-                        );
-                      },
-                    ),
-                    titlesData: FlTitlesData(
-                      rightTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                      topTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 30,
-                          interval: 1,
-                          getTitlesWidget: (value, meta) =>
-                              bottomTitleWidgets(value, meta, salesData.length),
-                        ),
-                      ),
-                      leftTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          interval: interval,
-                          getTitlesWidget: leftTitleWidgets,
-                          reservedSize: 80,
-                        ),
-                      ),
-                    ),
-                    borderData: FlBorderData(
-                      show: true,
-                      border: Border.all(
-                        color: AppColors.border,
-                      ),
-                    ),
-                    minX: 0,
-                    maxX: (salesData.length - 1).toDouble(),
-                    minY: 0,
-                    maxY: roundedMax,
-                    lineBarsData: [
-                      LineChartBarData(
-                        spots: spots,
-                        isCurved: true,
-                        gradient: LinearGradient(
-                          colors: [
-                            AppColors.primary,
-                            AppColors.primary.withValues(alpha: 0.5),
-                          ],
-                        ),
-                        barWidth: 3,
-                        isStrokeCapRound: true,
-                        dotData: FlDotData(
-                          show: true,
-                          getDotPainter: (spot, percent, barData, index) {
-                            return FlDotCirclePainter(
-                              radius: 4,
-                              color: AppColors.primary,
-                              strokeWidth: 2,
-                              strokeColor: AppColors.surface,
-                            );
-                          },
-                        ),
-                        belowBarData: BarAreaData(
-                          show: true,
-                          gradient: LinearGradient(
-                            colors: [
-                              AppColors.primary.withValues(alpha: 0.2),
-                              AppColors.primary.withValues(alpha: 0.05),
-                            ],
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+    // ✅ حساب interval ديناميكي (لن يكون صفر أبداً)
+    final interval = maxValue > 0 ? (maxValue / 4).ceilToDouble() : 100000.0;
+    final roundedMax =
+        maxValue > 0 ? (maxValue * 1.2).ceilToDouble() : 100000.0;
+
+    // ✅ تحويل البيانات إلى FlSpots
+    final spots = List.generate(
+      salesData.length,
+      (index) => FlSpot(
+        index.toDouble(),
+        salesData[index].total,
+      ),
+    );
+
+    return LineChart(
+      LineChartData(
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          horizontalInterval: interval,
+          getDrawingHorizontalLine: (value) {
+            return const FlLine(
+              color: AppColors.border,
+              strokeWidth: 1,
+            );
+          },
+        ),
+        titlesData: FlTitlesData(
+          rightTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          topTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 30,
+              interval: 1,
+              getTitlesWidget: (value, meta) =>
+                  bottomTitleWidgets(value, meta, salesData.length),
+            ),
+          ),
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              interval: interval,
+              getTitlesWidget: leftTitleWidgets,
+              reservedSize: 80,
+            ),
+          ),
+        ),
+        borderData: FlBorderData(
+          show: true,
+          border: Border.all(
+            color: AppColors.border,
+          ),
+        ),
+        minX: 0,
+        maxX: (salesData.length - 1).toDouble(),
+        minY: 0,
+        maxY: roundedMax,
+        lineBarsData: [
+          LineChartBarData(
+            spots: spots,
+            isCurved: true,
+            gradient: LinearGradient(
+              colors: [
+                AppColors.primary,
+                AppColors.primary.withValues(alpha: 0.5),
+              ],
+            ),
+            barWidth: 3,
+            isStrokeCapRound: true,
+            dotData: FlDotData(
+              show: true,
+              getDotPainter: (spot, percent, barData, index) {
+                return FlDotCirclePainter(
+                  radius: 4,
+                  color: AppColors.primary,
+                  strokeWidth: 2,
+                  strokeColor: AppColors.surface,
                 );
               },
+            ),
+            belowBarData: BarAreaData(
+              show: true,
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.primary.withValues(alpha: 0.2),
+                  AppColors.primary.withValues(alpha: 0.05),
+                ],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
             ),
           ),
         ],

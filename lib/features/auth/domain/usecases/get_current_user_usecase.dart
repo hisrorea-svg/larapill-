@@ -1,6 +1,6 @@
 import '../repositories/auth_repository.dart';
 import '../failures/auth_failure.dart';
-import '../models/user.dart';
+import '../entities/user.dart';
 import '../../../../core/utils/either.dart';
 
 /// Get Current User Use Case

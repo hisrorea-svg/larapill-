@@ -2,31 +2,19 @@
 import 'dart:convert';
 import '../../../../core/storage/hive_storage.dart';
 import '../../domain/entities/network_settings_entity.dart';
-
-/// واجهة Repository لإعدادات الشبكة
-abstract class NetworkSettingsRepository {
-  /// جلب الإعدادات الحالية
-  NetworkSettingsEntity getSettings();
-
-  /// حفظ الإعدادات
-  Future<void> saveSettings(NetworkSettingsEntity settings);
-
-  /// هل هذا أول إطلاق؟
-  bool isFirstLaunch();
-
-  /// تحديد أنه تم الإطلاق
-  Future<void> markAsLaunched();
-
-  /// مسح الإعدادات
-  Future<void> clearSettings();
-}
+import '../../domain/repositories/network_settings_repository_interface.dart';
 
 /// تنفيذ Repository باستخدام HiveStorage
-class NetworkSettingsRepositoryImpl implements NetworkSettingsRepository {
+class NetworkSettingsRepositoryImpl
+    implements NetworkSettingsRepositoryInterface {
   static const String _settingsKey = 'network_settings';
   static const String _firstLaunchKey = 'network_first_launch';
 
-  const NetworkSettingsRepositoryImpl();
+  // Singleton pattern
+  static final NetworkSettingsRepositoryImpl _instance =
+      NetworkSettingsRepositoryImpl._internal();
+  factory NetworkSettingsRepositoryImpl() => _instance;
+  NetworkSettingsRepositoryImpl._internal();
 
   @override
   NetworkSettingsEntity getSettings() {

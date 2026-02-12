@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/usecases/filter_products_usecase.dart';
@@ -103,15 +105,23 @@ class InventoryController extends AsyncNotifier<InventoryState> {
   }
 
   /// Delete a product
-  Future<void> deleteProduct(int id) async {
+  Future<void> deleteProduct(String id) async {
+    developer.log('🗑️ Controller: Starting delete for ID: $id',
+        name: 'InventoryController');
+
     final deleteUseCase = ref.read(deleteProductUseCaseProvider);
     final result = await deleteUseCase(id);
 
     result.fold(
       (failure) {
-        // Show error via snackbar provider
+        developer.log('❌ Controller: Delete FAILED: ${failure.message}',
+            name: 'InventoryController');
+        // Rethrow to show error in UI
+        throw Exception(failure.message);
       },
       (_) {
+        developer.log('✅ Controller: Delete SUCCESS for ID: $id',
+            name: 'InventoryController');
         // Refresh the list
         refresh();
       },

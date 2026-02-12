@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_toast.dart';
@@ -8,7 +7,8 @@ import '../../../../core/services/meds_data_service.dart';
 import '../../domain/entities/add_product_params.dart';
 import '../../../../core/utils/input_sanitizer.dart';
 import '../providers/inventory_providers.dart';
-import 'package:month_picker_dialog/month_picker_dialog.dart';
+import '../../../../core/widgets/custom_month_picker.dart';
+import '../widgets/inventory_stats_widget.dart'; // ✅ للـ stats refresh
 
 /// ═══════════════════════════════════════════════════════════════════════════
 /// حوار إضافة منتج جديد - تصميم مبسط مستوحى من Midgram
@@ -85,7 +85,7 @@ class _SimpleAddProductDialogState
   }
 
   // ═══════════════ البحث الذكي ═══════════════
-  void _onNameChanged() {
+  Future<void> _onNameChanged() async {
     final query = _nameController.text.trim();
     if (query.length < 2) {
       setState(() {
@@ -95,11 +95,13 @@ class _SimpleAddProductDialogState
       return;
     }
 
-    final results = MedsDataService.searchMeds(query);
-    setState(() {
-      _suggestions = results;
-      _showSuggestions = results.isNotEmpty;
-    });
+    final results = await MedsDataService.search(query);
+    if (mounted) {
+      setState(() {
+        _suggestions = results;
+        _showSuggestions = results.isNotEmpty;
+      });
+    }
   }
 
   /// 🧠 اختيار من قاعدة البيانات - ملء تلقائي ذكي
@@ -238,11 +240,7 @@ class _SimpleAddProductDialogState
               label: 'الشركة المصنعة',
               icon: Icons.business,
             ),
-            _buildTextField(
-              controller: _barcodeController,
-              label: 'الباركود',
-              icon: Icons.qr_code,
-            ),
+            _buildBarcodeFieldWithAutoButton(),
           ]),
 
           const SizedBox(height: 20),
@@ -494,8 +492,10 @@ class _SimpleAddProductDialogState
                   ),
                   subtitle: Text(
                     med['manufacturer'] ?? '',
-                    style:
-                        GoogleFonts.tajawal(fontSize: 11, color: Colors.grey),
+                    style: const TextStyle(
+                        fontFamily: 'Tajawal',
+                        fontSize: 11,
+                        color: Colors.grey),
                     maxLines: 1,
                   ),
                   onTap: () => _selectFromDatabase(med),
@@ -524,6 +524,66 @@ class _SimpleAddProductDialogState
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         prefixIcon: Icon(icon, size: 20),
         labelStyle: const TextStyle(fontFamily: 'Tajawal', fontSize: 13),
+      ),
+    );
+  }
+
+  // ═══════════════ حقل الباركود مع زر تلقائي ═══════════════
+  Widget _buildBarcodeFieldWithAutoButton() {
+    return Expanded(
+      child: Row(
+        children: [
+          Expanded(
+            child: TextFormField(
+              controller: _barcodeController,
+              style: const TextStyle(fontFamily: 'Tajawal', fontSize: 14),
+              decoration: InputDecoration(
+                labelText: 'الباركود *',
+                isDense: true,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                prefixIcon: const Icon(Icons.qr_code, size: 20),
+                labelStyle:
+                    const TextStyle(fontFamily: 'Tajawal', fontSize: 13),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Tooltip(
+            message: 'إنشاء باركود تلقائي',
+            child: InkWell(
+              onTap: () {
+                // ✅ إنشاء باركود رقمي فقط (13 رقم مثل EAN-13)
+                final timestamp =
+                    DateTime.now().millisecondsSinceEpoch.toString();
+                final numericBarcode =
+                    timestamp.substring(timestamp.length - 13);
+                setState(() {
+                  _barcodeController.text = numericBarcode;
+                });
+                AppToast.info(context, 'تم إنشاء باركود تلقائي ✓');
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.auto_awesome,
+                  size: 20,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -648,8 +708,10 @@ class _SimpleAddProductDialogState
       children: [
         Text(
           label,
-          style:
-              GoogleFonts.tajawal(fontSize: 11, color: AppColors.textSecondary),
+          style: const TextStyle(
+              fontFamily: 'Tajawal',
+              fontSize: 11,
+              color: AppColors.textSecondary),
         ),
         const SizedBox(height: 2),
         Text(
@@ -705,7 +767,7 @@ class _SimpleAddProductDialogState
   }
 
   Future<void> _pickExpiryDate() async {
-    final picked = await showMonthPicker(
+    final picked = await showCustomMonthPicker(
       context: context,
       initialDate: _expiryDate ?? DateTime.now().add(const Duration(days: 365)),
       firstDate: DateTime.now(),
@@ -780,6 +842,13 @@ class _SimpleAddProductDialogState
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
+    // ✅ التحقق من الباركود
+    if (_barcodeController.text.trim().isEmpty) {
+      AppToast.warning(
+          context, 'يجب إدخال الباركود أو اضغط ✨ لإنشاء باركود تلقائي');
+      return;
+    }
+
     if (_expiryDate == null) {
       AppToast.warning(context, 'اختر تاريخ الانتهاء');
       return;
@@ -803,6 +872,9 @@ class _SimpleAddProductDialogState
       );
 
       await ref.read(inventoryControllerProvider.notifier).addProduct(params);
+
+      // ✅ تحديث الإحصائيات (الكروت)
+      ref.invalidate(inventoryStatsProvider);
 
       if (mounted) {
         AppToast.success(context, 'تم إضافة المنتج بنجاح ✅');

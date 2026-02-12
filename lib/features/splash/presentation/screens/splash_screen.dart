@@ -1,12 +1,22 @@
+import 'dart:async';
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/init/app_bootstrap.dart';
 
-/// شاشة السبلاش الجميلة
+/// 🚀 شاشة السبلاش المحسّنة
+/// 
+/// الميزات:
+/// - ✅ الانتظار حتى تكتمل الخدمات الحرجة فقط (ليس كل الخدمات)
+/// - ✅ عرض حالة التحميل الحقيقية
+/// - ✅ الحد الأدنى لعرض الشعار (1 ثانية) لتحسين UX
 class SplashScreen extends StatefulWidget {
   final VoidCallback onComplete;
 
-  const SplashScreen({super.key, required this.onComplete});
+  const SplashScreen({
+    super.key,
+    required this.onComplete,
+  });
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -16,16 +26,26 @@ class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _slideController;
   late Animation<double> _horizontalSlide;
+  late Animation<double> _fadeAnimation;
+
+  // ✅ حالة التحميل
+  String _statusText = 'جاري التحميل...';
+  double _progress = 0.0;
+  bool _isReady = false;
+
+  // ✅ توقيتات
+  final _minDisplayDuration = const Duration(seconds: 1);
+  DateTime? _displayStartTime;
 
   @override
   void initState() {
     super.initState();
+    _displayStartTime = DateTime.now();
     _setupAnimations();
-    _startSplashTimer();
+    _startLoadingProcess();
   }
 
   void _setupAnimations() {
-    // حركة أفقية بسيطة من اليمين لليسار
     _slideController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
@@ -38,17 +58,86 @@ class _SplashScreenState extends State<SplashScreen>
       ),
     );
 
-    // بدء الأنيميشن
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _slideController,
+        curve: Curves.easeInOut,
+      ),
+    );
+
     _slideController.forward();
   }
 
-  void _startSplashTimer() {
-    // انتظار 2 ثانية ثم الانتقال
-    Future.delayed(const Duration(seconds: 2), () {
+  /// ✅ بدء عملية التحميل
+  Future<void> _startLoadingProcess() async {
+    try {
+      // ✅ الخطوة 1: الخدمات الحرجة (سريعة)
+      setState(() {
+        _statusText = 'جاري تهيئة النظام...';
+        _progress = 0.3;
+      });
+
+      await AppBootstrap.waitForCritical;
+
+      // ✅ الخطوة 2: الانتظار حتى اكتمال جميع الخدمات في الخلفية
+      setState(() {
+        _statusText = 'جاري تحميل البيانات...';
+        _progress = 0.6;
+      });
+
+      // ✅ انتظار اكتمال التهيئة (أو timeout)
+      final result = await AppBootstrap.waitForComplete.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          developer.log('⏱️ Splash timeout - proceeding anyway', name: 'Splash');
+          return const BootstrapResult(
+            status: BootstrapStatus.completed,
+            elapsedTime: Duration(seconds: 5),
+          );
+        },
+      );
+
+      setState(() {
+        _progress = 1.0;
+        _statusText = 'جاهز!';
+        _isReady = true;
+      });
+
+      developer.log(
+        '✅ Splash: Init completed in ${result.elapsedTime.inMilliseconds}ms',
+        name: 'Splash',
+      );
+
+      // ✅ الانتظار حتى انتهاء الحد الأدنى للعرض
+      await _waitForMinDisplay();
+
       if (mounted) {
         widget.onComplete();
       }
-    });
+    } catch (e) {
+      developer.log('❌ Splash error: $e', name: 'Splash');
+      setState(() {
+        _statusText = 'حدث خطأ، جاري المحاولة...';
+        _progress = 0.0;
+      });
+
+      // ✅ إعادة المحاولة بعد ثانية
+      await Future.delayed(const Duration(seconds: 1));
+      if (mounted) {
+        _startLoadingProcess();
+      }
+    }
+  }
+
+  /// ✅ الانتظار حتى انتهاء الحد الأدنى للعرض
+  Future<void> _waitForMinDisplay() async {
+    if (_displayStartTime == null) return;
+
+    final elapsed = DateTime.now().difference(_displayStartTime!);
+    if (elapsed < _minDisplayDuration) {
+      final remaining = _minDisplayDuration - elapsed;
+      await Future.delayed(remaining);
+    }
   }
 
   @override
@@ -66,71 +155,106 @@ class _SplashScreenState extends State<SplashScreen>
         color: Colors.white,
         child: Stack(
           children: [
-            // أشكال زخرفية خلفية
+            // ✅ أشكال زخرفية خلفية
             _buildBackgroundShapes(),
 
-            // المحتوى الرئيسي
+            // ✅ المحتوى الرئيسي
             Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // شعار التطبيق المتحرك (من اليمين لليسار)
-                  AnimatedBuilder(
-                    animation: _slideController,
-                    builder: (context, child) {
-                      return Transform.translate(
-                        offset: Offset(_horizontalSlide.value, 0),
-                        child: child,
-                      );
-                    },
-                    child: _buildLogo(),
-                  ),
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // ✅ شعار التطبيق المتحرك
+                    AnimatedBuilder(
+                      animation: _slideController,
+                      builder: (context, child) {
+                        return Transform.translate(
+                          offset: Offset(_horizontalSlide.value, 0),
+                          child: child,
+                        );
+                      },
+                      child: _buildLogo(),
+                    ),
 
-                  const SizedBox(height: 32),
+                    const SizedBox(height: 32),
 
-                  // اسم التطبيق والوصف
-                  Column(
-                    children: [
-                      Text(
-                        'LaRaPill',
-                        style: GoogleFonts.poppins(
-                          fontSize: 38,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                          letterSpacing: 2,
+                    // ✅ اسم التطبيق
+                    const Column(
+                      children: [
+                        Text(
+                          'LaRaPill',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 38,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                            letterSpacing: 2,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'نظام إدارة الصيدلية الشامل',
-                        style: TextStyle(
-                          fontFamily: 'Tajawal',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.black54,
+                        SizedBox(height: 8),
+                        Text(
+                          'نظام إدارة الصيدلية الشامل',
+                          style: TextStyle(
+                            fontFamily: 'Tajawal',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.black54,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
 
-                  const SizedBox(height: 50),
+                    const SizedBox(height: 40),
 
-                  // مؤشر التحميل
-                  const SizedBox(
-                    width: 32,
-                    height: 32,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 3,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        AppColors.primary,
+                    // ✅ شريط التقدم (بدلاً من CircularProgressIndicator)
+                    SizedBox(
+                      width: 200,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: _progress > 0 ? _progress : null,
+                          backgroundColor: Colors.grey[200],
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            AppColors.primary,
+                          ),
+                          minHeight: 6,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+
+                    const SizedBox(height: 16),
+
+                    // ✅ نص الحالة
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      child: Text(
+                        _statusText,
+                        key: ValueKey(_statusText),
+                        style: TextStyle(
+                          fontFamily: 'Tajawal',
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ),
+
+                    // ✅ مؤشر "جاهز" (يظهر عند الاكتمال)
+                    if (_isReady)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: Icon(
+                          Icons.check_circle,
+                          color: AppColors.success,
+                          size: 20,
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
 
-            // حقوق النشر في الأسفل
+            // ✅ حقوق النشر
             const Positioned(
               bottom: 30,
               left: 0,
@@ -140,8 +264,22 @@ class _SplashScreenState extends State<SplashScreen>
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: 'Tajawal',
-                  fontSize: 24,
+                  fontSize: 14,
                   color: Colors.black45,
+                ),
+              ),
+            ),
+
+            // ✅ إصدار التطبيق
+            Positioned(
+              top: 30,
+              right: 30,
+              child: Text(
+                'v1.0.0',
+                style: TextStyle(
+                  fontFamily: 'Tajawal',
+                  fontSize: 12,
+                  color: Colors.grey[400],
                 ),
               ),
             ),
@@ -158,6 +296,13 @@ class _SplashScreenState extends State<SplashScreen>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(10),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(28),
@@ -175,7 +320,7 @@ class _SplashScreenState extends State<SplashScreen>
   Widget _buildBackgroundShapes() {
     return Stack(
       children: [
-        // دائرة كبيرة في الأعلى
+        // ✅ دائرة كبيرة في الأعلى
         Positioned(
           top: -80,
           right: -60,
@@ -188,7 +333,7 @@ class _SplashScreenState extends State<SplashScreen>
             ),
           ),
         ),
-        // دائرة في الأسفل
+        // ✅ دائرة في الأسفل
         Positioned(
           bottom: -100,
           left: -50,

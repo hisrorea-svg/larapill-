@@ -10,6 +10,7 @@ import '../../../../core/database/drift/app_database.dart';
 import '../../../../core/database/drift/daos/product_drift_dao.dart';
 import '../../../../core/database/drift/mappers/product_mapper.dart';
 import '../../../../core/models/shared/product.dart';
+import '../../../../core/exceptions/app_exceptions.dart';
 
 /// Repository for Product operations using Drift
 class ProductRepository {
@@ -21,45 +22,62 @@ class ProductRepository {
   // 📖 READ OPERATIONS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Get all products
+  /// 🚀 OPTIMIZED: Get all products with units (Single Query)
   Future<List<Product>> getAllProducts({bool activeOnly = true}) async {
     try {
-      final entries = await _dao.findAll(activeOnly: activeOnly);
-      return _mapEntriesWithUnits(entries);
-    } catch (e) {
-      developer.log('❌ خطأ في getAllProducts: $e', name: 'ProductRepository');
+      final productsWithUnits =
+          await _dao.findAllWithUnitsOptimized(activeOnly: activeOnly);
+      developer.log(
+          '📦 تم جلب ${productsWithUnits.length} منتج/منتجات (استعلام واحد محسّن)',
+          name: 'ProductRepository');
+
+      // Mapping سريع بدون async/await
+      return productsWithUnits
+          .map((pwu) => ProductMapper.fromEntry(pwu.product, pwu.units))
+          .toList();
+    } catch (e, stackTrace) {
+      developer.log('❌ خطأ في getAllProducts: $e',
+          name: 'ProductRepository', error: e, stackTrace: stackTrace);
       rethrow;
     }
   }
 
-  /// Watch all products (reactive stream)
+  /// 🚀 OPTIMIZED: Watch all products (Single Query Stream)
   Stream<List<Product>> watchAllProducts({bool activeOnly = true}) {
-    return _dao.watchAll(activeOnly: activeOnly).asyncMap((entries) async {
-      return _mapEntriesWithUnits(entries);
+    // ⚠️ مهم: map بدلاً من asyncMap للحفاظ على الأداء
+    return _dao.watchAllWithUnits(activeOnly: activeOnly).map((pwuList) {
+      return pwuList
+          .map((pwu) => ProductMapper.fromEntry(pwu.product, pwu.units))
+          .toList();
     });
   }
 
-  /// Search products by query
+  /// 🚀 OPTIMIZED: Search products (Single Query)
   Future<List<Product>> searchProducts(String query) async {
     try {
       if (query.trim().isEmpty) {
         return await getAllProducts();
       }
-      final entries = await _dao.search(query);
-      return _mapEntriesWithUnits(entries);
+      final results = await _dao.searchWithUnits(query);
+      return results
+          .map((pwu) => ProductMapper.fromEntry(pwu.product, pwu.units))
+          .toList();
     } catch (e) {
       developer.log('❌ خطأ في searchProducts: $e', name: 'ProductRepository');
       rethrow;
     }
   }
 
-  /// Watch search results (reactive)
+  /// 🚀 OPTIMIZED: Watch search results (Single Query Stream)
   Stream<List<Product>> watchSearchProducts(String query) {
     if (query.trim().isEmpty) {
       return watchAllProducts();
     }
-    return _dao.watchSearch(query).asyncMap((entries) async {
-      return _mapEntriesWithUnits(entries);
+    // ⚠️ مهم: map بدلاً من asyncMap للحفاظ على الأداء
+    return _dao.watchSearchWithUnits(query).map((pwuList) {
+      return pwuList
+          .map((pwu) => ProductMapper.fromEntry(pwu.product, pwu.units))
+          .toList();
     });
   }
 
@@ -101,11 +119,13 @@ class ProductRepository {
     }
   }
 
-  /// Get low stock products
+  /// 🚀 OPTIMIZED: Get low stock products with prices (Single JOIN Query)
   Future<List<Product>> getLowStockProducts() async {
     try {
-      final entries = await _dao.findLowStock();
-      return _mapEntriesWithUnits(entries);
+      final productsWithUnits = await _dao.findLowStockWithUnits();
+      return productsWithUnits
+          .map((pwu) => ProductMapper.fromEntry(pwu.product, pwu.units))
+          .toList();
     } catch (e) {
       developer.log('❌ خطأ في getLowStockProducts: $e',
           name: 'ProductRepository');
@@ -113,18 +133,23 @@ class ProductRepository {
     }
   }
 
-  /// Watch low stock products (reactive)
+  /// 🚀 OPTIMIZED: Watch low stock products with prices (Single JOIN Query)
   Stream<List<Product>> watchLowStockProducts() {
-    return _dao.watchLowStock().asyncMap((entries) async {
-      return _mapEntriesWithUnits(entries);
+    return _dao.watchLowStockWithUnits().map((pwuList) {
+      return pwuList
+          .map((pwu) => ProductMapper.fromEntry(pwu.product, pwu.units))
+          .toList();
     });
   }
 
-  /// Get products expiring soon
+  /// 🚀 OPTIMIZED: Get products expiring soon with prices (Single JOIN Query)
   Future<List<Product>> getExpiringProducts({int daysThreshold = 30}) async {
     try {
-      final entries = await _dao.findExpiringSoon(daysThreshold: daysThreshold);
-      return _mapEntriesWithUnits(entries);
+      final productsWithUnits =
+          await _dao.findExpiringSoonWithUnits(daysThreshold: daysThreshold);
+      return productsWithUnits
+          .map((pwu) => ProductMapper.fromEntry(pwu.product, pwu.units))
+          .toList();
     } catch (e) {
       developer.log('❌ خطأ في getExpiringProducts: $e',
           name: 'ProductRepository');
@@ -132,12 +157,14 @@ class ProductRepository {
     }
   }
 
-  /// Watch expiring products (reactive)
+  /// 🚀 OPTIMIZED: Watch expiring products with prices (Single JOIN Query)
   Stream<List<Product>> watchExpiringProducts({int daysThreshold = 30}) {
     return _dao
-        .watchExpiringSoon(daysThreshold: daysThreshold)
-        .asyncMap((entries) async {
-      return _mapEntriesWithUnits(entries);
+        .watchExpiringSoonWithUnits(daysThreshold: daysThreshold)
+        .map((pwuList) {
+      return pwuList
+          .map((pwu) => ProductMapper.fromEntry(pwu.product, pwu.units))
+          .toList();
     });
   }
 
@@ -161,11 +188,39 @@ class ProductRepository {
   // ✏️ WRITE OPERATIONS
   // ═══════════════════════════════════════════════════════════════════════════
 
+  /// Validate product prices - ensures no negative or zero prices
+  void _validateProductPrices(Product product) {
+    for (final entry in product.unitInfo.entries) {
+      final unit = entry.key;
+      final info = entry.value;
+
+      if (info.sellingPrice <= 0) {
+        throw ValidationException(
+          'سعر البيع يجب أن يكون أكبر من صفر',
+          fieldName: 'sellingPrice',
+          userMessage:
+              'سعر البيع لـ "${unit.arabicName}" يجب أن يكون أكبر من صفر',
+        );
+      }
+      if (info.costPrice < 0) {
+        throw ValidationException(
+          'سعر التكلفة لا يمكن أن يكون سالباً',
+          fieldName: 'costPrice',
+          userMessage:
+              'سعر التكلفة لـ "${unit.arabicName}" لا يمكن أن يكون سالباً',
+        );
+      }
+    }
+  }
+
   /// Insert a new product with its units
   Future<String> insertProduct(Product product) async {
     try {
       developer.log('📦 بدء إدراج منتج: ${product.name}',
           name: 'ProductRepository');
+
+      // 🔥 Validate prices before insert
+      _validateProductPrices(product);
 
       // Insert product
       final companion = ProductMapper.toCompanion(product);
@@ -194,6 +249,9 @@ class ProductRepository {
       developer.log('🔄 بدء تحديث منتج: ${product.name}',
           name: 'ProductRepository');
 
+      // 🔥 Validate prices before update
+      _validateProductPrices(product);
+
       // Update product
       final companion = ProductMapper.toCompanion(product);
       await _dao.updateProductFields(product.id, companion);
@@ -214,17 +272,6 @@ class ProductRepository {
     }
   }
 
-  /// Update stock quantity
-  Future<bool> updateStock(String productId, double newStock) async {
-    try {
-      await _dao.updateStock(productId, newStock);
-      return true;
-    } catch (e) {
-      developer.log('❌ خطأ في updateStock: $e', name: 'ProductRepository');
-      return false;
-    }
-  }
-
   /// Soft delete a product
   Future<bool> deleteProduct(String id) async {
     try {
@@ -237,25 +284,144 @@ class ProductRepository {
     }
   }
 
+  /// 🛠️ DATA FIX: Recover inactive products that have stock
+  Future<int> restoreStockedProducts() async {
+    try {
+      final count = await _dao.restoreStockedProducts();
+      if (count > 0) {
+        developer.log('✅ تم استعادة $count منتج كان محذوفاً ولديه مخزون',
+            name: 'ProductRepository');
+      }
+      return count;
+    } catch (e) {
+      developer.log('❌ خطأ في restoreStockedProducts: $e',
+          name: 'ProductRepository');
+      return 0;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🗑️ INACTIVE PRODUCTS MANAGEMENT
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// 🚀 OPTIMIZED: Get all inactive products with units (Single Query)
+  Future<List<Product>> getInactiveProducts() async {
+    try {
+      final productsWithUnits = await _dao.findInactiveWithUnits();
+      developer.log('📦 تم جلب ${productsWithUnits.length} منتج غير نشط',
+          name: 'ProductRepository');
+      return productsWithUnits
+          .map((pwu) => ProductMapper.fromEntry(pwu.product, pwu.units))
+          .toList();
+    } catch (e, stackTrace) {
+      developer.log('❌ خطأ في getInactiveProducts: $e',
+          name: 'ProductRepository', error: e, stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
+  /// 🚀 OPTIMIZED: Watch inactive products (Single Query Stream)
+  Stream<List<Product>> watchInactiveProducts() {
+    return _dao.watchInactiveWithUnits().map((pwuList) {
+      return pwuList
+          .map((pwu) => ProductMapper.fromEntry(pwu.product, pwu.units))
+          .toList();
+    });
+  }
+
+  /// 🚀 OPTIMIZED: Search inactive products (Single Query)
+  Future<List<Product>> searchInactiveProducts(String query) async {
+    try {
+      if (query.trim().isEmpty) {
+        return await getInactiveProducts();
+      }
+      final results = await _dao.searchInactiveWithUnits(query);
+      return results
+          .map((pwu) => ProductMapper.fromEntry(pwu.product, pwu.units))
+          .toList();
+    } catch (e) {
+      developer.log('❌ خطأ في searchInactiveProducts: $e',
+          name: 'ProductRepository');
+      rethrow;
+    }
+  }
+
+  /// Count inactive products
+  Future<int> countInactiveProducts() async {
+    try {
+      return await _dao.countInactive();
+    } catch (e) {
+      developer.log('❌ خطأ في countInactiveProducts: $e',
+          name: 'ProductRepository');
+      return 0;
+    }
+  }
+
+  /// Hard delete a product (permanent deletion)
+  Future<bool> hardDeleteProduct(String id) async {
+    try {
+      final affectedRows = await _dao.hardDelete(id);
+      if (affectedRows > 0) {
+        developer.log('✅ تم الحذف الدائم للمنتج: $id',
+            name: 'ProductRepository');
+        return true;
+      } else {
+        developer.log('⚠️ لم يتم العثور على المنتج للحذف: $id',
+            name: 'ProductRepository');
+        return false;
+      }
+    } catch (e) {
+      developer.log('❌ خطأ في hardDeleteProduct: $e',
+          name: 'ProductRepository');
+      return false;
+    }
+  }
+
+  /// Hard delete all inactive products (permanent batch deletion)
+  Future<int> hardDeleteAllInactiveProducts() async {
+    try {
+      final count = await _dao.hardDeleteAllInactive();
+      if (count > 0) {
+        developer.log('✅ تم الحذف الدائم لـ $count منتج غير نشط',
+            name: 'ProductRepository');
+      } else {
+        developer.log('⚠️ لا توجد منتجات غير نشطة للحذف',
+            name: 'ProductRepository');
+      }
+      return count;
+    } catch (e) {
+      developer.log('❌ خطأ في hardDeleteAllInactiveProducts: $e',
+          name: 'ProductRepository');
+      return 0;
+    }
+  }
+
+  /// Activate (restore) a product
+  Future<bool> activateProduct(String id) async {
+    try {
+      final result = await _dao.activateProduct(id);
+      if (result) {
+        developer.log('✅ تم تفعيل المنتج: $id', name: 'ProductRepository');
+      }
+      return result;
+    } catch (e) {
+      developer.log('❌ خطأ في activateProduct: $e', name: 'ProductRepository');
+      return false;
+    }
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // 🔧 PRIVATE HELPERS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Map a single entry with its units
+  /// Map a single entry with its units (OK for single item, N+1 not an issue)
   Future<Product> _mapEntryWithUnits(ProductEntry entry) async {
     final units = await _dao.getProductUnits(entry.id);
     return ProductMapper.fromEntry(entry, units);
   }
 
-  /// Map multiple entries with their units
-  Future<List<Product>> _mapEntriesWithUnits(List<ProductEntry> entries) async {
-    final products = <Product>[];
-    for (final entry in entries) {
-      final units = await _dao.getProductUnits(entry.id);
-      products.add(ProductMapper.fromEntry(entry, units));
-    }
-    return products;
-  }
+  // ⚠️ DEPRECATED: _mapEntriesWithUnits حُذفت لأنها كانت تسبب N+1 Problem
+  // الآن نستخدم الـ JOIN-based methods في DAO مباشرة
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -291,4 +457,16 @@ final expiringProductsProvider =
 final productStatsProvider = FutureProvider<Map<String, dynamic>>((ref) {
   final repo = ref.watch(productRepositoryProvider);
   return repo.getProductStatistics();
+});
+
+/// Stream provider for inactive products
+final inactiveProductsProvider = StreamProvider<List<Product>>((ref) {
+  final repo = ref.watch(productRepositoryProvider);
+  return repo.watchInactiveProducts();
+});
+
+/// Future provider for inactive products count
+final inactiveProductsCountProvider = FutureProvider<int>((ref) {
+  final repo = ref.watch(productRepositoryProvider);
+  return repo.countInactiveProducts();
 });

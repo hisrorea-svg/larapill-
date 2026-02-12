@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
 import 'dart:async';
 
@@ -220,7 +219,8 @@ class _SessionWarningDialogState extends State<SessionWarningDialog>
                         const SizedBox(height: 8),
                         Text(
                           _formatTime(_currentRemaining),
-                          style: GoogleFonts.robotoMono(
+                          style: TextStyle(
+                            fontFamily: 'RobotoMono',
                             fontSize: 32,
                             fontWeight: FontWeight.bold,
                             color: _getWarningColor(),
@@ -357,7 +357,8 @@ class SessionWarningHelper {
             Expanded(
               child: Text(
                 'ستنتهي جلستك خلال ${remainingTime.inMinutes} دقيقة',
-                style: const TextStyle(fontFamily: 'Tajawal', color: Colors.white),
+                style:
+                    const TextStyle(fontFamily: 'Tajawal', color: Colors.white),
               ),
             ),
           ],

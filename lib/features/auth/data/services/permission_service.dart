@@ -1,24 +1,23 @@
-import '../../../../database/database_helper.dart';
-import '../../domain/models/user.dart';
+import '../../../../core/database/drift/daos/users_drift_dao.dart';
+import '../../../../core/database/drift/app_database.dart';
+import '../../domain/entities/user.dart';
 import 'dart:developer' as developer;
 
 /// Permission management service
 /// Handles authorization checks and default permissions
 class PermissionService {
+  final UsersDriftDao _dao;
+
+  PermissionService(this._dao);
+
   /// Check if user has specific permission
-  static Future<bool> checkPermission(String userId, String permission) async {
+  Future<bool> checkPermission(String userId, String permission) async {
     try {
-      final dbHelper = DatabaseHelper();
-      final db = await dbHelper.database;
-      final result = await db.query(
-        'users',
-        where: 'id = ?',
-        whereArgs: [userId],
-      );
+      final userEntry = await _dao.findById(userId);
 
-      if (result.isEmpty) return false;
+      if (userEntry == null) return false;
 
-      final user = User.fromMap(result.first);
+      final user = _mapEntryToUser(userEntry);
       return user.hasPermission(permission);
     } catch (e) {
       developer.log('❌ خطأ في التحقق من الصلاحية: $e',
@@ -42,23 +41,12 @@ class PermissionService {
   }
 
   /// Update user permissions
-  static Future<Map<String, dynamic>> updatePermissions({
+  Future<Map<String, dynamic>> updatePermissions({
     required String userId,
     required List<String> permissions,
   }) async {
     try {
-      final dbHelper = DatabaseHelper();
-      final db = await dbHelper.database;
-
-      await db.update(
-        'users',
-        {
-          'permissions': permissions.join(','),
-          'updated_at': DateTime.now().toIso8601String(),
-        },
-        where: 'id = ?',
-        whereArgs: [userId],
-      );
+      await _dao.updatePermissions(userId, permissions);
 
       return {
         'success': true,
@@ -71,5 +59,25 @@ class PermissionService {
         'error': 'فشل تحديث الصلاحيات',
       };
     }
+  }
+
+  /// Map Drift UserEntry to domain User
+  User _mapEntryToUser(UserEntry entry) {
+    return User(
+      id: entry.id,
+      username: entry.username,
+      fullName: entry.fullName,
+      email: entry.email,
+      phone: entry.phone,
+      passwordHash: entry.passwordHash,
+      role: UserRole.fromString(entry.role),
+      permissions: entry.permissions?.split(',') ?? [],
+      isActive: entry.isActive,
+      forcePasswordChange: entry.forcePasswordChange,
+      lastLogin: entry.lastLogin,
+      createdAt: entry.createdAt,
+      updatedAt: entry.updatedAt,
+      createdBy: entry.createdBy,
+    );
   }
 }

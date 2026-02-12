@@ -5,24 +5,26 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:shelf/shelf.dart';
 
-import '../../../features/inventory/data/datasources/local/product_dao.dart';
-import '../../pos/data/repositories/sales_service.dart';
-import '../../../features/pos/domain/entities/sale.dart';
+import '../../../../core/database/drift/daos/daos.dart';
+import '../../../../features/pos/data/repositories/sales_repository.dart';
+import '../../../../features/pos/domain/entities/sale.dart';
 import 'sync_constants.dart';
 
 /// API handlers for sync server endpoints
+///
+/// Uses Drift DAOs and Repositories for database access
 class ApiHandlers {
-  final ProductDAO _productDao;
-  final SalesService _salesService;
+  final ProductDriftDao _productDao;
+  final SalesRepository _salesRepository;
 
   // Track registered terminals
   final _registeredTerminals = <String, DateTime>{};
 
   ApiHandlers({
-    ProductDAO? productDao,
-    SalesService? salesService,
-  })  : _productDao = productDao ?? ProductDAO(),
-        _salesService = salesService ?? SalesService();
+    required ProductDriftDao productDao,
+    required SalesRepository salesRepository,
+  })  : _productDao = productDao,
+        _salesRepository = salesRepository;
 
   /// Health check endpoint
   Future<Response> health(Request request) async {
@@ -39,7 +41,7 @@ class ApiHandlers {
   /// Get compressed product snapshot
   Future<Response> productsSnapshot(Request request) async {
     try {
-      final products = await _productDao.findAll();
+      final products = await _productDao.findAllWithUnitsOptimized();
 
       // Convert to JSON
       final productsJson = products.map((p) => p.toMap()).toList();
@@ -81,6 +83,9 @@ class ApiHandlers {
   }
 
   /// Get products with optional filtering (incremental sync)
+  ///
+  /// Supports filtering by 'since' date for efficient incremental sync.
+  /// The 'since' parameter should be ISO8601 formatted datetime.
   Future<Response> products(Request request) async {
     try {
       final sinceParam = request.url.queryParameters['since'];
@@ -91,16 +96,24 @@ class ApiHandlers {
       final offset = int.tryParse(offsetParam ?? '') ?? 0;
       final since = sinceParam != null ? DateTime.tryParse(sinceParam) : null;
 
-      // Get all products (filtering would be applied if updatedAt exists)
-      var products = await _productDao.findAll();
+      // Get all products with units
+      var products = await _productDao.findAllWithUnitsOptimized();
 
-      // TODO: Filter by since date when updatedAt is available
-      // Currently not used but will be needed for incremental sync
-      // ignore: unused_local_variable
-      final sinceFilter = since;
-      // if (since != null) {
-      //   products = products.where((p) => p.updatedAt.isAfter(since)).toList();
-      // }
+      // Filter by since date for incremental sync (if provided)
+      if (since != null) {
+        products = products.where((p) {
+          // Compare updatedAt with the since date
+          // Products without updatedAt are always included
+          final productUpdatedAt = p.product.updatedAt;
+          // updated_at is non-nullable in schema, so direct comparison is safe
+          return productUpdatedAt.isAfter(since);
+        }).toList();
+
+        developer.log(
+          'Incremental sync: filtered ${products.length} products updated since $since',
+          name: 'ApiHandlers',
+        );
+      }
 
       // Apply pagination
       final paginated = products.skip(offset).take(limit).toList();
@@ -140,7 +153,7 @@ class ApiHandlers {
           // Parse and save sale
           if (saleJson is Map<String, dynamic>) {
             final sale = Sale.fromMap(saleJson);
-            await _salesService.saveSale(sale);
+            await _salesRepository.saveSale(sale);
             receivedCount++;
           }
         } catch (e) {

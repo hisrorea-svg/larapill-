@@ -3,25 +3,34 @@ import 'dart:math';
 import 'dart:async';
 import 'dart:io';
 
-import 'package:sqflite/sqflite.dart' as sqflite;
 import '../../../../core/storage/hive_storage.dart';
 import 'dart:developer' as developer;
-import '../../../../database/database_helper.dart';
+import '../../../../core/database/drift/daos/users_drift_dao.dart';
+import '../../../../core/database/drift/app_database.dart';
 import '../../../../core/services/password_hasher.dart';
 import '../../../../core/exceptions/app_exceptions.dart';
 import '../../../../core/services/audit_logger.dart';
 import '../../../../core/utils/input_sanitizer.dart';
-import '../../domain/models/user.dart';
+import '../../domain/entities/user.dart';
 import 'package:uuid/uuid.dart';
+import 'package:drift/drift.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 
 // ================================
-// ✅ UserService - مع التشفير الآمن
+// ✅ UserService - مع التشفير الآمن (Drift)
 // ================================
 class UserService {
   static const String _currentUserKey = 'current_user_id';
   static const String _sessionTokenKey = 'session_token';
+
+  // Static DAO reference for static methods (set by DI during app initialization)
+  static UsersDriftDao? _dao;
+
+  /// Initialize with DAO from DI
+  static void init(UsersDriftDao dao) {
+    _dao = dao;
+  }
 
   // إنشاء مستخدم جديد مع معالجة أخطاء محسنة
   static Future<Map<String, dynamic>> createUser({
@@ -34,6 +43,10 @@ class UserService {
     List<String>? permissions,
     required String createdBy,
   }) async {
+    if (_dao == null) {
+      throw Exception('UserService not initialized. Call init() first.');
+    }
+
     try {
       // تنظيف المدخلات
       final cleanUsername = InputSanitizer.sanitizeUsername(username);
@@ -62,23 +75,10 @@ class UserService {
         );
       }
 
-      final dbHelper = DatabaseHelper();
-      final db = await dbHelper.database;
-
       // التحقق من وجود اسم المستخدم
-      final existingUsers = await db.query(
-        'users',
-        where: 'username = ?',
-        whereArgs: [cleanUsername],
-      ).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () => throw DatabaseTimeoutException(
-          'انتهت مهلة البحث عن اسم المستخدم',
-          timeout: const Duration(seconds: 10),
-        ),
-      );
+      final existingUser = await _dao!.findByUsername(cleanUsername);
 
-      if (existingUsers.isNotEmpty) {
+      if (existingUser != null) {
         throw DatabaseConstraintException(
           'اسم المستخدم موجود مسبقاً',
           constraintType: 'UNIQUE',
@@ -91,6 +91,23 @@ class UserService {
       // إنشاء المستخدم
       final userId = _generateId();
       final now = DateTime.now();
+      final userPermissions = permissions ?? getDefaultPermissions(role);
+
+      await _dao!.createUser(UsersCompanion.insert(
+        id: userId,
+        username: cleanUsername,
+        fullName: cleanFullName,
+        email: Value(cleanEmail),
+        phone: Value(cleanPhone),
+        passwordHash: _hashPassword(password),
+        role: Value(role.name),
+        permissions: Value(userPermissions.join(',')),
+        isActive: const Value(true),
+        forcePasswordChange: const Value(false),
+        createdAt: now,
+        updatedAt: now,
+        createdBy: Value(createdBy),
+      ));
 
       final user = User(
         id: userId,
@@ -100,20 +117,12 @@ class UserService {
         phone: cleanPhone,
         passwordHash: _hashPassword(password),
         role: role,
-        permissions: permissions ?? getDefaultPermissions(role),
+        permissions: userPermissions,
         isActive: true,
         createdAt: now,
         updatedAt: now,
         createdBy: createdBy,
       );
-
-      await db.insert('users', user.toMap()).timeout(
-            const Duration(seconds: 10),
-            onTimeout: () => throw DatabaseTimeoutException(
-              'انتهت مهلة إنشاء المستخدم',
-              timeout: const Duration(seconds: 10),
-            ),
-          );
 
       // تسجيل النشاط القديم
       await _logActivity(
@@ -138,15 +147,6 @@ class UserService {
         'success': true,
         'user': user,
       };
-    } on sqflite.DatabaseException catch (e) {
-      developer.log('❌ خطأ قاعدة بيانات في إنشاء المستخدم: $e',
-          name: 'UserService', error: e);
-      throw DatabaseException(
-        'فشل إنشاء المستخدم في قاعدة البيانات',
-        originalError: e,
-        tableName: 'users',
-        operation: 'insert',
-      );
     } on AppException catch (e) {
       developer.log('❌ خطأ في إنشاء المستخدم: ${e.message}',
           name: 'UserService', error: e, stackTrace: e.stackTrace);
@@ -169,24 +169,21 @@ class UserService {
   // تسجيل الدخول مع دعم الترقية التلقائية
   static Future<Map<String, dynamic>> login(
       String username, String password) async {
+    if (_dao == null) {
+      return {'success': false, 'error': 'UserService not initialized'};
+    }
+
     try {
-      final dbHelper = DatabaseHelper();
-      final db = await dbHelper.database;
+      final userEntry = await _dao!.findByUsername(username);
 
-      final users = await db.query(
-        'users',
-        where: 'username = ? AND is_active = 1',
-        whereArgs: [username],
-      );
-
-      if (users.isEmpty) {
+      if (userEntry == null || !userEntry.isActive) {
         return {
           'success': false,
           'error': 'اسم المستخدم غير موجود أو غير مفعل',
         };
       }
 
-      final user = User.fromMap(users.first);
+      final user = _mapEntryToUser(userEntry);
 
       // فحص نوع الـ hash والتحقق
       bool passwordValid = false;
@@ -202,15 +199,7 @@ class UserService {
           passwordValid = true;
 
           // ترقية الـ hash فوراً
-          await db.update(
-            'users',
-            {
-              'password_hash': upgradedHash,
-              'updated_at': DateTime.now().toIso8601String(),
-            },
-            where: 'id = ?',
-            whereArgs: [user.id],
-          );
+          await _dao!.updatePassword(user.id, upgradedHash);
 
           developer.log('✅ تم ترقية hash كلمة المرور للمستخدم: $username',
               name: 'UserService');
@@ -231,28 +220,21 @@ class UserService {
       final sessionToken = _generateSessionToken();
       final deviceInfo = await _getDeviceInfo();
       final ipAddress = await _getIpAddress();
+      final now = DateTime.now();
 
-      await db.insert('user_sessions', {
-        'id': _generateId(),
-        'user_id': user.id,
-        'session_token': sessionToken,
-        'device_info': deviceInfo,
-        'ip_address': ipAddress,
-        'login_time': DateTime.now().toIso8601String(),
-        'last_activity': DateTime.now().toIso8601String(),
-        'is_active': 1,
-      });
+      await _dao!.createSession(UserSessionsCompanion.insert(
+        id: _generateId(),
+        userId: user.id,
+        sessionToken: sessionToken,
+        deviceInfo: Value(deviceInfo),
+        ipAddress: Value(ipAddress),
+        loginTime: now,
+        lastActivity: now,
+        isActive: const Value(true),
+      ));
 
       // تحديث آخر تسجيل دخول
-      await db.update(
-        'users',
-        {
-          'last_login': DateTime.now().toIso8601String(),
-          'updated_at': DateTime.now().toIso8601String(),
-        },
-        where: 'id = ?',
-        whereArgs: [user.id],
-      );
+      await _dao!.updateLastLogin(user.id);
 
       // حفظ الجلسة
       await HiveStorage.setSecure(_currentUserKey, user.id);
@@ -283,21 +265,10 @@ class UserService {
       final userId = HiveStorage.getSecure<String>(_currentUserKey);
       final sessionToken = HiveStorage.getSecure<String>(_sessionTokenKey);
 
-      if (userId != null) {
-        final dbHelper = DatabaseHelper();
-        final db = await dbHelper.database;
-
+      if (userId != null && _dao != null) {
         // إنهاء الجلسة
         if (sessionToken != null) {
-          await db.update(
-            'user_sessions',
-            {
-              'is_active': 0,
-              'last_activity': DateTime.now().toIso8601String(),
-            },
-            where: 'session_token = ?',
-            whereArgs: [sessionToken],
-          );
+          await _dao!.invalidateSession(sessionToken);
         }
 
         // تسجيل النشاط
@@ -322,6 +293,8 @@ class UserService {
 
   // الحصول على المستخدم الحالي
   static Future<User?> getCurrentUser() async {
+    if (_dao == null) return null;
+
     try {
       final userId = HiveStorage.getSecure<String>(_currentUserKey);
       final sessionToken = HiveStorage.getSecure<String>(_sessionTokenKey);
@@ -330,42 +303,26 @@ class UserService {
         return null;
       }
 
-      final dbHelper = DatabaseHelper();
-      final db = await dbHelper.database;
-
       // التحقق من صلاحية الجلسة
-      final sessions = await db.query(
-        'user_sessions',
-        where: 'user_id = ? AND session_token = ? AND is_active = 1',
-        whereArgs: [userId, sessionToken],
-      );
+      final session = await _dao!.getSession(sessionToken);
 
-      if (sessions.isEmpty) {
+      if (session == null || !session.isActive) {
         await HiveStorage.removeSecure(_currentUserKey);
         await HiveStorage.removeSecure(_sessionTokenKey);
         return null;
       }
 
       // تحديث آخر نشاط
-      await db.update(
-        'user_sessions',
-        {'last_activity': DateTime.now().toIso8601String()},
-        where: 'session_token = ?',
-        whereArgs: [sessionToken],
-      );
+      await _dao!.updateSessionActivity(sessionToken);
 
       // جلب بيانات المستخدم
-      final users = await db.query(
-        'users',
-        where: 'id = ? AND is_active = 1',
-        whereArgs: [userId],
-      );
+      final userEntry = await _dao!.findById(userId);
 
-      if (users.isEmpty) {
+      if (userEntry == null || !userEntry.isActive) {
         return null;
       }
 
-      return User.fromMap(users.first);
+      return _mapEntryToUser(userEntry);
     } catch (e) {
       developer.log('❌ خطأ في جلب المستخدم الحالي: $e', name: 'UserService');
       return null;
@@ -374,19 +331,12 @@ class UserService {
 
   // الحصول على مستخدم بواسطة الـ ID
   static Future<User?> getUserById(String userId) async {
+    if (_dao == null) return null;
+
     try {
-      final dbHelper = DatabaseHelper();
-      final db = await dbHelper.database;
-
-      final users = await db.query(
-        'users',
-        where: 'id = ?',
-        whereArgs: [userId],
-      );
-
-      if (users.isEmpty) return null;
-
-      return User.fromMap(users.first);
+      final userEntry = await _dao!.findById(userId);
+      if (userEntry == null) return null;
+      return _mapEntryToUser(userEntry);
     } catch (e) {
       developer.log('❌ خطأ في جلب المستخدم: $e', name: 'UserService');
       return null;
@@ -395,22 +345,11 @@ class UserService {
 
   // جلب جميع المستخدمين
   static Future<List<User>> getAllUsers({bool activeOnly = false}) async {
+    if (_dao == null) return [];
+
     try {
-      final dbHelper = DatabaseHelper();
-      final db = await dbHelper.database;
-
-      final List<Map<String, dynamic>> users = activeOnly
-          ? await db.query(
-              'users',
-              where: 'is_active = 1',
-              orderBy: 'created_at DESC',
-            )
-          : await db.query(
-              'users',
-              orderBy: 'created_at DESC',
-            );
-
-      return users.map((map) => User.fromMap(map)).toList();
+      final entries = await _dao!.getAllUsers(activeOnly: activeOnly);
+      return entries.map((entry) => _mapEntryToUser(entry)).toList();
     } catch (e) {
       developer.log('❌ خطأ في جلب المستخدمين: $e', name: 'UserService');
       return [];
@@ -427,28 +366,19 @@ class UserService {
     List<String>? permissions,
     bool? isActive,
   }) async {
+    if (_dao == null) {
+      return {'success': false, 'error': 'UserService not initialized'};
+    }
+
     try {
-      final dbHelper = DatabaseHelper();
-      final db = await dbHelper.database;
-
-      final updateData = <String, dynamic>{
-        'updated_at': DateTime.now().toIso8601String(),
-      };
-
-      if (fullName != null) updateData['full_name'] = fullName;
-      if (email != null) updateData['email'] = email;
-      if (phone != null) updateData['phone'] = phone;
-      if (role != null) updateData['role'] = role.name;
-      if (permissions != null) {
-        updateData['permissions'] = permissions.join(',');
-      }
-      if (isActive != null) updateData['is_active'] = isActive ? 1 : 0;
-
-      await db.update(
-        'users',
-        updateData,
-        where: 'id = ?',
-        whereArgs: [userId],
+      await _dao!.updateUser(
+        userId,
+        fullName: fullName,
+        email: email,
+        phone: phone,
+        role: role?.name,
+        permissions: permissions,
+        isActive: isActive,
       );
 
       developer.log('✅ تم تحديث المستخدم: $userId', name: 'UserService');
@@ -469,25 +399,22 @@ class UserService {
     required String oldPassword,
     required String newPassword,
   }) async {
+    if (_dao == null) {
+      return {'success': false, 'error': 'UserService not initialized'};
+    }
+
     try {
-      final dbHelper = DatabaseHelper();
-      final db = await dbHelper.database;
-
       // جلب المستخدم
-      final users = await db.query(
-        'users',
-        where: 'id = ?',
-        whereArgs: [userId],
-      );
+      final userEntry = await _dao!.findById(userId);
 
-      if (users.isEmpty) {
+      if (userEntry == null) {
         return {
           'success': false,
           'error': 'المستخدم غير موجود',
         };
       }
 
-      final user = User.fromMap(users.first);
+      final user = _mapEntryToUser(userEntry);
 
       // التحقق من كلمة المرور القديمة
       bool oldPasswordValid = false;
@@ -512,17 +439,7 @@ class UserService {
 
       // تحديث كلمة المرور وإزالة علامة force_password_change
       final newHash = _hashPassword(newPassword);
-
-      await db.update(
-        'users',
-        {
-          'password_hash': newHash,
-          'force_password_change': 0, // إزالة الإجبار على تغيير كلمة المرور
-          'updated_at': DateTime.now().toIso8601String(),
-        },
-        where: 'id = ?',
-        whereArgs: [userId],
-      );
+      await _dao!.updatePassword(userId, newHash, forceChange: false);
 
       // تسجيل النشاط
       await _logActivity(userId, 'change_password', 'تغيير كلمة المرور');
@@ -546,21 +463,13 @@ class UserService {
     required String newPassword,
     required String adminId,
   }) async {
+    if (_dao == null) {
+      return {'success': false, 'error': 'UserService not initialized'};
+    }
+
     try {
-      final dbHelper = DatabaseHelper();
-      final db = await dbHelper.database;
-
       final newHash = _hashPassword(newPassword);
-
-      await db.update(
-        'users',
-        {
-          'password_hash': newHash,
-          'updated_at': DateTime.now().toIso8601String(),
-        },
-        where: 'id = ?',
-        whereArgs: [userId],
-      );
+      await _dao!.updatePassword(userId, newHash);
 
       // تسجيل النشاط
       await _logActivity(
@@ -588,28 +497,16 @@ class UserService {
     required String userId,
     required String deletedBy,
   }) async {
-    try {
-      final dbHelper = DatabaseHelper();
-      final db = await dbHelper.database;
+    if (_dao == null) {
+      return {'success': false, 'error': 'UserService not initialized'};
+    }
 
+    try {
       // إيقاف التفعيل بدلاً من الحذف الفعلي
-      await db.update(
-        'users',
-        {
-          'is_active': 0,
-          'updated_at': DateTime.now().toIso8601String(),
-        },
-        where: 'id = ?',
-        whereArgs: [userId],
-      );
+      await _dao!.updateUser(userId, isActive: false);
 
       // إنهاء جميع جلسات المستخدم
-      await db.update(
-        'user_sessions',
-        {'is_active': 0},
-        where: 'user_id = ?',
-        whereArgs: [userId],
-      );
+      await _dao!.invalidateAllUserSessions(userId);
 
       // تسجيل النشاط
       await _logActivity(
@@ -635,19 +532,20 @@ class UserService {
     required String userId,
     int limit = 50,
   }) async {
+    if (_dao == null) return [];
+
     try {
-      final dbHelper = DatabaseHelper();
-      final db = await dbHelper.database;
-
-      final activities = await db.query(
-        'user_activities',
-        where: 'user_id = ?',
-        whereArgs: [userId],
-        orderBy: 'created_at DESC',
-        limit: limit,
-      );
-
-      return activities;
+      final activities = await _dao!.getUserActivities(userId, limit: limit);
+      return activities
+          .map((entry) => {
+                'id': entry.id,
+                'user_id': entry.userId,
+                'action': entry.action,
+                'details': entry.details,
+                'ip_address': entry.ipAddress,
+                'created_at': entry.createdAt.toIso8601String(),
+              })
+          .toList();
     } catch (e) {
       developer.log('❌ خطأ في جلب نشاطات المستخدم: $e', name: 'UserService');
       return [];
@@ -657,18 +555,22 @@ class UserService {
   // جلب الجلسات النشطة
   static Future<List<Map<String, dynamic>>> getActiveSessions(
       String userId) async {
+    if (_dao == null) return [];
+
     try {
-      final dbHelper = DatabaseHelper();
-      final db = await dbHelper.database;
-
-      final sessions = await db.query(
-        'user_sessions',
-        where: 'user_id = ? AND is_active = 1',
-        whereArgs: [userId],
-        orderBy: 'login_time DESC',
-      );
-
-      return sessions;
+      final sessions = await _dao!.getUserSessions(userId);
+      return sessions
+          .map((entry) => {
+                'id': entry.id,
+                'user_id': entry.userId,
+                'session_token': entry.sessionToken,
+                'device_info': entry.deviceInfo,
+                'ip_address': entry.ipAddress,
+                'login_time': entry.loginTime.toIso8601String(),
+                'last_activity': entry.lastActivity.toIso8601String(),
+                'is_active': entry.isActive ? 1 : 0,
+              })
+          .toList();
     } catch (e) {
       developer.log('❌ خطأ في جلب الجلسات النشطة: $e', name: 'UserService');
       return [];
@@ -677,17 +579,10 @@ class UserService {
 
   // إنهاء جلسة محددة
   static Future<bool> terminateSession(String sessionToken) async {
+    if (_dao == null) return false;
+
     try {
-      final dbHelper = DatabaseHelper();
-      final db = await dbHelper.database;
-
-      await db.update(
-        'user_sessions',
-        {'is_active': 0},
-        where: 'session_token = ?',
-        whereArgs: [sessionToken],
-      );
-
+      await _dao!.invalidateSession(sessionToken);
       return true;
     } catch (e) {
       developer.log('❌ خطأ في إنهاء الجلسة: $e', name: 'UserService');
@@ -710,28 +605,16 @@ class UserService {
 
   // الحصول على إحصائيات المستخدمين
   static Future<Map<String, int>> getUserStatistics() async {
-    try {
-      final dbHelper = DatabaseHelper();
-      final db = await dbHelper.database;
-
-      final totalUsers = sqflite.Sqflite.firstIntValue(
-        await db.rawQuery('SELECT COUNT(*) FROM users'),
-      );
-
-      final activeUsers = sqflite.Sqflite.firstIntValue(
-        await db.rawQuery('SELECT COUNT(*) FROM users WHERE is_active = 1'),
-      );
-
-      final activeSessions = sqflite.Sqflite.firstIntValue(
-        await db
-            .rawQuery('SELECT COUNT(*) FROM user_sessions WHERE is_active = 1'),
-      );
-
+    if (_dao == null) {
       return {
-        'total_users': totalUsers ?? 0,
-        'active_users': activeUsers ?? 0,
-        'active_sessions': activeSessions ?? 0,
+        'total_users': 0,
+        'active_users': 0,
+        'active_sessions': 0,
       };
+    }
+
+    try {
+      return await _dao!.getUserStatistics();
     } catch (e) {
       developer.log('❌ خطأ في جلب إحصائيات المستخدمين: $e',
           name: 'UserService');
@@ -786,26 +669,16 @@ class UserService {
 
   /// حذف مستخدم نهائياً (للمدير فقط)
   static Future<bool> deleteUserPermanently(String userId) async {
-    try {
-      final dbHelper = DatabaseHelper();
-      final db = await dbHelper.database;
+    if (_dao == null) return false;
 
+    try {
       final user = await getUserById(userId);
       if (user == null || user.username == 'admin') {
         return false;
       }
 
-      await db.delete(
-        'users',
-        where: 'id = ?',
-        whereArgs: [userId],
-      );
-
-      await db.delete(
-        'user_sessions',
-        where: 'user_id = ?',
-        whereArgs: [userId],
-      );
+      await _dao!.deleteUser(userId);
+      await _dao!.deleteUserSessions(userId);
 
       developer.log('✅ تم حذف المستخدم نهائياً: $userId', name: 'UserService');
 
@@ -839,22 +712,22 @@ class UserService {
     String action,
     String details,
   ) async {
-    try {
-      final dbHelper = DatabaseHelper();
-      final db = await dbHelper.database;
+    if (_dao == null) return;
 
-      await db.insert('user_activities', {
-        'id': _generateId(),
-        'user_id': userId,
-        'action': action,
-        'details': details,
-        'ip_address': await _getIpAddress(),
-        'created_at': DateTime.now().toIso8601String(),
-      });
+    try {
+      await _dao!.logUserActivity(UserActivitiesCompanion.insert(
+        id: _generateId(),
+        userId: userId,
+        action: action,
+        details: Value(details),
+        ipAddress: Value(await _getIpAddress()),
+        createdAt: DateTime.now(),
+      ));
     } catch (e) {
       developer.log('❌ خطأ في تسجيل النشاط: $e', name: 'UserService');
     }
   }
+
   // الدوال المفقودة الإضافية
 
   // دالة للتحقق من صلاحيات مستخدم محدد (مباشرة بدون async)
@@ -924,5 +797,60 @@ class UserService {
     }
   }
 
-  // تحديث مستخدم (نسخة مبسطة تقبل Map)
+  /// Map Drift UserEntry to domain User
+  static User _mapEntryToUser(UserEntry entry) {
+    return User(
+      id: entry.id,
+      username: entry.username,
+      fullName: entry.fullName,
+      email: entry.email,
+      phone: entry.phone,
+      passwordHash: entry.passwordHash,
+      role: UserRole.fromString(entry.role),
+      permissions: entry.permissions?.split(',') ?? [],
+      isActive: entry.isActive,
+      forcePasswordChange: entry.forcePasswordChange,
+      lastLogin: entry.lastLogin,
+      createdAt: entry.createdAt,
+      updatedAt: entry.updatedAt,
+      createdBy: entry.createdBy,
+    );
+  }
+
+  /// Verify password for a user (for re-authentication)
+  /// Returns true if password is correct, false otherwise
+  static Future<bool> verifyPassword({
+    required String username,
+    required String password,
+  }) async {
+    if (_dao == null) {
+      developer.log('❌ UserService not initialized', name: 'UserService');
+      return false;
+    }
+
+    try {
+      final userEntry = await _dao!.findByUsername(username);
+
+      if (userEntry == null || !userEntry.isActive) {
+        return false;
+      }
+
+      final user = _mapEntryToUser(userEntry);
+
+      // Check legacy hash first
+      if (PasswordHasher.isLegacyHash(user.passwordHash)) {
+        final upgradedHash = PasswordHasher.upgradeLegacyHash(
+          user.passwordHash,
+          password,
+        );
+        return upgradedHash != null;
+      }
+
+      // New hash - verify normally
+      return PasswordHasher.verify(password, user.passwordHash);
+    } catch (e) {
+      developer.log('❌ Password verification error: $e', name: 'UserService');
+      return false;
+    }
+  }
 }

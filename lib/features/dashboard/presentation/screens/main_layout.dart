@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import '../../../reports/presentation/screens/financial_hub_screen.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/controllers/session_controller.dart';
 import '../../../../core/providers/app_providers.dart';
+import '../../../../core/providers/navigation_providers.dart';
 import '../../../inventory/presentation/screens/inventory_screen.dart';
 import '../../../purchases/presentation/screens/purchases_dashboard_screen.dart';
 import '../../../settings/presentation/screens/settings_screen.dart';
@@ -15,11 +16,7 @@ import '../widgets/top_bar.dart';
 import '../../../../core/widgets/session_warning_dialog.dart';
 import 'dashboard_screen.dart';
 import '../../../debts/presentation/screens/debts_screen.dart';
-import '../../../reports/presentation/screens/modern_reports_screen.dart';
 import 'dart:developer' as developer;
-import '../../../../core/services/realtime_sync_service.dart';
-
-final selectedIndexProvider = StateProvider<int>((ref) => 0);
 
 class MainLayout extends ConsumerStatefulWidget {
   const MainLayout({super.key});
@@ -33,16 +30,11 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
   void initState() {
     super.initState();
     _setFullScreen();
-    // ✅ بدء خدمة المزامنة التلقائية
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(realtimeSyncServiceProvider).start();
-    });
+    // NOTE: Realtime sync service removed. Use SyncNotifier from features/sync.
   }
 
   @override
   void dispose() {
-    // ✅ إيقاف خدمة المزامنة لتوفير الموارد
-    ref.read(realtimeSyncServiceProvider).stop();
     super.dispose();
   }
 
@@ -62,6 +54,8 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
   @override
   Widget build(BuildContext context) {
     final selectedIndex = ref.watch(selectedIndexProvider);
+    developer.log('🔴 MainLayout build - selectedIndex: $selectedIndex',
+        name: 'MainLayout');
 
     // ✅ مراقبة حالة الجلسة
     ref.listen<SessionState>(sessionControllerProvider, (previous, next) {
@@ -130,15 +124,11 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                               color: Colors.white.withValues(alpha: 0.25),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(6),
-                              child: SvgPicture.asset(
-                                'assets/Icons/pharmacy-logo.svg',
-                                colorFilter: const ColorFilter.mode(
-                                  Colors.white,
-                                  BlendMode.srcIn,
-                                ),
-                                fit: BoxFit.contain,
+                            child: const Center(
+                              child: Icon(
+                                Icons.medication,
+                                color: Colors.white,
+                                size: 22,
                               ),
                             ),
                           ),
@@ -221,7 +211,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       case 5:
         return const DebtsScreen();
       case 6:
-        return const ModernReportsScreen();
+        return const FinancialHubScreen();
       case 7:
         return const SettingsScreen();
       default:
